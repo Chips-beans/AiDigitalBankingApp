@@ -27,6 +27,7 @@ public class OtpVerification {
     private String purpose; // "SIGNUP" or "LOGIN"
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean verified = false;
 
     @Column(nullable = false)
