@@ -59,6 +59,8 @@ unauthenticated requests. A second customer's data is inaccessible. Server logou
 revokes the relevant session. These are backend tasks, not Flutter-only changes.
 
 Implemented and verified 16 October 2026. See [Phase 0 implementation](PHASE_0_IMPLEMENTATION.md) for the agreed contracts, configuration, fixtures, and test results.
+The [Phase 0 code review](PHASE_0_CODE_REVIEW.md) records subsequent fixes,
+the 37-test backend verification, and remaining work in later financial phases.
 
 ## Phase 1 App foundation
 

@@ -42,6 +42,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> conflict(Exception ex, HttpServletRequest r) { return error(409, "RESOURCE_CONFLICT", "The request conflicts with an existing resource", r); }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> unexpected(Exception ex, HttpServletRequest r) {
+        if (ex instanceof org.springframework.web.ErrorResponse mvcError
+                && mvcError.getStatusCode().is4xxClientError()) {
+            int status = mvcError.getStatusCode().value();
+            String code = switch (status) {
+                case 404 -> "RESOURCE_NOT_FOUND";
+                case 405 -> "METHOD_NOT_ALLOWED";
+                case 406 -> "NOT_ACCEPTABLE";
+                case 415 -> "UNSUPPORTED_MEDIA_TYPE";
+                default -> "INVALID_REQUEST";
+            };
+            return ResponseEntity.status(status).headers(mvcError.getHeaders()).body(ApiErrorResponse.of(
+                    status, code, "Request does not match this endpoint", r.getRequestURI(), Map.of(), null));
+        }
         org.slf4j.LoggerFactory.getLogger(getClass()).error("Request failed: {}", ex.getClass().getSimpleName());
         return error(500, "INTERNAL_ERROR", "The request could not be completed", r);
     }

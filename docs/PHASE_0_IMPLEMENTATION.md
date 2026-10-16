@@ -2,6 +2,10 @@
 
 Implemented and verified 16 October 2026.
 
+Review fixes, architecture and data-structure findings are documented in the
+[Phase 0 code review](PHASE_0_CODE_REVIEW.md). This Markdown reflects those fixes;
+`Phase_0_Implementation.docx` remains the initial implementation snapshot.
+
 ## Result
 
 Phase 0 is complete. The backend authenticates customer requests, resolves the
@@ -9,7 +13,9 @@ current user, isolates account access, rotates refresh tokens, revokes sessions,
 and limits OTP requests and verification attempts. Development fixtures and mobile
 API configuration are available for the next Flutter phases.
 
-Verification passed: **23 backend tests**, **6 Flutter tests**, and **Flutter analysis**.
+Verification passed: **37 backend tests** and Maven packaging after review.
+The initial implementation also passed **6 Flutter tests** and **Flutter analysis**;
+Flutter source was not changed or retested during the backend review.
 Backend integration tests use real HTTP, an isolated PostgreSQL 14.22 database,
 Flyway migrations, and a local SMTP capture server. They send no external email.
 Flutter banking screens and an API client are subsequent phases; the UI remains
@@ -22,7 +28,9 @@ the generated starter app.
 | Request authentication | JWT filter runs in Spring Security; rejects malformed, forged, expired, wrong-type, disabled-user, revoked-device, and revoked-session requests |
 | Current identity | Database user is the principal expected by account controllers; token responses and `GET /auth/me` expose userId, username, email, roles, and sessionId |
 | Authorization | Customers access customer routes; staff/admin roles access their designated operations routes; unmatched routes are denied |
-| Account isolation | Own-account reads, status changes, history, transfer source, and transaction-reference lookups enforce ownership; unavailable resources return 404 |
+| Account isolation | Own-account reads, history, transfer source, and transaction-reference lookups enforce ownership; unavailable resources return 404; status changes require bank staff/admin |
+| Merchant isolation | Merchants access/edit their own records; administrators alone approve merchants, change status, and list by status |
+| Login throttling | Ten attempts per fixed 15-minute window, persisted by user identity; username/email aliases share a counter; unknown identities are also limited |
 | Token lifecycle | Signed tokens carry issuer, immutable user ID, session ID, unique token ID, expiry, and explicit access/refresh type |
 | Session storage | New `auth_sessions` table stores device/user binding, absolute expiry, revocation time, and a SHA-256 refresh-token hash |
 | Refresh rotation | Each successful refresh replaces the stored token hash; old-token reuse revokes that session, including its access tokens |
@@ -31,7 +39,7 @@ the generated starter app.
 | Email delivery | SMTP failures return a structured 503 response and roll back the new code; codes and credentials are not logged |
 | Shared devices | Device uniqueness is per user plus installation fingerprint; two users can share an installation without transferring device ownership |
 | Development setup | Opt-in local fixtures, SMTP settings, ignored `.env` configuration, and Android/desktop API defaults |
-| Database readiness | Migration V6 adds sessions and OTP limits, completes the payments table, and permits Hibernate schema validation instead of automatic updates |
+| Database readiness | V6 adds sessions and OTP limits; V7 adds login limits, indexed account/latest-OTP lookup, and one-unrevoked-session-per-user/device enforcement; Hibernate validates the Flyway schema |
 
 AI endpoints now derive record ownership from the authenticated user rather than
 trusting a submitted user ID. QR generation and payment-status lookup also require
@@ -60,14 +68,15 @@ submits the code with the complete registration or login request.
 ### Required fields
 
 Registration: `username` (3–50 characters, letters/digits/underscore/dot/hyphen),
-`email` (maximum 100), `password` (8–72 characters, subject to BCrypt's byte limit),
+`email` (maximum 100), `password` (8–72 characters and at most 72 UTF-8 bytes),
 `otpCode` (six digits), `deviceFingerprint` (maximum 255), and `deviceName`
 (maximum 100). `firstName`, `lastName`, and `deviceType` are optional.
 
 Login: `usernameOrEmail`, `password`, `otpCode`, `deviceFingerprint`, and
 `deviceName`; `deviceType` is optional. Email-only login is the planned Flutter
 starting point because OTP delivery needs the email address. Email values are
-normalized to lowercase for new registrations and OTP requests.
+normalized to lowercase for new registrations and OTP requests. Lookup also accepts
+mixed-case emails stored before Phase 0; V7 enforces case-insensitive email uniqueness.
 
 Example login body:
 
@@ -118,6 +127,14 @@ Request counters and attempt counters persist in PostgreSQL; concurrent requests
 are serialized using database locks. Resending supersedes earlier codes, and a
 consumed latest code cannot fall back to an older unconsumed one.
 
+Login also permits ten attempts per fixed 15-minute window, including wrong
+passwords and successful logins. Username and email aliases share the user counter.
+Unknown identities have their own normalized counter. The server returns
+`LOGIN_RATE_LIMITED` and `Retry-After` when this limit is reached.
+Latest OTP selection uses insertion ID under the identity lock, independent of
+application-server creation timestamps. Password validation happens before OTP use;
+successful OTP verification remains consumed if later session creation fails.
+
 OTP requests return the same acceptance data for eligible and ineligible addresses.
 Only eligible addresses receive a message. OTPs are never returned by the API.
 
@@ -132,7 +149,8 @@ HTTP `Retry-After` header. Null retry values and empty field maps are normal.
 | 403 | ACCESS_DENIED |
 | 404 | RESOURCE_NOT_FOUND |
 | 409 | IDENTITY_UNAVAILABLE, RESOURCE_CONFLICT |
-| 429 | OTP_RATE_LIMITED |
+| 405 / 406 / 415 | METHOD_NOT_ALLOWED, NOT_ACCEPTABLE, UNSUPPORTED_MEDIA_TYPE |
+| 429 | OTP_RATE_LIMITED, LOGIN_RATE_LIMITED |
 | 503 | OTP_DELIVERY_UNAVAILABLE |
 
 ## Local development setup
@@ -149,7 +167,7 @@ JDK 24 with Java 21 compilation targets. Run backend commands from
    service you control. View OTP messages in that service's inbox.
 4. Set `SPRING_PROFILES_ACTIVE=local`. The local profile enables idempotent fixtures,
    with SMTP authentication and STARTTLS disabled for the local capture service.
-5. Run `./mvnw.cmd spring-boot:run`. Flyway applies V2 through V6 and Hibernate
+5. Run `./mvnw.cmd spring-boot:run`. Flyway applies V2 through V7 and Hibernate
    validates the resulting schema. Open `http://localhost:8080/swagger-ui.html`.
 
 Generate a fresh signing secret in PowerShell:
@@ -164,7 +182,7 @@ $jwtRng.Dispose()
 
 Place the result in `JWT_SECRET` in the ignored `.env`. Existing sessions and legacy
 OTPs do not carry forward into the new authentication policy. Do not edit already
-applied V2–V5 migrations; V6 adds the new structures. Previously unmanaged schemas
+applied V2–V6 migrations; V7 adds the review fixes. Previously unmanaged schemas
 need migration review before upgrade.
 
 | Setting | Default or use |
@@ -181,6 +199,7 @@ need migration review before upgrade.
 | JWT_EXPIRATION_MS, JWT_REFRESH_EXPIRATION_MS | 900000 and 604800000 |
 | OTP_RESEND_SECONDS, OTP_MAX_REQUESTS | 60 and 5 |
 | OTP_WINDOW_MINUTES, OTP_MAX_ATTEMPTS | 15 and 5 |
+| LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MINUTES | 10 and 15 |
 
 For authenticated external SMTP, explicitly set its host, port, credentials,
 `MAIL_SMTP_AUTH=true`, and `MAIL_STARTTLS=true` as required by the selected service.
@@ -237,13 +256,19 @@ PostgreSQL, Docker, SMTP account, or `.env` is needed for this test command. Tes
 PostgreSQL binaries are resolved through Maven and started on a temporary port;
 SMTP is captured on loopback. Reports are in `target/surefire-reports`.
 
-The 23 passing backend tests cover context/schema startup, real registration/login
+The 37 passing backend tests cover context/schema startup, real registration/login
 and email delivery, identity, empty accounts, cross-customer account/history/reference/payment
 access, role boundaries, token signatures/expiry/type, refresh rotation/reuse and
 concurrency, logout isolation, fixed session expiry, disabled users, device revocation,
 shared installations, repeated login, OTP attempt persistence, expiry/reuse/supersession,
 request limits and concurrency, SMTP failures, validation errors, server-owned AI
-identity, fixtures, production seed exclusion, and OpenAPI availability.
+identity, fixtures, production seed exclusion, and OpenAPI availability. Review
+regressions additionally cover login throttling/reset/concurrency, merchant and
+staff authorization, UTF-8 password boundaries, constrained connection pools,
+missing JWT claims, clock-skew OTP ordering, framework error statuses, and V6-to-V7
+migration preservation and constraints. Legacy email login and concurrent merchant
+profile edits versus administrator suspension are also covered, along with bounded
+login-counter keys for Unicode identities.
 
 Flutter: run `flutter analyze` and `flutter test` from `frontend/customer_app`.
 Analysis passed. Five configuration tests and the original widget test passed.

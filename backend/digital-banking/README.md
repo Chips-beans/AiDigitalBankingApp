@@ -5,6 +5,8 @@ Spring Boot backend for AI Digital Banking and Smart Wallet.
 Phase 0 authentication and API readiness are implemented. See
 [Phase 0 implementation and setup](../../docs/PHASE_0_IMPLEMENTATION.md)
 for contracts, environment settings, local fixtures, and verification.
+See the [Phase 0 code review](../../docs/PHASE_0_CODE_REVIEW.md) for fixes,
+architecture and algorithm checks, migration V7, and remaining financial-workflow risks.
 
 ## Verify
 

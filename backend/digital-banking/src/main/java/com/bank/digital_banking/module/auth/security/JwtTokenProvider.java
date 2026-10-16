@@ -47,8 +47,11 @@ public class JwtTokenProvider {
         try {
             Claims claims = Jwts.parser().verifyWith(key).requireIssuer(issuer)
                     .require("type", requiredType).build().parseSignedClaims(token).getPayload();
-            UUID.fromString(claims.get("sid", String.class));
+            String sessionId = claims.get("sid", String.class);
+            if (sessionId == null || claims.getSubject() == null) throw new IllegalArgumentException();
+            UUID.fromString(sessionId);
             if (Long.parseLong(claims.getSubject()) <= 0 || claims.getId() == null
+                    || claims.getId().isBlank() || claims.getIssuedAt() == null
                     || claims.getExpiration() == null) throw new IllegalArgumentException();
             return claims;
         } catch (JwtException | IllegalArgumentException ex) {

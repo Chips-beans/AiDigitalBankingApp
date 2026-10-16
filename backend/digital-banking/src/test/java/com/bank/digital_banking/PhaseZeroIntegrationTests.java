@@ -26,9 +26,12 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
     @Autowired DeviceRepository devices;
     @Autowired OtpRepository otps;
     @Autowired OtpRateLimitRepository limits;
+    @Autowired LoginAttemptLimitRepository loginLimits;
     @Autowired AuthSessionRepository sessions;
     @Autowired AccountRepository accounts;
     @Autowired TransactionRepository transactions;
+    @Autowired javax.sql.DataSource dataSource;
+    @Autowired com.bank.digital_banking.module.merchant.repository.MerchantRepository merchants;
     @Autowired com.bank.digital_banking.module.payment.repository.PaymentRepository payments;
     final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -36,6 +39,7 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         sessions.deleteAll();
         otps.deleteAll();
         limits.deleteAll();
+        loginLimits.deleteAll();
         users.findAll().forEach(u -> { u.setEnabled(true); users.save(u); });
         devices.findAll().forEach(d -> { d.setStatus(DeviceStatus.ACTIVE); devices.save(d); });
         SMTP.reset();
@@ -90,7 +94,7 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         String alice = login("alice.demo", "alice-device").path("accessToken").asText();
         assertThat(call("GET", "/accounts/9000000001", alice, null).statusCode()).isEqualTo(200);
         assertThat(call("GET", "/accounts/9000000002", alice, null).statusCode()).isEqualTo(404);
-        assertThat(call("PATCH", "/accounts/9000000002/status", alice, Map.of("status","FROZEN")).statusCode()).isEqualTo(404);
+        assertThat(call("PATCH", "/accounts/9000000002/status", alice, Map.of("status","FROZEN")).statusCode()).isEqualTo(403);
         assertThat(call("GET", "/transactions/account/9000000002", alice, null).statusCode()).isEqualTo(404);
         var account = accounts.findByAccountNumber("9000000002").orElseThrow();
         String ref = "TEST-" + UUID.randomUUID().toString().substring(0, 30);
@@ -333,6 +337,228 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         }
     }
 
+    @Test void legacyMixedCaseEmailsCanLoginAndCannotBeRegisteredAgain() throws Exception {
+        User template = users.findByUsername("alice.demo").orElseThrow();
+        String name = "legacy." + UUID.randomUUID().toString().substring(0, 8);
+        String email = name + "@example.test";
+        User legacy = users.save(User.builder().username(name).email(email.toUpperCase(Locale.ROOT))
+                .password(template.getPassword()).roles(new HashSet<>(template.getRoles())).enabled(true).build());
+        var signedIn = login(name, "legacy-email");
+        assertThat(signedIn.path("userId").asLong()).isEqualTo(legacy.getId());
+        var duplicate = call("POST", "/auth/register", null, Map.of("username", "copy." + name,
+                "email", email, "password", PASSWORD, "otpCode", "000000",
+                "deviceFingerprint", "duplicate-legacy", "deviceName", "Test"));
+        assertThat(duplicate.statusCode()).isEqualTo(409);
+        assertThat(body(duplicate).path("error").asText()).isEqualTo("IDENTITY_UNAVAILABLE");
+    }
+
+    @Test void mvcRequestErrorsKeepTheirClientStatusAndStandardEnvelope() throws Exception {
+        String token = login("alice.demo", "mvc-errors").path("accessToken").asText();
+        var wrongMethod = call("POST", "/auth/me", token, Map.of());
+        assertThat(wrongMethod.statusCode()).isEqualTo(405);
+        assertThat(body(wrongMethod).path("error").asText()).isEqualTo("METHOD_NOT_ALLOWED");
+        assertThat(wrongMethod.headers().firstValue("Allow")).hasValueSatisfying(allow -> assertThat(allow).contains("GET"));
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/auth/login"))
+                .header("Content-Type", "text/plain").POST(HttpRequest.BodyPublishers.ofString("invalid-content-type")).build();
+        var wrongContent = client.send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(wrongContent.statusCode()).isEqualTo(415);
+        assertThat(body(wrongContent).path("error").asText()).isEqualTo("UNSUPPORTED_MEDIA_TYPE");
+        String admin = login("admin.demo", "missing-parameter").path("accessToken").asText();
+        var missing = call("PATCH", "/merchants/1/status", admin, Map.of());
+        assertThat(missing.statusCode()).isEqualTo(400);
+        assertThat(body(missing).path("error").asText()).isEqualTo("INVALID_REQUEST");
+    }
+
+    @Test void authenticationNeedsOnlyOneAvailableDatabaseConnection() throws Exception {
+        String name = "pool." + UUID.randomUUID().toString().substring(0, 8);
+        String email = name + "@example.test";
+        requestOtp(email, "SIGNUP");
+        // The test pool has two connections. Reserve one to simulate another request.
+        try (var occupied = dataSource.getConnection()) {
+            var signup = call("POST", "/auth/register", null, Map.of("username", name, "email", email,
+                    "password", PASSWORD, "otpCode", SMTP.code(email),
+                    "deviceFingerprint", "pool-signup", "deviceName", "Test"));
+            assertThat(signup.statusCode()).as(signup.body()).isEqualTo(201);
+            login("alice.demo", "pool-login");
+        }
+    }
+
+    @Test void multibytePasswordIsRejectedBeforeConsumingSignupCode() throws Exception {
+        String name = "unicode." + UUID.randomUUID().toString().substring(0, 8);
+        String email = name + "@example.test";
+        requestOtp(email, "SIGNUP");
+        var request = new LinkedHashMap<String, Object>(Map.of("username", name, "email", email,
+                "password", "\u1780".repeat(25), "otpCode", SMTP.code(email),
+                "deviceFingerprint", "unicode-device", "deviceName", "Test"));
+        var invalid = call("POST", "/auth/register", null, request);
+        assertThat(invalid.statusCode()).isEqualTo(400);
+        assertThat(body(invalid).path("fieldErrors").has("password")).isTrue();
+        assertThat(latest(email, "SIGNUP").isVerified()).isFalse();
+        request.put("password", "\u1780".repeat(24)); // Exactly 72 UTF-8 bytes.
+        assertThat(call("POST", "/auth/register", null, request).statusCode()).isEqualTo(201);
+        requestOtp(email, "LOGIN");
+        assertThat(call("POST", "/auth/login", null, Map.of("usernameOrEmail", email,
+                "password", request.get("password"), "otpCode", SMTP.code(email),
+                "deviceFingerprint", "unicode-device", "deviceName", "Test")).statusCode()).isEqualTo(200);
+    }
+
+    @Test void wrongPasswordsAreThrottledAcrossUsernameAndEmailAliases() throws Exception {
+        String email = "alice.demo@example.test";
+        requestOtp(email, "LOGIN");
+        for (int i = 0; i < 10; i++) {
+            var request = new LinkedHashMap<>(loginRequest(i % 2 == 0 ? "alice.demo" : email.toUpperCase(Locale.ROOT),
+                    SMTP.code(email), "password-limit"));
+            request.put("password", "IncorrectPassword!");
+            assertThat(call("POST", "/auth/login", null, request).statusCode()).isEqualTo(401);
+        }
+        var limited = call("POST", "/auth/login", null,
+                loginRequest("alice.demo", SMTP.code(email), "password-limit"));
+        assertThat(limited.statusCode()).isEqualTo(429);
+        assertThat(body(limited).path("error").asText()).isEqualTo("LOGIN_RATE_LIMITED");
+        assertThat(limited.headers().firstValue("Retry-After")).isPresent();
+        assertThat(latest(email, "LOGIN").isVerified()).isFalse();
+        assertThat(sessions.count()).isZero();
+    }
+
+    @Test void loginLimitIsAtomicAtTheBoundaryAndResetsAfterItsWindow() throws Exception {
+        User user = users.findByUsername("alice.demo").orElseThrow();
+        LoginAttemptLimit limit = new LoginAttemptLimit();
+        limit.setId("user:" + user.getId());
+        limit.setWindowStartedAt(OffsetDateTime.now());
+        limit.setAttemptCount(9);
+        loginLimits.save(limit);
+        var request = new LinkedHashMap<>(loginRequest("alice.demo", "000000", "rate-race"));
+        request.put("password", "IncorrectPassword!");
+        var responses = concurrent(() -> call("POST", "/auth/login", null, request));
+        assertThat(responses.stream().map(HttpResponse::statusCode).sorted().toList()).containsExactly(401, 429);
+        limit = loginLimits.findById(limit.getId()).orElseThrow();
+        assertThat(limit.getAttemptCount()).isEqualTo(10);
+        limit.setWindowStartedAt(OffsetDateTime.now().minusMinutes(16));
+        loginLimits.save(limit);
+        assertThat(login("alice.demo", "rate-race").path("accessToken").asText()).isNotBlank();
+        assertThat(loginLimits.findById(limit.getId()).orElseThrow().getAttemptCount()).isEqualTo(1);
+    }
+
+    @Test void unknownIdentityAttemptsAreAlsoLimited() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            assertThat(call("POST", "/auth/login", null, loginRequest("unknown-login@example.test", "000000", "unknown"))
+                    .statusCode()).isEqualTo(401);
+        }
+        assertThat(call("POST", "/auth/login", null, loginRequest("UNKNOWN-LOGIN@EXAMPLE.TEST", "000000", "unknown"))
+                .statusCode()).isEqualTo(429);
+    }
+
+    @Test void unknownUnicodeIdentityCannotOverflowTheLoginCounterKey() throws Exception {
+        // U+0130 expands to two code points when normalized with Locale.ROOT.
+        String identity = "\u0130".repeat(100);
+        for (int i = 0; i < 10; i++) {
+            var response = call("POST", "/auth/login", null, loginRequest(identity, "000000", "unicode-identity"));
+            assertThat(response.statusCode()).as(response.body()).isEqualTo(401);
+        }
+        assertThat(call("POST", "/auth/login", null, loginRequest(identity, "000000", "unicode-identity"))
+                .statusCode()).isEqualTo(429);
+    }
+
+    @Test void newestOtpUsesInsertionOrderWhenServerClocksDisagree() throws Exception {
+        String name = "clock." + UUID.randomUUID().toString().substring(0, 8);
+        String email = name + "@example.test";
+        requestOtp(email, "SIGNUP");
+        long oldId = latest(email, "SIGNUP").getId();
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update(
+                "update otp_verifications set created_at = CURRENT_TIMESTAMP + interval '1 day' where id = ?", oldId);
+        allowResend(email, "SIGNUP");
+        requestOtp(email, "SIGNUP");
+        var response = call("POST", "/auth/register", null, Map.of("username", name, "email", email,
+                "password", PASSWORD, "otpCode", SMTP.code(email), "deviceFingerprint", "clock-device", "deviceName", "Test"));
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(201);
+        assertThat(otps.findById(oldId).orElseThrow().isVerified()).isFalse();
+        assertThat(latest(email, "SIGNUP").isVerified()).isTrue();
+    }
+
+    @Test void merchantOwnershipAndApprovalCannotBeOverriddenByClients() throws Exception {
+        var merchantUser = users.findByUsername("merchant.demo").orElseThrow();
+        var otherUser = users.findByUsername("alice.demo").orElseThrow();
+        var foreign = merchants.save(com.bank.digital_banking.module.merchant.entity.Merchant.builder()
+                .merchantId("MCH-" + UUID.randomUUID()).storeName("Other merchant")
+                .bakongAccountId(UUID.randomUUID() + "@bank").merchantCity("Phnom Penh")
+                .ownerUserId(otherUser.getId()).build());
+        String token = login("merchant.demo", "merchant-ownership").path("accessToken").asText();
+        assertThat(call("GET", "/merchants/" + foreign.getId(), token, null).statusCode()).isEqualTo(404);
+        assertThat(call("GET", "/merchants/code/" + foreign.getMerchantId(), token, null).statusCode()).isEqualTo(404);
+        assertThat(call("GET", "/merchants/" + foreign.getId() + "/khqr-config", token, null).statusCode()).isEqualTo(404);
+        assertThat(call("GET", "/merchants/owner/" + otherUser.getId(), token, null).statusCode()).isEqualTo(404);
+        assertThat(call("PUT", "/merchants/" + foreign.getId(), token, Map.of("storeName", "Hijacked")).statusCode()).isEqualTo(404);
+        assertThat(call("POST", "/merchants/register", token, Map.of("storeName", "New store", "merchantCity", "Phnom Penh",
+                "bakongAccountId", UUID.randomUUID() + "@bank", "ownerUserId", otherUser.getId())).statusCode()).isEqualTo(403);
+        var own = call("POST", "/merchants/register", token, Map.of("storeName", "Own store", "merchantCity", "Phnom Penh",
+                "bakongAccountId", UUID.randomUUID() + "@bank", "ownerUserId", merchantUser.getId()));
+        assertThat(own.statusCode()).as(own.body()).isEqualTo(201);
+        long id = body(own).path("id").asLong();
+        assertThat(call("GET", "/merchants/" + id, token, null).statusCode()).isEqualTo(200);
+        assertThat(call("PUT", "/merchants/" + id, token, Map.of("storeName", "Updated")).statusCode()).isEqualTo(200);
+        assertThat(call("PUT", "/merchants/" + id, token, Map.of("status", "ACTIVE")).statusCode()).isEqualTo(403);
+        assertThat(call("PATCH", "/merchants/" + id + "/status?status=ACTIVE", token, Map.of()).statusCode()).isEqualTo(403);
+        assertThat(call("GET", "/merchants/status/PENDING", token, null).statusCode()).isEqualTo(403);
+        String admin = login("admin.demo", "merchant-admin").path("accessToken").asText();
+        assertThat(call("GET", "/merchants/" + foreign.getId(), admin, null).statusCode()).isEqualTo(200);
+        assertThat(call("PATCH", "/merchants/" + id + "/status?status=ACTIVE", admin, Map.of()).statusCode()).isEqualTo(200);
+    }
+
+    @Test void merchantProfileEditCannotOverwriteConcurrentAdministrativeSuspension() throws Exception {
+        User user = users.findByUsername("merchant.demo").orElseThrow();
+        var merchant = merchants.save(com.bank.digital_banking.module.merchant.entity.Merchant.builder()
+                .merchantId("MCH-" + UUID.randomUUID()).storeName("Original")
+                .bakongAccountId(UUID.randomUUID() + "@bank").merchantCity("Phnom Penh")
+                .status(com.bank.digital_banking.module.merchant.entity.MerchantStatus.ACTIVE)
+                .ownerUserId(user.getId()).build());
+        String token = login("merchant.demo", "merchant-status-race").path("accessToken").asText();
+        var request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/merchants/" + merchant.getId()))
+                .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer " + token)
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of("storeName", "Updated")))).build();
+        try (var adminConnection = dataSource.getConnection()) {
+            adminConnection.setAutoCommit(false);
+            try (var statement = adminConnection.prepareStatement("update merchants set status = 'SUSPENDED' where id = ?")) {
+                statement.setLong(1, merchant.getId());
+                statement.executeUpdate();
+            }
+            var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+            try {
+                org.awaitility.Awaitility.await().pollInSameThread().atMost(Duration.ofSeconds(5)).until(() -> {
+                    try (var statement = adminConnection.createStatement()) {
+                        statement.execute("select pg_stat_clear_snapshot()");
+                        try (var rows = statement.executeQuery("select count(*) from pg_stat_activity "
+                                + "where datname = current_database() and wait_event_type = 'Lock'")) {
+                            rows.next();
+                            return rows.getInt(1) > 0;
+                        }
+                    }
+                });
+                adminConnection.commit();
+                var result = response.get(10, TimeUnit.SECONDS);
+                assertThat(result.statusCode()).as(result.body()).isEqualTo(200);
+                assertThat(body(result).path("status").asText()).isEqualTo("SUSPENDED");
+                assertThat(body(result).path("storeName").asText()).isEqualTo("Updated");
+            } finally {
+                adminConnection.rollback();
+            }
+        }
+        assertThat(merchants.findById(merchant.getId()).orElseThrow().getStatus())
+                .isEqualTo(com.bank.digital_banking.module.merchant.entity.MerchantStatus.SUSPENDED);
+    }
+
+    @Test void accountFreezeAndReactivationRequireStaffPermission() throws Exception {
+        String customer = login("alice.demo", "account-status-customer").path("accessToken").asText();
+        assertThat(call("PATCH", "/accounts/9000000001/status", customer, Map.of("status", "ACTIVE")).statusCode()).isEqualTo(403);
+        String staff = login("employee.demo", "account-status-staff").path("accessToken").asText();
+        try {
+            assertThat(call("PATCH", "/accounts/9000000001/status", staff, Map.of("status", "FROZEN")).statusCode()).isEqualTo(200);
+            assertThat(call("PATCH", "/accounts/9000000001/status", customer, Map.of("status", "ACTIVE")).statusCode()).isEqualTo(403);
+        } finally {
+            assertThat(call("PATCH", "/accounts/9000000001/status", staff, Map.of("status", "ACTIVE")).statusCode()).isEqualTo(200);
+        }
+    }
+
     JsonNode login(String username,String device) throws Exception {
         requestOtp(username+"@example.test","LOGIN");
         var response = call("POST","/auth/login",null,loginRequest((username+"@example.test").toUpperCase(Locale.ROOT),SMTP.code(username+"@example.test"),device));
@@ -352,7 +578,7 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         row.setLastRequestedAt(OffsetDateTime.now().minusSeconds(61)); limits.save(row);
     }
     OtpVerification latest(String email,String purpose) {
-        return otps.findTopByEmailAndPurposeOrderByCreatedAtDescIdDesc(email,purpose).orElseThrow();
+        return otps.findTopByEmailAndPurposeOrderByIdDesc(email,purpose).orElseThrow();
     }
     JsonNode body(HttpResponse<String> response) { return json.readTree(response.body()); }
     HttpResponse<String> call(String method,String path,String token,Object data) throws Exception {

@@ -1,6 +1,7 @@
 package com.bank.digital_banking.module.auth.service;
 
 import com.bank.digital_banking.common.exception.AuthenticationFailedException;
+import com.bank.digital_banking.common.util.HashUtils;
 import com.bank.digital_banking.module.auth.dto.TokenResponseDto;
 import com.bank.digital_banking.module.auth.entity.*;
 import com.bank.digital_banking.module.auth.repository.AuthSessionRepository;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,7 +38,7 @@ public class SessionService {
                 .orElseThrow(() -> failure("SESSION_INVALID", "Session is not available"));
         validate(session, claims);
         if (!MessageDigest.isEqual(session.getRefreshTokenHash().getBytes(StandardCharsets.US_ASCII),
-                hash(rawToken).getBytes(StandardCharsets.US_ASCII))) {
+                HashUtils.sha256(rawToken).getBytes(StandardCharsets.US_ASCII))) {
             session.setRevokedAt(OffsetDateTime.now());
             sessions.save(session);
             throw failure("REFRESH_REUSED", "Refresh token was already used; sign in again");
@@ -80,17 +80,12 @@ public class SessionService {
         User user = session.getUser();
         Set<String> roles = user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toSet());
         String refresh = tokens.generateRefreshToken(user.getId(), session.getId());
-        session.setRefreshTokenHash(hash(refresh));
+        session.setRefreshTokenHash(HashUtils.sha256(refresh));
         sessions.save(session);
         return TokenResponseDto.builder().accessToken(tokens.generateAccessToken(user.getId(), session.getId(), roles))
                 .refreshToken(refresh).tokenType("Bearer").expiresInMs(tokens.getAccessMs())
                 .refreshExpiresAt(session.getExpiresAt()).sessionId(session.getId()).userId(user.getId())
                 .username(user.getUsername()).email(user.getEmail()).roles(roles).build();
-    }
-    private static String hash(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException ex) { throw new IllegalStateException(ex); }
     }
     private static AuthenticationFailedException failure(String code, String message) {
         return new AuthenticationFailedException(code, message);

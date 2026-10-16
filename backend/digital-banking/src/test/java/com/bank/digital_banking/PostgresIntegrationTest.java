@@ -27,6 +27,9 @@ abstract class PostgresIntegrationTest {
         r.add("spring.datasource.url", () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
         r.add("spring.datasource.username", () -> "postgres");
         r.add("spring.datasource.password", () -> "postgres");
+        r.add("spring.datasource.hikari.maximum-pool-size", () -> 2);
+        r.add("spring.datasource.hikari.minimum-idle", () -> 0);
+        r.add("spring.datasource.hikari.connection-timeout", () -> 1500);
         r.add("app.jwt.secret", () -> SECRET);
         r.add("app.dev.seed.enabled", () -> true);
         r.add("app.dev.seed.password", () -> PASSWORD);

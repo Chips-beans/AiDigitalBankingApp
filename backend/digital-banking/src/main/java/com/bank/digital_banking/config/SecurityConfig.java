@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/request-otp", "/api/v1/auth/refresh").permitAll()
                 .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
+                .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/*/status").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/accounts/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/transactions/deposit").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/transactions/**", "/api/v1/ai/**").hasRole("CUSTOMER")

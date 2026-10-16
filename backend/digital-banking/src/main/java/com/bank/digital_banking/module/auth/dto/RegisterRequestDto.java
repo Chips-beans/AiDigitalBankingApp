@@ -5,7 +5,8 @@ import lombok.Data;
 public class RegisterRequestDto {
     @NotBlank @Size(min=3, max=50) @Pattern(regexp="[A-Za-z0-9_.-]+") private String username;
     @NotBlank @Email @Size(max=100) private String email;
-    @NotBlank @Size(min=8, max=72) private String password;
+    @NotBlank @Size(min=8, max=72)
+    @com.bank.digital_banking.common.validation.Utf8Size(max=72) private String password;
     @NotBlank @Pattern(regexp="[0-9]{6}") private String otpCode;
     @Size(max=50) private String firstName;
     @Size(max=50) private String lastName;

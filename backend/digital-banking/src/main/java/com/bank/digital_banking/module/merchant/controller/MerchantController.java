@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.bank.digital_banking.module.auth.entity.User;
 
 import java.util.List;
 
@@ -19,44 +21,44 @@ public class MerchantController {
     private final MerchantService merchantService;
 
     @PostMapping("/register")
-    public ResponseEntity<MerchantResponse> registerMerchant(@Valid @RequestBody MerchantRegisterRequest request) {
-        MerchantResponse response = merchantService.registerMerchant(request);
+    public ResponseEntity<MerchantResponse> registerMerchant(@AuthenticationPrincipal User actor, @Valid @RequestBody MerchantRegisterRequest request) {
+        MerchantResponse response = merchantService.registerMerchant(actor, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MerchantResponse> getMerchantById(@PathVariable Long id) {
-        return ResponseEntity.ok(merchantService.getMerchantById(id));
+    public ResponseEntity<MerchantResponse> getMerchantById(@AuthenticationPrincipal User actor, @PathVariable Long id) {
+        return ResponseEntity.ok(merchantService.getMerchantById(actor, id));
     }
 
     @GetMapping("/code/{merchantId}")
-    public ResponseEntity<MerchantResponse> getMerchantByMerchantId(@PathVariable String merchantId) {
-        return ResponseEntity.ok(merchantService.getMerchantByMerchantId(merchantId));
+    public ResponseEntity<MerchantResponse> getMerchantByMerchantId(@AuthenticationPrincipal User actor, @PathVariable String merchantId) {
+        return ResponseEntity.ok(merchantService.getMerchantByMerchantId(actor, merchantId));
     }
 
     @GetMapping("/owner/{ownerUserId}")
-    public ResponseEntity<List<MerchantResponse>> getMerchantsByOwner(@PathVariable Long ownerUserId) {
-        return ResponseEntity.ok(merchantService.getMerchantsByOwner(ownerUserId));
+    public ResponseEntity<List<MerchantResponse>> getMerchantsByOwner(@AuthenticationPrincipal User actor, @PathVariable Long ownerUserId) {
+        return ResponseEntity.ok(merchantService.getMerchantsByOwner(actor, ownerUserId));
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<MerchantResponse>> getMerchantsByStatus(@PathVariable MerchantStatus status) {
-        return ResponseEntity.ok(merchantService.getMerchantsByStatus(status));
+    public ResponseEntity<List<MerchantResponse>> getMerchantsByStatus(@AuthenticationPrincipal User actor, @PathVariable MerchantStatus status) {
+        return ResponseEntity.ok(merchantService.getMerchantsByStatus(actor, status));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MerchantResponse> updateMerchant(@PathVariable Long id, @RequestBody MerchantUpdateRequest request) {
-        return ResponseEntity.ok(merchantService.updateMerchant(id, request));
+    public ResponseEntity<MerchantResponse> updateMerchant(@AuthenticationPrincipal User actor, @PathVariable Long id, @Valid @RequestBody MerchantUpdateRequest request) {
+        return ResponseEntity.ok(merchantService.updateMerchant(actor, id, request));
     }
 
     @PatchMapping("/{id}/status")
-    public ResponseEntity<MerchantResponse> updateMerchantStatus(@PathVariable Long id, @RequestParam MerchantStatus status) {
-        return ResponseEntity.ok(merchantService.updateMerchantStatus(id, status));
+    public ResponseEntity<MerchantResponse> updateMerchantStatus(@AuthenticationPrincipal User actor, @PathVariable Long id, @RequestParam MerchantStatus status) {
+        return ResponseEntity.ok(merchantService.updateMerchantStatus(actor, id, status));
     }
     
     @GetMapping("/{id}/khqr-config")
-    public ResponseEntity<MerchantKhqrConfigResponse> getMerchantKhqrConfig(@PathVariable Long id) {
-        MerchantResponse merchant = merchantService.getMerchantById(id);
+    public ResponseEntity<MerchantKhqrConfigResponse> getMerchantKhqrConfig(@AuthenticationPrincipal User actor, @PathVariable Long id) {
+        MerchantResponse merchant = merchantService.getMerchantById(actor, id);
         
         MerchantKhqrConfigResponse response = new MerchantKhqrConfigResponse(
                 merchant.merchantId(),

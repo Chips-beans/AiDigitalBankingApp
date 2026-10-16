@@ -70,12 +70,12 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional
     public AccountResponseDto updateAccountStatus(User user, String accountNumber, UpdateAccountStatusDto request) {
+        boolean staff = user.getRoles().stream().anyMatch(role ->
+                role.getName() == com.bank.digital_banking.module.auth.entity.ERole.ROLE_ADMIN
+                        || role.getName() == com.bank.digital_banking.module.auth.entity.ERole.ROLE_BANK_EMPLOYEE);
+        if (!staff) throw new org.springframework.security.access.AccessDeniedException("Account status requires bank staff");
         Account account = accountRepository.findByAccountNumber(accountNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + accountNumber));
-
-        if (!account.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Account not found: " + accountNumber);
-        }
 
         account.setStatus(request.getStatus());
         Account updatedAccount = accountRepository.save(account);

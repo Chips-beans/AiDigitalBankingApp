@@ -5,6 +5,10 @@ import com.bank.digital_banking.module.merchant.entity.Merchant;
 import com.bank.digital_banking.module.merchant.entity.MerchantStatus;
 import com.bank.digital_banking.module.merchant.repository.MerchantRepository;
 import com.bank.digital_banking.module.merchant.service.MerchantService;
+import com.bank.digital_banking.module.auth.entity.User;
+import com.bank.digital_banking.module.auth.entity.ERole;
+import com.bank.digital_banking.common.exception.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +24,10 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional
-    public MerchantResponse registerMerchant(MerchantRegisterRequest request) {
+    public MerchantResponse registerMerchant(User actor, MerchantRegisterRequest request) {
+        if (!isAdmin(actor) && !actor.getId().equals(request.ownerUserId())) {
+            throw new AccessDeniedException("Cannot register a merchant for another user");
+        }
         if (merchantRepository.existsByBakongAccountId(request.bakongAccountId())) {
             throw new IllegalArgumentException("Bakong account ID is already registered to another merchant");
         }
@@ -43,23 +50,28 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional(readOnly = true)
-    public MerchantResponse getMerchantById(Long id) {
+    public MerchantResponse getMerchantById(User actor, Long id) {
         Merchant merchant = merchantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Merchant not found with ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant not available"));
+        requireOwner(actor, merchant);
         return MerchantResponse.fromEntity(merchant);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public MerchantResponse getMerchantByMerchantId(String merchantId) {
+    public MerchantResponse getMerchantByMerchantId(User actor, String merchantId) {
         Merchant merchant = merchantRepository.findByMerchantId(merchantId)
-                .orElseThrow(() -> new RuntimeException("Merchant not found with Merchant ID: " + merchantId));
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant not available"));
+        requireOwner(actor, merchant);
         return MerchantResponse.fromEntity(merchant);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<MerchantResponse> getMerchantsByOwner(Long ownerUserId) {
+    public List<MerchantResponse> getMerchantsByOwner(User actor, Long ownerUserId) {
+        if (!isAdmin(actor) && !actor.getId().equals(ownerUserId)) {
+            throw new ResourceNotFoundException("Merchant not available");
+        }
         return merchantRepository.findByOwnerUserId(ownerUserId)
                 .stream()
                 .map(MerchantResponse::fromEntity)
@@ -68,7 +80,8 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MerchantResponse> getMerchantsByStatus(MerchantStatus status) {
+    public List<MerchantResponse> getMerchantsByStatus(User actor, MerchantStatus status) {
+        requireAdmin(actor);
         return merchantRepository.findByStatus(status)
                 .stream()
                 .map(MerchantResponse::fromEntity)
@@ -77,9 +90,12 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional
-    public MerchantResponse updateMerchant(Long id, MerchantUpdateRequest request) {
-        Merchant merchant = merchantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Merchant not found with ID: " + id));
+    public MerchantResponse updateMerchant(User actor, Long id, MerchantUpdateRequest request) {
+        // Serialize detail edits with administrative status changes to prevent stale overwrites.
+        Merchant merchant = merchantRepository.findLockedById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant not available"));
+        requireOwner(actor, merchant);
+        if (request.status() != null) requireAdmin(actor);
 
         if (request.storeName() != null) merchant.setStoreName(request.storeName());
         if (request.merchantCity() != null) merchant.setMerchantCity(request.merchantCity());
@@ -92,12 +108,27 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional
-    public MerchantResponse updateMerchantStatus(Long id, MerchantStatus status) {
-        Merchant merchant = merchantRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Merchant not found with ID: " + id));
+    public MerchantResponse updateMerchantStatus(User actor, Long id, MerchantStatus status) {
+        requireAdmin(actor);
+        Merchant merchant = merchantRepository.findLockedById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant not available"));
 
         merchant.setStatus(status);
         Merchant updatedMerchant = merchantRepository.save(merchant);
         return MerchantResponse.fromEntity(updatedMerchant);
+    }
+
+    private boolean isAdmin(User actor) {
+        return actor.getRoles().stream().anyMatch(role -> role.getName() == ERole.ROLE_ADMIN);
+    }
+
+    private void requireAdmin(User actor) {
+        if (!isAdmin(actor)) throw new AccessDeniedException("Merchant approval requires an administrator");
+    }
+
+    private void requireOwner(User actor, Merchant merchant) {
+        if (!isAdmin(actor) && !merchant.getOwnerUserId().equals(actor.getId())) {
+            throw new ResourceNotFoundException("Merchant not available");
+        }
     }
 }

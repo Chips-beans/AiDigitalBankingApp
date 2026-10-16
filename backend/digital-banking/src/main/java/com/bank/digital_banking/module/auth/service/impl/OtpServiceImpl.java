@@ -45,7 +45,7 @@ public class OtpServiceImpl implements OtpService {
         limit.setRequestCount(limit.getRequestCount() + 1);
         limits.save(limit);
         if (deliver) {
-            String raw = String.format("%06d", random.nextInt(1_000_000));
+            String raw = String.format(java.util.Locale.ROOT, "%06d", random.nextInt(1_000_000));
             otps.save(OtpVerification.builder().email(email).purpose(purpose).otpCode(encoder.encode(raw))
                     .expiresAt(now.plusMinutes(expiryMinutes)).verified(false).build());
             emails.sendOtpEmail(email, raw, purpose);
@@ -54,13 +54,13 @@ public class OtpServiceImpl implements OtpService {
                 expiryMinutes * 60, resendSeconds);
     }
 
-    // REQUIRES_NEW preserves failed-attempt counts even if the outer login transaction rolls back.
+    // Commit attempts and one-time consumption before the separate session-writing transaction.
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
     public void validateOtp(String email, String input, String purpose) {
         checkPurpose(purpose);
         lock(email, purpose);
-        OtpVerification otp = otps.findTopByEmailAndPurposeOrderByCreatedAtDescIdDesc(email, purpose)
+        OtpVerification otp = otps.findTopByEmailAndPurposeOrderByIdDesc(email, purpose)
                 .orElseThrow(() -> failed("OTP_INVALID", "Request a new verification code"));
         if (otp.isVerified()) throw failed("OTP_USED", "Code was already used; request a new one");
         if (!otp.getExpiresAt().isAfter(OffsetDateTime.now())) throw failed("OTP_EXPIRED", "Code has expired");
