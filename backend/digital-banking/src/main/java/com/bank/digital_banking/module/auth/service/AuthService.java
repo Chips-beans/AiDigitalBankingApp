@@ -7,7 +7,7 @@ import com.bank.digital_banking.module.auth.dto.TokenResponseDto;
 
 public interface AuthService {
 
-    void requestOtp(String email, String purpose);
+    com.bank.digital_banking.module.auth.dto.OtpResponseDto requestOtp(String email, String purpose);
 
     TokenResponseDto register(RegisterRequestDto request, String clientIp);
 

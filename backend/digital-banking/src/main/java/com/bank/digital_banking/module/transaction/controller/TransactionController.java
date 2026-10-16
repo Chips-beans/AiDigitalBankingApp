@@ -50,9 +50,10 @@ public class TransactionController {
 
     @GetMapping("/{referenceNumber}")
     public ResponseEntity<ApiResponse<TransactionResponseDto>> getTransactionByReference(
+            @AuthenticationPrincipal User user,
             @PathVariable String referenceNumber) {
 
-        TransactionResponseDto response = transactionService.getTransactionByReference(referenceNumber);
+        TransactionResponseDto response = transactionService.getTransactionByReference(user, referenceNumber);
         return ResponseEntity.ok(ApiResponse.success(response,"Transaction details retrieved successfully"));
     }
 }

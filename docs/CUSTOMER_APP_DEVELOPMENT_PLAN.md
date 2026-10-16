@@ -6,8 +6,9 @@ Prepared 15 October 2026.
 
 Build the customer mobile application for AI Digital Banking and Smart Wallet in
 `frontend/customer_app`, using the Spring Boot backend in `backend/digital-banking`.
-The Flutter project currently contains the generated starter screen and widget test.
-This document plans the work; application features and backend changes are not yet implemented.
+The Flutter project currently contains the generated starter screen, API configuration,
+and widget/configuration tests.
+Phase 0 backend and API readiness are implemented and verified. Flutter application features remain in the subsequent planned phases.
 
 The first milestone is:
 
@@ -21,7 +22,7 @@ accounts; signup must not assume that the backend automatically creates one.
 
 | Phase | Deliverable | Completion criterion |
 | --- | --- | --- |
-| 0 | Confirm contracts and backend prerequisites | Auth, identity, OTP, and logout behavior are agreed and integration blockers are tracked |
+| 0 | Completed 16 October 2026 | Auth, identity, OTP, logout, account isolation, fixtures, and API configuration are implemented and verified |
 | 1 | Flutter foundation | App starts with a theme, routing, configuration, and shared UI states |
 | 2 | Authentication screens | Signup and login flows work against an explicitly selected mock repository |
 | 3 | Real authentication and sessions | OTP, login, registration, refresh, and sign-out work against the backend |
@@ -36,32 +37,34 @@ must be clearly identified and must never silently replace a failed real API req
 
 ## Phase 0 Backend and API readiness
 
-- [ ] Complete `JwtAuthenticationFilter` and attach it to `SecurityConfig`.
-- [ ] Resolve authenticated users into the principal expected by account controllers;
+- [x] Complete `JwtAuthenticationFilter` and attach it to `SecurityConfig`.
+- [x] Resolve authenticated users into the principal expected by account controllers;
   reject disabled users, invalid tokens, and inappropriate roles.
-- [ ] Enforce access-token versus refresh-token use and define refresh rotation/revocation.
-- [ ] Add server logout or session revocation. Clearing tokens on the device alone
+- [x] Enforce access-token versus refresh-token use and define refresh rotation/revocation.
+- [x] Add server logout or session revocation. Clearing tokens on the device alone
   does not invalidate an issued token.
-- [ ] Define session identity fields. Token responses currently provide username and
-  roles, but later features that require user IDs should derive identity on the server.
-- [ ] Confirm signup and login payloads and standardize errors the app must display.
-- [ ] Add OTP request throttling and validation attempt limits; ensure expiry and reuse
+- [x] Define session identity fields. Token responses include userId, email, username,
+  roles, and sessionId; protected identity comes from the server session.
+- [x] Confirm signup and login payloads and standardize errors the app must display.
+- [x] Add OTP request throttling and validation attempt limits; ensure expiry and reuse
   behavior are consistent. A resend countdown in Flutter is only user feedback.
-- [ ] Agree on device identity and shared-device policy. Current login rejects a
-  fingerprint already associated with another user; changing accounts on one physical
-  device needs an explicit supported behavior.
-- [ ] Establish development test users, an empty-account user, accounts, and SMTP settings.
-- [ ] Configure a reachable development API base URL for emulator and physical-device
+- [x] Implement shared-device identity using per-user installation records, without
+  transferring another user's record or reactivating revoked devices.
+- [x] Establish development test users, an empty-account user, accounts, and SMTP settings.
+- [x] Configure a reachable development API base URL for emulator and physical-device
   testing; keep environment configuration outside feature widgets.
 
 **Gate:** protected account requests accept a valid customer access token and reject
 unauthenticated requests. A second customer's data is inaccessible. Server logout
 revokes the relevant session. These are backend tasks, not Flutter-only changes.
 
+Implemented and verified 16 October 2026. See [Phase 0 implementation](PHASE_0_IMPLEMENTATION.md) for the agreed contracts, configuration, fixtures, and test results.
+
 ## Phase 1 App foundation
 
 - [ ] Replace the counter demo with the application bootstrap and session-loading screen.
-- [ ] Add development and production API configuration, with explicit mock mode.
+- [ ] Extend the Phase 0 development/production API configuration with explicit mock
+  mode and wire it into the API client.
 - [ ] Define repositories for authentication, session storage, and accounts so screens
   can use mock or real implementations without changing their presentation logic.
 - [ ] Choose one approach for shared application state and declarative routing.
@@ -263,10 +266,10 @@ the bank employee dispute workflow exists.
 
 ## Immediate next work
 
-1. Complete Phase 0 contract decisions and record backend fixes as implementation tasks.
+1. Phase 0 is complete; use its documented contracts and passing integration checks.
 2. Implement Phase 1 bootstrap, configuration, routing, repositories, and theme.
 3. Implement Phase 2 welcome, registration, login, and OTP screens with mock scenarios.
-4. Complete backend authentication prerequisites and move through Phases 3–4.
+4. Integrate the completed backend authentication contracts and move through Phases 3–4.
 
 This plan does not assign calendar dates. Each phase is sized and scheduled after
 its dependencies and working behavior are verified.

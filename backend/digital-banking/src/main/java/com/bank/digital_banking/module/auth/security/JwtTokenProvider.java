@@ -1,104 +1,60 @@
 package com.bank.digital_banking.module.auth.security;
 
+import com.bank.digital_banking.common.exception.AuthenticationFailedException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
+import java.util.UUID;
 
-@Slf4j
 @Component
 public class JwtTokenProvider {
+    private final SecretKey key;
+    private final long accessMs;
+    private final long refreshMs;
+    private final String issuer;
 
-    @Value("${app.jwt.secret:9a8f7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a}")
-    private String jwtSecret;
-
-    @Value("${app.jwt.expiration-ms:86400000}") // 24 hours
-    private long jwtExpirationMs;
-
-    @Value("${app.jwt.refresh-expiration-ms:604800000}") // 7 days
-    private long jwtRefreshExpirationMs;
-
-    /**
-     * Secret key generator helper using HMAC-SHA key encoding.
-     */
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
+    public JwtTokenProvider(@Value("${app.jwt.secret}") String secret,
+            @Value("${app.jwt.expiration-ms:900000}") long accessMs,
+            @Value("${app.jwt.refresh-expiration-ms:604800000}") long refreshMs,
+            @Value("${app.jwt.issuer:digital-banking}") String issuer) {
+        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        if (accessMs <= 0 || refreshMs <= accessMs) throw new IllegalArgumentException("Invalid JWT lifetimes");
+        this.accessMs = accessMs;
+        this.refreshMs = refreshMs;
+        this.issuer = issuer;
     }
 
-    /**
-     * Generates a signed Access Token containing username and assigned roles.
-     */
-    public String generateAccessToken(String username, Set<String> roles) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
-
-        return Jwts.builder()
-                .subject(username)
-                .claim("roles", roles)
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSigningKey(), Jwts.SIG.HS256)
-                .compact();
+    public String generateAccessToken(Long userId, UUID sessionId, Set<String> roles) {
+        return token(userId, sessionId, "access", accessMs).claim("roles", roles).compact();
     }
-
-    /**
-     * Generates a Refresh Token with a longer expiration lifecycle.
-     */
-    public String generateRefreshToken(String username) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationMs);
-
-        return Jwts.builder()
-                .subject(username)
-                .claim("type", "refresh")
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSigningKey(), Jwts.SIG.HS256)
-                .compact();
+    public String generateRefreshToken(Long userId, UUID sessionId) {
+        return token(userId, sessionId, "refresh", refreshMs).compact();
     }
-
-    /**
-     * Extracts the subject username from a valid JWT token.
-     */
-    public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-
-        return claims.getSubject();
+    private JwtBuilder token(Long userId, UUID sessionId, String type, long lifetime) {
+        Instant now = Instant.now();
+        return Jwts.builder().issuer(issuer).subject(userId.toString()).id(UUID.randomUUID().toString())
+                .claim("sid", sessionId.toString()).claim("type", type)
+                .issuedAt(Date.from(now)).expiration(Date.from(now.plusMillis(lifetime)))
+                .signWith(key, Jwts.SIG.HS256);
     }
-
-    /**
-     * Cryptographically validates JWT integrity, structure, and expiration status.
-     */
-    public boolean validateToken(String token) {
+    public Claims parse(String token, String requiredType) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSigningKey())
-                    .build()
-                    .parseSignedClaims(token);
-            return true;
-        } catch (SignatureException ex) {
-            log.error("Invalid JWT signature: {}", ex.getMessage());
-        } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token format: {}", ex.getMessage());
-        } catch (ExpiredJwtException ex) {
-            log.error("JWT token has expired: {}", ex.getMessage());
-        } catch (UnsupportedJwtException ex) {
-            log.error("JWT token is unsupported: {}", ex.getMessage());
-        } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty or null: {}", ex.getMessage());
+            Claims claims = Jwts.parser().verifyWith(key).requireIssuer(issuer)
+                    .require("type", requiredType).build().parseSignedClaims(token).getPayload();
+            UUID.fromString(claims.get("sid", String.class));
+            if (Long.parseLong(claims.getSubject()) <= 0 || claims.getId() == null
+                    || claims.getExpiration() == null) throw new IllegalArgumentException();
+            return claims;
+        } catch (JwtException | IllegalArgumentException ex) {
+            throw new AuthenticationFailedException("TOKEN_INVALID", "Token is invalid, expired, or has the wrong type");
         }
-        return false;
     }
+    public long getAccessMs() { return accessMs; }
+    public long getRefreshMs() { return refreshMs; }
 }

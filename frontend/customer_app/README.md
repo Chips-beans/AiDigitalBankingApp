@@ -43,3 +43,18 @@ flutter test
 The Spring Boot project is located at `../../backend/digital-banking`.
 The backend API uses the `/api/v1` prefix and defaults to port `8080`.
 This starter does not yet make API requests.
+
+## API environment
+
+Phase 0 adds `lib/core/config/app_config.dart`, validated at startup. Android
+development uses `http://10.0.2.2:8080/api/v1`; other targets use
+`http://localhost:8080/api/v1`. Override this for physical devices:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://192.168.1.25:8080/api/v1
+```
+
+Replace the address with the backend computer's LAN address. For browser testing,
+use `flutter run -d chrome --web-port=8081` to match the default backend CORS origin.
+Release configuration requires an HTTPS API URL. See
+[Phase 0 documentation](../../docs/PHASE_0_IMPLEMENTATION.md) for details.

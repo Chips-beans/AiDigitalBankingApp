@@ -33,7 +33,8 @@ public class Merchant {
     private String mcc; // Merchant Category Code (e.g., "5999")
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "merchant_status")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private MerchantStatus status;
 
     @Column(nullable = false)

@@ -35,7 +35,8 @@ public class FraudRule {
     private Integer windowMinutes; // Time window in minutes
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "fraud_action")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private FraudAction actionToTake;
 
     @Builder.Default

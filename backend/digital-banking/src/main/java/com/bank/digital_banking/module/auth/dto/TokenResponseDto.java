@@ -13,6 +13,10 @@ import java.util.Set;
 @AllArgsConstructor
 public class TokenResponseDto {
 
+    private Long userId;
+    private String email;
+    private java.util.UUID sessionId;
+    private java.time.OffsetDateTime refreshExpiresAt;
     private String accessToken;
     private String refreshToken;
     @Builder.Default

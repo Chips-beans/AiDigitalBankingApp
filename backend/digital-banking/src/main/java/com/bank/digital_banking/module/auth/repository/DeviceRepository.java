@@ -11,8 +11,6 @@ import java.util.Optional;
 @Repository
 public interface DeviceRepository extends JpaRepository<Device, Long> {
 
-    Optional<Device> findByDeviceFingerprint(String deviceFingerprint);
-
     Optional<Device> findByUserAndDeviceFingerprint(User user, String deviceFingerprint);
 
     List<Device> findByUser(User user);

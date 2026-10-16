@@ -22,7 +22,8 @@ public class UserAIInsight {
     private Long userId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "insight_type")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private InsightType insightType;
 
     @Column(columnDefinition = "TEXT", nullable = false)

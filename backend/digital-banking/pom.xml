@@ -124,14 +124,20 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.5.0</version>
+			<version>3.1.1</version>
 		</dependency>
 		<dependency>
 			<groupId>kh.gov.nbc.bakong_khqr</groupId>
 			<artifactId>sdk-java</artifactId>
 			<version>1.0.0.17</version>
 		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.2.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
 
 	<build>
 		<plugins>

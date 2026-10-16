@@ -26,6 +26,10 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional
     public AccountResponseDto createAccount(User user, CreateAccountRequestDto request) {
+        if (request.getInitialDeposit().signum() != 0) {
+            throw new com.bank.digital_banking.common.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "VERIFIED_FUNDING_REQUIRED", "New accounts must start at zero; use a verified funding process");
+        }
         String accountNumber = generateUniqueAccountNumber();
 
         Account account = Account.builder()

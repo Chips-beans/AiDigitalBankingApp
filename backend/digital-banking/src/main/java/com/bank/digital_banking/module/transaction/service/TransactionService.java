@@ -14,5 +14,5 @@ public interface TransactionService {
 
     PageResponse<TransactionResponseDto> getAccountTransactions(User user, String accountNumber, int page, int size);
 
-    TransactionResponseDto getTransactionByReference(String referenceNumber);
+    TransactionResponseDto getTransactionByReference(User user, String referenceNumber);
 }

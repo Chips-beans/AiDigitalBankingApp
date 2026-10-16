@@ -1,8 +1,6 @@
 package com.bank.digital_banking.module.auth.service;
-
+import com.bank.digital_banking.module.auth.dto.OtpResponseDto;
 public interface OtpService {
-
-    void generateAndSendOtp(String email, String purpose);
-
+    OtpResponseDto generateAndSendOtp(String email, String purpose, boolean deliver);
     void validateOtp(String email, String inputCode, String purpose);
 }

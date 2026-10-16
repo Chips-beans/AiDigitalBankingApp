@@ -1,7 +1,10 @@
 package com.bank.digital_banking.common.exception;
 
-public class AuthenticationFailedException extends RuntimeException {
+public class AuthenticationFailedException extends ApiException {
     public AuthenticationFailedException(String message) {
-        super(message);
+        this("AUTHENTICATION_FAILED", message);
+    }
+    public AuthenticationFailedException(String code, String message) {
+        super(org.springframework.http.HttpStatus.UNAUTHORIZED, code, message);
     }
 }

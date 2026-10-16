@@ -6,6 +6,9 @@ import com.bank.digital_banking.module.payment.entity.Payment;
 import com.bank.digital_banking.module.payment.entity.PaymentStatus;
 import com.bank.digital_banking.module.payment.repository.PaymentRepository;
 import com.bank.digital_banking.module.payment.service.BakongService;
+import com.bank.digital_banking.common.exception.ResourceNotFoundException;
+import com.bank.digital_banking.module.account.repository.AccountRepository;
+import com.bank.digital_banking.module.auth.entity.User;
 import kh.gov.nbc.bakong_khqr.model.KHQRData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,10 +20,12 @@ public class BakongServiceImpl implements BakongService {
 
     private final BakongAdapter bakongAdapter;
     private final PaymentRepository paymentRepository;
+    private final AccountRepository accountRepository;
 
     @Override
     @Transactional
-    public KhqrGenerateResponse generateKhqr(KhqrGenerateRequest request) {
+    public KhqrGenerateResponse generateKhqr(User user, KhqrGenerateRequest request) {
+        requireOwner(user, request.accountNumber());
         String bakongAccountId = request.accountNumber() + "@digitalbank";
         
         KHQRData khqrData = bakongAdapter.generateIndividualKhqr(
@@ -52,9 +57,10 @@ public class BakongServiceImpl implements BakongService {
 
     @Override
     @Transactional
-    public PaymentCheckStatusResponse verifyPaymentStatus(String md5Hash) {
+    public PaymentCheckStatusResponse verifyPaymentStatus(User user, String md5Hash) {
         Payment payment = paymentRepository.findByMd5Hash(md5Hash)
-                .orElseThrow(() -> new RuntimeException("Payment record not found for MD5: " + md5Hash));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not available"));
+        requireOwner(user, payment.getAccountNumber());
 
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             return new PaymentCheckStatusResponse(md5Hash, PaymentStatus.SUCCESS, true);
@@ -79,5 +85,12 @@ public class BakongServiceImpl implements BakongService {
                 paymentRepository.save(payment);
             }
         });
+    }
+
+    private void requireOwner(User user, String accountNumber) {
+        var account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment account not available"));
+        if (!account.getUser().getId().equals(user.getId()))
+            throw new ResourceNotFoundException("Payment account not available");
     }
 }

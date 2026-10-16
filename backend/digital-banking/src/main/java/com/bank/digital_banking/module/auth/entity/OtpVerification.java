@@ -20,8 +20,13 @@ public class OtpVerification {
     @Column(nullable = false)
     private String email;
 
-    @Column(nullable = false, length = 6)
+    // BCrypt hash; raw OTPs are never persisted.
+    @Column(nullable = false, length = 100)
     private String otpCode;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int attempts = 0;
 
     @Column(nullable = false)
     private String purpose; // "SIGNUP" or "LOGIN"

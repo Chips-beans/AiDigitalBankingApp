@@ -44,7 +44,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Destination account not found"));
 
         if (!sourceAccount.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Unauthorized access to source account");
+            throw new ResourceNotFoundException("Source account not available");
         }
 
         if (sourceAccount.getStatus() != AccountStatus.ACTIVE) {
@@ -126,7 +126,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         if (!account.getUser().getId().equals(user.getId())) {
-            throw new IllegalArgumentException("Unauthorized access to account history");
+            throw new ResourceNotFoundException("Account not available");
         }
 
         Pageable pageable = PageRequest.of(page, size);
@@ -138,10 +138,13 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional(readOnly = true)
-    public TransactionResponseDto getTransactionByReference(String referenceNumber) {
+    public TransactionResponseDto getTransactionByReference(User user, String referenceNumber) {
         Transaction transaction = transactionRepository.findByReferenceNumber(referenceNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction reference not found: " + referenceNumber));
 
+        boolean ownsSource = transaction.getSourceAccount() != null && transaction.getSourceAccount().getUser().getId().equals(user.getId());
+        boolean ownsDestination = transaction.getDestinationAccount() != null && transaction.getDestinationAccount().getUser().getId().equals(user.getId());
+        if (!ownsSource && !ownsDestination) throw new ResourceNotFoundException("Transaction not available");
         return TransactionResponseDto.fromEntity(transaction);
     }
 

@@ -5,7 +5,7 @@ import lombok.*;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "devices")
+@Table(name = "devices", uniqueConstraints = @UniqueConstraint(name = "uq_devices_user_fingerprint", columnNames = {"user_id", "device_fingerprint"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,7 +24,7 @@ public class Device {
     @Column(name = "device_name", nullable = false, length = 100)
     private String deviceName;
 
-    @Column(name = "device_fingerprint", nullable = false, unique = true, length = 255)
+    @Column(name = "device_fingerprint", nullable = false, length = 255)
     private String deviceFingerprint;
 
     @Column(name = "ip_address", length = 45)

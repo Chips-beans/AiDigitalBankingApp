@@ -29,7 +29,8 @@ public class AuditLog {
     private String targetResourceId; // Resource affected (e.g., Account No, Merchant ID, Rule ID)
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "audit_severity")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
     private AuditSeverity severity;
 
     @Column(columnDefinition = "TEXT")

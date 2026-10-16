@@ -1,32 +1,15 @@
 package com.bank.digital_banking.module.auth.dto;
-
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
-
 @Data
 public class RegisterRequestDto {
-
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, max = 50)
-    private String username;
-
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
-    private String email;
-
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
-    private String password;
-
-    private String otpCode;
-
-    private String firstName;
-    private String lastName;
-
-    // Optional device info on registration
-    private String deviceFingerprint;
-    private String deviceName;
-    private String deviceType;
+    @NotBlank @Size(min=3, max=50) @Pattern(regexp="[A-Za-z0-9_.-]+") private String username;
+    @NotBlank @Email @Size(max=100) private String email;
+    @NotBlank @Size(min=8, max=72) private String password;
+    @NotBlank @Pattern(regexp="[0-9]{6}") private String otpCode;
+    @Size(max=50) private String firstName;
+    @Size(max=50) private String lastName;
+    @NotBlank @Size(max=255) private String deviceFingerprint;
+    @NotBlank @Size(max=100) private String deviceName;
+    @Size(max=50) private String deviceType;
 }
