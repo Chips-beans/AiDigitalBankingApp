@@ -18,7 +18,10 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("Digital Banking API")
                         .version("1.0.0")
-                        .description("REST API documentation for Digital Banking & Wallet system."))
+                        .description("Select the foundation group for delivered authentication, accounts, internal transfers, "
+                                + "history and staff demo tools. Public auth calls require no bearer token. "
+                                + "Protected calls use an access token in Authorize (paste the token only). "
+                                + "Advanced payment, fraud and AI modules are outside the foundation milestone."))
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                 .components(new Components()
                         .addSecuritySchemes(securitySchemeName,

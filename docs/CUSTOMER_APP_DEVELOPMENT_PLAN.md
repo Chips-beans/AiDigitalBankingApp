@@ -2,15 +2,29 @@
 
 Prepared 15 October 2026.
 
+Scope revised 17 October 2026: the active milestone is the basic foundation in
+[BACKEND_COMPLETION_PLAN.md](BACKEND_COMPLETION_PLAN.md). Complete this plan through
+Phase 5: authentication, accounts, internal transfers, history, and read-only
+profile. Phases 6–7 are deferred reference material and do not block acceptance.
+Backend foundation milestones F1–F5 and the Flutter phases below use different
+numbering; historical backend Phase 1 financial safeguards are already delivered.
+
+Backend F1 was verified 17 October 2026; see
+[F1 setup, Swagger and verification](FOUNDATION_F1_IMPLEMENTATION.md).
+F2 now delivers Flutter Phases 1–3 below, verified on the Android 14 QA emulator; see
+[F2 delivery and QA](FOUNDATION_F2_IMPLEMENTATION.md) for verification evidence
+and platform limitations. F3 (accounts and balances) is the next feature milestone.
+
 ## Objective and current state
 
 Build the customer mobile application for AI Digital Banking and Smart Wallet in
 `frontend/customer_app`, using the Spring Boot backend in `backend/digital-banking`.
-The Flutter project currently contains the generated starter screen, API configuration,
-and widget/configuration tests.
+The Flutter project contains the authentication/session foundation, validated API
+configuration, API/demo gateways, native secure storage, and automated QA.
 Biometric authentication is excluded from project scope. Remaining backend work
 is tracked in the [backend completion plan](BACKEND_COMPLETION_PLAN.md).
-Phase 0 backend and API readiness are implemented and verified. Flutter application features remain in the subsequent planned phases.
+Phase 0 backend and API readiness and the F2 authentication implementation are
+delivered. Accounts, transfers, and activity remain planned.
 
 The first milestone is:
 
@@ -25,13 +39,13 @@ accounts; signup must not assume that the backend automatically creates one.
 | Phase | Deliverable | Completion criterion |
 | --- | --- | --- |
 | 0 | Completed 16 October 2026 | Auth, identity, OTP, logout, account isolation, fixtures, and API configuration are implemented and verified |
-| 1 | Flutter foundation | App starts with a theme, routing, configuration, and shared UI states |
-| 2 | Authentication screens | Signup and login flows work against an explicitly selected mock repository |
-| 3 | Real authentication and sessions | OTP, login, registration, refresh, and sign-out work against the backend |
+| 1 — Implemented in F2 | Flutter foundation | Theme, declarative routing, configuration, and shared UI states |
+| 2 — Implemented in F2 | Authentication screens | Explicitly selected demo gateway and tested forms/OTP flow |
+| 3 — Verified in F2 | Real authentication and sessions | Local/live API checks, native authentication, and three-process restart/rotation/logout pass on Android 14; platform limits remain in F2 QA |
 | 4 | Accounts and home | Authenticated customer sees only their accounts, with correct loading and empty states |
 | 5 | Transaction history and transfers | Customer can inspect history and confirm a transfer without accidental duplicate submission |
-| 6 | QR payments | Customer can display or scan supported payment requests and see verified payment status |
-| 7 | Assistant and other services | Add remaining features as their backend contracts become available |
+| 6 — Deferred | QR payments | Outside the active foundation milestone |
+| 7 — Deferred | Assistant and other services | Outside the active foundation milestone |
 
 Complete and verify each phase before treating the next dependent feature as integrated.
 UI work can proceed with mock data while backend prerequisites are completed. Mock mode
@@ -66,18 +80,20 @@ the 37-test backend verification, and remaining work in later financial phases.
 
 ## Phase 1 App foundation
 
-- [ ] Replace the counter demo with the application bootstrap and session-loading screen.
-- [ ] Extend the Phase 0 development/production API configuration with explicit mock
+- [x] Replace the counter demo with the application bootstrap and session-loading screen.
+- [x] Extend the Phase 0 development/production API configuration with explicit mock
   mode and wire it into the API client.
-- [ ] Define repositories for authentication, session storage, and accounts so screens
-  can use mock or real implementations without changing their presentation logic.
-- [ ] Choose one approach for shared application state and declarative routing.
+- [x] Define gateways for authentication and session storage so screens
+  can use demo or real implementations without changing presentation logic. Account
+  repositories are deferred to F3.
+- [x] Choose one approach for shared application state and declarative routing.
   Pin compatible package versions when implementing; avoid duplicate state frameworks.
-- [ ] Create a shared API client with timeouts, response parsing, safe error messages,
+- [x] Create a shared API client with timeouts, response parsing, safe error messages,
   and support for authenticated requests. Never put API credentials in the app.
-- [ ] Create theme tokens for colors, text, spacing, input fields, buttons, and surfaces.
-- [ ] Add reusable loading, error/retry, empty-state, and submission controls.
-- [ ] Add navigation guards for signed-out, restoring-session, and signed-in states.
+- [x] Create theme tokens for colors, text, spacing, input fields, buttons, and surfaces.
+- [x] Add reusable loading, error/retry, and submission controls. Account empty states
+  are deferred to F3.
+- [x] Add navigation guards for signed-out, restoring-session, and signed-in states.
 
 Proposed code layout:
 
@@ -128,18 +144,18 @@ protected screens; API and mock implementations can be selected through configur
 | OTP entry | Six-digit entry; show destination email, resend feedback, expiry errors, and edit/back actions |
 | Signed-out state | Return to authentication after explicit sign-out or an invalid session |
 
-- [ ] Validate username length 3–50 and password minimum 8 to match the current backend.
-- [ ] Request OTP after validating the form and let OTP submission complete signup/login.
-- [ ] Keep the pending password only in short-lived memory; discard it on cancellation,
+- [x] Validate username length 3–50 and password minimum 8 to match the current backend.
+- [x] Request OTP after validating the form and let OTP submission complete signup/login.
+- [x] Keep the pending password only in short-lived memory; discard it on cancellation,
   successful submission, or session cleanup. Do not persist or log passwords or OTPs.
-- [ ] Use visible field labels, password visibility controls, accessible names, and
+- [x] Use visible field labels, password visibility controls, accessible names, and
   touch targets suitable for mobile. Support text scaling and keyboard safe areas.
-- [ ] Allow password-manager autofill, paste, and complete OTP paste; avoid requiring
+- [x] Allow password-manager autofill, paste, and complete OTP paste; avoid requiring
   manual transcription into six separate inaccessible fields.
-- [ ] Show field errors, offline errors, request progress, rejected OTP, expired OTP,
+- [x] Show field errors, offline errors, request progress, rejected OTP, expired OTP,
   resend failure, and duplicate registration feedback. Preserve non-secret form input
   where appropriate and prevent repeated taps while a request is pending.
-- [ ] Do not expose a working-looking password reset action until supported.
+- [x] Do not expose a working-looking password reset action until supported.
 
 **Gate:** the mock flow handles success, failure, expiry, back navigation, and resending.
 Mocks are testable examples; they do not demonstrate working backend authentication.
@@ -155,24 +171,24 @@ All paths below use the backend prefix `/api/v1`.
 | Login OTP | `POST /auth/request-otp` | Send email and purpose `LOGIN` |
 | Complete login | `POST /auth/login` | Send email as `usernameOrEmail`, password, `otpCode`, device fingerprint/name/type |
 | Renew session | `POST /auth/refresh` | Send refreshToken; handle rejection by clearing the local session |
-| Sign out | New server revocation contract plus local cleanup | Revoke remotely and clear local tokens, cached private data, and protected navigation |
+| Sign out | POST `/auth/logout` plus local cleanup | Revoke remotely and clear local tokens, cached private data, and protected navigation |
 
 There is no standalone OTP verification endpoint in the current backend. OTP is
 validated inside registration and login; the OTP screen submits the complete pending
 request rather than calling an invented verification API.
 
-- [ ] Map `ApiResponse.data` into typed token/session objects.
-- [ ] Keep the access token in memory and persist only the session material needed
+- [x] Map `ApiResponse.data` into typed token/session objects.
+- [x] Keep the access token in memory and persist only the session material needed
   for restoration in platform secure storage. Never use plain-text preferences for tokens.
-- [ ] Attach the access token to protected requests only.
-- [ ] Allow one coordinated refresh attempt for simultaneous expired requests;
+- [x] Attach the access token to protected requests only.
+- [x] Allow one coordinated refresh attempt for simultaneous expired requests;
   prevent refresh loops and clear the session if renewal fails.
-- [ ] Retry only requests that are safe to repeat. Never automatically replay a
+- [x] Retry only requests that are safe to repeat. Never automatically replay a
   financial mutation unless the server supports an idempotency contract.
-- [ ] On restart, restore a valid session or return to login without exposing stale data.
-- [ ] On sign-out without connectivity, clear local data immediately, communicate any
+- [x] On restart, restore a valid session or return to login without exposing stale data.
+- [x] On sign-out without connectivity, clear local data immediately, communicate any
   remote-revocation failure, and follow the agreed backend session expiry policy.
-- [ ] Show understandable responses for invalid credentials, disabled users, OTP
+- [x] Show understandable responses for invalid credentials, disabled users, OTP
   failures, unavailable server, revoked device, and expired session.
 
 **Gate:** registration and login both work with real OTPs; app restart restores a valid
@@ -191,8 +207,10 @@ back-navigation history. Online sign-out also invalidates the server session.
   assistant destinations when their features are ready; keep bottom navigation to five or fewer items.
 - [ ] Add profile/session information and sign-out. Do not claim profile editing or
   device management works before the relevant backend APIs exist.
-- [ ] If account opening is included, use `POST /accounts` with an initial deposit of
-  zero. Verified funding must be a separate backend-controlled operation.
+- [ ] Include account opening using `POST /accounts` with an initial deposit of
+  zero. After an uncertain creation response, refresh the list before trying again;
+  this endpoint has no idempotency contract. Local demo funding uses the existing
+  staff-only deposit API through Swagger, outside the customer app.
 
 **Gate:** customer A sees only customer A's accounts; customer B cannot access them;
 an empty account list is handled correctly; a frozen or closed account is labelled clearly.
@@ -202,21 +220,30 @@ an empty account list is handled correctly; a frozen or closed account is labell
 ## Phase 5 Transactions and transfers
 
 - [ ] Add paginated account history with `GET /transactions/account/{accountNumber}`.
-- [ ] Add transaction details with `GET /transactions/{referenceNumber}` after the
-  backend enforces ownership for reference lookups.
+- [ ] Add transaction details with `GET /transactions/{referenceNumber}`, using
+  the backend's existing ownership enforcement.
 - [ ] Build transfer entry, confirmation, progress, and final result screens.
 - [ ] Show source, destination, amount, currency, fee, and total before submission.
 - [ ] Integrate `POST /transactions/transfer`; refresh balances/history after confirmation.
-- [ ] Require backend concurrency protection, ownership checks, and idempotency before
-  enabling transfers. Test same-account, inactive-account, currency, and insufficient-funds rejection.
-- [ ] After a network timeout, show an uncertain/pending outcome and reconcile by a
-  defined request/reference lookup; do not invite an immediate blind resubmission.
+- [ ] Integrate the delivered backend concurrency protection, ownership checks,
+  and idempotency. Test same-account, inactive-account, currency, and
+  insufficient-funds rejection. Advanced fraud scoring is deferred for this milestone.
+- [ ] Create one `Idempotency-Key` per confirmed transfer intent. Retain it and the
+  unchanged payload securely for unresolved requests across app restarts. After a
+  timeout, show an unknown outcome and retry using that original key/payload; the
+  backend returns the saved result if it committed. Use the transaction reference
+  for detail lookup once known. Never create a new key merely because a response
+  was lost.
 - [ ] Keep deposits out of the customer app until a verified funding workflow exists.
 
 **Gate:** concurrent or duplicate submissions cannot debit twice; transaction details
 remain private; success, rejection, and uncertain outcomes display correctly.
 
-## Phase 6 QR payments
+**The foundation is complete when Phases 0–5 and backend F1–F5 pass their gates.**
+
+## Phase 6 QR payments — deferred
+
+This section is retained for later planning and is outside foundation acceptance.
 
 - [ ] Display receive-money KHQR using `POST /payments/khqr/generate`.
 - [ ] Add camera permissions, scanning, and QR validation with clear permission-denied states.
@@ -233,7 +260,9 @@ remain private; success, rejection, and uncertain outcomes display correctly.
 **Gate:** validated payment status drives the UI; scanning alone cannot mark a payment
 successful; delayed, failed, expired, duplicate, and interrupted cases are handled.
 
-## Phase 7 Remaining customer features
+## Phase 7 Remaining customer features — deferred
+
+This section is retained for later planning and is outside foundation acceptance.
 
 | Feature | Customer app work | Backend dependency |
 | --- | --- | --- |
@@ -247,7 +276,6 @@ successful; delayed, failed, expired, duplicate, and interrupted cases are handl
 | Notifications | Inbox, read state, optional push registration | Notification storage/events and push setup |
 | ATM and branch locator | Search/list, map, and location-permission fallback | Location dataset/API |
 | Currency exchange simulation | Rate, quote expiry, review, simulated result | Quote and exchange-simulation APIs |
-| Biometrics | Optional device unlock and fallback | Secure local key/session handling and revocable server sessions |
 | Password reset | Request, verify, and set new password | Reset API, expiry, attempt limits, session policy |
 | Devices and disputes | Review/revoke sessions and submit/track disputes | Authorized device/session and dispute APIs |
 
@@ -260,7 +288,8 @@ the bank employee dispute workflow exists.
 - Run `flutter analyze` and the relevant Flutter tests for each completed feature.
 - Test validation, API mapping, session restoration/refresh, and guarded navigation.
 - Use backend integration tests for ownership, revocation, transfer concurrency,
-  idempotency, and verified payment callbacks; widget tests cannot prove these properties.
+  and idempotency; widget tests cannot prove these properties. Verified payment
+  callbacks belong to the deferred QR milestone.
 - Check narrow screens, large text, TalkBack labels, keyboard overlap, slow network,
   loss of connectivity, background/resume, and app restart.
 - Start with Android emulator/device validation. Validate iOS separately on a supported
@@ -270,10 +299,14 @@ the bank employee dispute workflow exists.
 
 ## Immediate next work
 
-1. Phase 0 is complete; use its documented contracts and passing integration checks.
-2. Implement Phase 1 bootstrap, configuration, routing, repositories, and theme.
-3. Implement Phase 2 welcome, registration, login, and OTP screens with mock scenarios.
-4. Integrate the completed backend authentication contracts and move through Phases 3–4.
+1. F1 and F2 are verified; reuse the documented setup, API contracts, and Android
+   authentication/restart evidence. Flutter Phases 0–3 are delivered.
+2. Implement F3 / Flutter Phase 4: own accounts, zero-balance account opening,
+   currency-aware balances, recent activity, and read-only profile.
+3. Complete F4 / Flutter Phase 5 transfers and history, preserving the backend's
+   ownership and idempotency contracts.
+4. Verify the complete two-customer foundation journey in F5, then stop before
+   deferred Flutter Phases 6–7.
 
 This plan does not assign calendar dates. Each phase is sized and scheduled after
 its dependencies and working behavior are verified.
