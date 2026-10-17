@@ -16,6 +16,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Optional<Transaction> findByReferenceNumber(String referenceNumber);
 
-    @Query("SELECT t FROM Transaction t WHERE t.sourceAccount = :account OR t.destinationAccount = :account ORDER BY t.createdAt DESC")
+    @Query("SELECT t FROM Transaction t WHERE t.sourceAccount = :account OR t.destinationAccount = :account ORDER BY t.createdAt DESC, t.id DESC")
     Page<Transaction> findAllByAccount(@Param("account") Account account, Pageable pageable);
 }

@@ -1,5 +1,9 @@
 package com.bank.digital_banking.module.merchant.service.impl;
 
+import com.bank.digital_banking.common.util.PageBounds;
+
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.module.merchant.dto.*;
 import com.bank.digital_banking.module.merchant.entity.Merchant;
 import com.bank.digital_banking.module.merchant.entity.MerchantStatus;
@@ -21,6 +25,7 @@ import java.util.UUID;
 public class MerchantServiceImpl implements MerchantService {
 
     private final MerchantRepository merchantRepository;
+    private final AuditTrail audit;
 
     @Override
     @Transactional
@@ -45,6 +50,7 @@ public class MerchantServiceImpl implements MerchantService {
                 .build();
 
         Merchant savedMerchant = merchantRepository.save(merchant);
+        audit.successAs(actor, "MERCHANT", "MERCHANT_REGISTERED", savedMerchant.getId().toString());
         return MerchantResponse.fromEntity(savedMerchant);
     }
 
@@ -68,11 +74,11 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MerchantResponse> getMerchantsByOwner(User actor, Long ownerUserId) {
+    public List<MerchantResponse> getMerchantsByOwner(User actor, Long ownerUserId, int page, int size) {
         if (!isAdmin(actor) && !actor.getId().equals(ownerUserId)) {
             throw new ResourceNotFoundException("Merchant not available");
         }
-        return merchantRepository.findByOwnerUserId(ownerUserId)
+        return merchantRepository.findByOwnerUserId(ownerUserId, PageBounds.ascendingId(page, size))
                 .stream()
                 .map(MerchantResponse::fromEntity)
                 .toList();
@@ -80,9 +86,9 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MerchantResponse> getMerchantsByStatus(User actor, MerchantStatus status) {
+    public List<MerchantResponse> getMerchantsByStatus(User actor, MerchantStatus status, int page, int size) {
         requireAdmin(actor);
-        return merchantRepository.findByStatus(status)
+        return merchantRepository.findByStatus(status, PageBounds.ascendingId(page, size))
                 .stream()
                 .map(MerchantResponse::fromEntity)
                 .toList();
@@ -103,6 +109,7 @@ public class MerchantServiceImpl implements MerchantService {
         if (request.status() != null) merchant.setStatus(request.status());
 
         Merchant updatedMerchant = merchantRepository.save(merchant);
+        audit.successAs(actor, "MERCHANT", "MERCHANT_UPDATED", updatedMerchant.getId().toString());
         return MerchantResponse.fromEntity(updatedMerchant);
     }
 
@@ -115,6 +122,7 @@ public class MerchantServiceImpl implements MerchantService {
 
         merchant.setStatus(status);
         Merchant updatedMerchant = merchantRepository.save(merchant);
+        audit.successAs(actor, "MERCHANT", "MERCHANT_STATUS_CHANGED", updatedMerchant.getId().toString());
         return MerchantResponse.fromEntity(updatedMerchant);
     }
 

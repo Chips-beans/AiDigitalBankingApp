@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.ai.service.impl;
 
+import com.bank.digital_banking.common.util.PageBounds;
+
 import com.bank.digital_banking.module.ai.adapter.OpenAIAdapter;
 import com.bank.digital_banking.module.ai.dto.*;
 import com.bank.digital_banking.module.ai.entity.InsightType;
@@ -73,8 +75,8 @@ public class AIServiceImpl implements AIService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<SpendingInsightResponse> getUserInsights(Long userId) {
-        return insightRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+    public List<SpendingInsightResponse> getUserInsights(Long userId, int page, int size) {
+        return insightRepository.findByUserIdOrderByCreatedAtDesc(userId, PageBounds.descendingId(page, size)).stream()
                 .map(entity -> new SpendingInsightResponse(
                         entity.getUserId(),
                         entity.getTargetPeriod(),

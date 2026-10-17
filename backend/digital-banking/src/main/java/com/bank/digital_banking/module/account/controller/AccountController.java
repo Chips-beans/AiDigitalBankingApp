@@ -34,9 +34,9 @@ public class AccountController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<AccountResponseDto>>> getMyAccounts(
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal User user, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
 
-        List<AccountResponseDto> accounts = accountService.getUserAccounts(user);
+        List<AccountResponseDto> accounts = accountService.getUserAccounts(user, page, size);
         return ResponseEntity.ok(ApiResponse.success(accounts, "User accounts retrieved successfully"));
     }
 

@@ -8,8 +8,8 @@ import java.util.List;
 
 public interface AuditService {
     void logEvent(AuditLogRequest request);
-    List<AuditLogResponse> getLogsByUser(String performerUserId);
-    List<AuditLogResponse> getLogsByModule(String moduleName);
-    List<AuditLogResponse> getLogsBySeverity(AuditSeverity severity);
-    List<AuditLogResponse> getLogsByTimeRange(LocalDateTime start, LocalDateTime end);
+    List<AuditLogResponse> getLogsByUser(String performerUserId, int page, int size);
+    List<AuditLogResponse> getLogsByModule(String moduleName, int page, int size);
+    List<AuditLogResponse> getLogsBySeverity(AuditSeverity severity, int page, int size);
+    List<AuditLogResponse> getLogsByTimeRange(LocalDateTime start, LocalDateTime end, int page, int size);
 }

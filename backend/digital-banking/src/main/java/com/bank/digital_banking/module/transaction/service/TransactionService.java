@@ -8,9 +8,9 @@ import com.bank.digital_banking.module.transaction.dto.TransferRequestDto;
 
 public interface TransactionService {
 
-    TransactionResponseDto processTransfer(User user, TransferRequestDto request);
+    TransactionResponseDto processTransfer(User user, TransferRequestDto request, String idempotencyKey);
 
-    TransactionResponseDto processDeposit(DepositRequestDto request);
+    TransactionResponseDto processDeposit(User user, DepositRequestDto request, String idempotencyKey);
 
     PageResponse<TransactionResponseDto> getAccountTransactions(User user, String accountNumber, int page, int size);
 

@@ -10,8 +10,8 @@ public interface MerchantService {
     MerchantResponse registerMerchant(User actor, MerchantRegisterRequest request);
     MerchantResponse getMerchantById(User actor, Long id);
     MerchantResponse getMerchantByMerchantId(User actor, String merchantId);
-    List<MerchantResponse> getMerchantsByOwner(User actor, Long ownerUserId);
-    List<MerchantResponse> getMerchantsByStatus(User actor, MerchantStatus status);
+    List<MerchantResponse> getMerchantsByOwner(User actor, Long ownerUserId, int page, int size);
+    List<MerchantResponse> getMerchantsByStatus(User actor, MerchantStatus status, int page, int size);
     MerchantResponse updateMerchant(User actor, Long id, MerchantUpdateRequest request);
     MerchantResponse updateMerchantStatus(User actor, Long id, MerchantStatus status);
 }

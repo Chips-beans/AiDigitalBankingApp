@@ -37,13 +37,13 @@ public class MerchantController {
     }
 
     @GetMapping("/owner/{ownerUserId}")
-    public ResponseEntity<List<MerchantResponse>> getMerchantsByOwner(@AuthenticationPrincipal User actor, @PathVariable Long ownerUserId) {
-        return ResponseEntity.ok(merchantService.getMerchantsByOwner(actor, ownerUserId));
+    public ResponseEntity<List<MerchantResponse>> getMerchantsByOwner(@AuthenticationPrincipal User actor, @PathVariable Long ownerUserId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(merchantService.getMerchantsByOwner(actor, ownerUserId, page, size));
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<MerchantResponse>> getMerchantsByStatus(@AuthenticationPrincipal User actor, @PathVariable MerchantStatus status) {
-        return ResponseEntity.ok(merchantService.getMerchantsByStatus(actor, status));
+    public ResponseEntity<List<MerchantResponse>> getMerchantsByStatus(@AuthenticationPrincipal User actor, @PathVariable MerchantStatus status, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(merchantService.getMerchantsByStatus(actor, status, page, size));
     }
 
     @PutMapping("/{id}")

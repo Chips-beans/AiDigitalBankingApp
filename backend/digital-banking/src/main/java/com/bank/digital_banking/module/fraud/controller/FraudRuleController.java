@@ -30,12 +30,12 @@ public class FraudRuleController {
     }
 
     @GetMapping("/flagged")
-    public ResponseEntity<List<FlaggedTransactionResponse>> getFlaggedTransactions() {
-        return ResponseEntity.ok(fraudDetectionService.getFlaggedTransactions());
+    public ResponseEntity<List<FlaggedTransactionResponse>> getFlaggedTransactions(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(fraudDetectionService.getFlaggedTransactions(page, size));
     }
 
     @GetMapping("/flagged/risk/{riskLevel}")
-    public ResponseEntity<List<FlaggedTransactionResponse>> getFlaggedTransactionsByRisk(@PathVariable RiskLevel riskLevel) {
-        return ResponseEntity.ok(fraudDetectionService.getFlaggedTransactionsByRisk(riskLevel));
+    public ResponseEntity<List<FlaggedTransactionResponse>> getFlaggedTransactionsByRisk(@PathVariable RiskLevel riskLevel, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(fraudDetectionService.getFlaggedTransactionsByRisk(riskLevel, page, size));
     }
 }

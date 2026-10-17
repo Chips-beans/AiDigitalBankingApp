@@ -8,6 +8,8 @@ Build the customer mobile application for AI Digital Banking and Smart Wallet in
 `frontend/customer_app`, using the Spring Boot backend in `backend/digital-banking`.
 The Flutter project currently contains the generated starter screen, API configuration,
 and widget/configuration tests.
+Biometric authentication is excluded from project scope. Remaining backend work
+is tracked in the [backend completion plan](BACKEND_COMPLETION_PLAN.md).
 Phase 0 backend and API readiness are implemented and verified. Flutter application features remain in the subsequent planned phases.
 
 The first milestone is:
@@ -137,7 +139,7 @@ protected screens; API and mock implementations can be selected through configur
 - [ ] Show field errors, offline errors, request progress, rejected OTP, expired OTP,
   resend failure, and duplicate registration feedback. Preserve non-secret form input
   where appropriate and prevent repeated taps while a request is pending.
-- [ ] Do not expose working-looking password reset or biometric actions until supported.
+- [ ] Do not expose a working-looking password reset action until supported.
 
 **Gate:** the mock flow handles success, failure, expiry, back navigation, and resending.
 Mocks are testable examples; they do not demonstrate working backend authentication.

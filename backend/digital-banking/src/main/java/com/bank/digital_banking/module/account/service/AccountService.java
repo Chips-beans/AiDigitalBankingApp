@@ -11,7 +11,7 @@ public interface AccountService {
 
     AccountResponseDto createAccount(User user, CreateAccountRequestDto request);
 
-    List<AccountResponseDto> getUserAccounts(User user);
+    List<AccountResponseDto> getUserAccounts(User user, int page, int size);
 
     AccountResponseDto getAccountByNumber(User user, String accountNumber);
 

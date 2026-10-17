@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.auth.service.impl;
 
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.common.exception.*;
 import com.bank.digital_banking.module.auth.dto.OtpResponseDto;
 import com.bank.digital_banking.module.auth.entity.*;
@@ -20,6 +22,7 @@ public class OtpServiceImpl implements OtpService {
     private final OtpRateLimitRepository limits;
     private final EmailService emails;
     private final PasswordEncoder encoder;
+    private final AuditTrail audit;
     private final SecureRandom random = new SecureRandom();
     @Value("${app.otp.expiration-minutes:5}") private int expiryMinutes;
     @Value("${app.otp.resend-seconds:60}") private int resendSeconds;
@@ -50,6 +53,7 @@ public class OtpServiceImpl implements OtpService {
                     .expiresAt(now.plusMinutes(expiryMinutes)).verified(false).build());
             emails.sendOtpEmail(email, raw, purpose);
         }
+        audit.success("AUTH", "OTP_REQUEST_ACCEPTED", null);
         return new OtpResponseDto("If the address is eligible, a verification code has been sent",
                 expiryMinutes * 60, resendSeconds);
     }

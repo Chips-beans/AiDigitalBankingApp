@@ -1,5 +1,9 @@
 package com.bank.digital_banking.module.fraud.service.impl;
 
+import com.bank.digital_banking.common.util.PageBounds;
+
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.module.fraud.adapter.GeoLocationAdapter;
 import com.bank.digital_banking.module.fraud.adapter.RiskEngineAdapter;
 import com.bank.digital_banking.module.fraud.dto.*;
@@ -23,6 +27,7 @@ public class FraudDetectionServiceImpl implements FraudDetectionService {
     private final FlaggedTransactionRepository flaggedTransactionRepository;
     private final GeoLocationAdapter geoLocationAdapter;
     private final RiskEngineAdapter riskEngineAdapter;
+    private final AuditTrail audit;
 
     private static final BigDecimal HIGH_AMOUNT_THRESHOLD = new BigDecimal("10000.00");
     private static final int VELOCITY_WINDOW_MINUTES = 10;
@@ -79,20 +84,21 @@ public class FraudDetectionServiceImpl implements FraudDetectionService {
                 .active(true)
                 .build();
         fraudRuleRepository.save(rule);
+        audit.success("FRAUD", "FRAUD_RULE_CREATED", rule.getId().toString());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<FlaggedTransactionResponse> getFlaggedTransactions() {
-        return flaggedTransactionRepository.findAll().stream()
+    public List<FlaggedTransactionResponse> getFlaggedTransactions(int page, int size) {
+        return flaggedTransactionRepository.findAll(PageBounds.descendingId(page, size)).stream()
                 .map(FlaggedTransactionResponse::fromEntity)
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<FlaggedTransactionResponse> getFlaggedTransactionsByRisk(RiskLevel riskLevel) {
-        return flaggedTransactionRepository.findByRiskLevel(riskLevel).stream()
+    public List<FlaggedTransactionResponse> getFlaggedTransactionsByRisk(RiskLevel riskLevel, int page, int size) {
+        return flaggedTransactionRepository.findByRiskLevel(riskLevel, PageBounds.descendingId(page, size)).stream()
                 .map(FlaggedTransactionResponse::fromEntity)
                 .toList();
     }

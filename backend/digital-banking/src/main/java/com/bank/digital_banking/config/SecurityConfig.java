@@ -76,7 +76,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).toList());
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization","Content-Type","Idempotency-Key"));
-        config.setExposedHeaders(List.of("Retry-After"));
+        config.setExposedHeaders(List.of("Retry-After", "X-Correlation-ID"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

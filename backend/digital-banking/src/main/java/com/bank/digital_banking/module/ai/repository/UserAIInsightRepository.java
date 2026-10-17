@@ -10,6 +10,6 @@ import java.util.Optional;
 
 @Repository
 public interface UserAIInsightRepository extends JpaRepository<UserAIInsight, Long> {
-    List<UserAIInsight> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<UserAIInsight> findByUserIdOrderByCreatedAtDesc(Long userId, org.springframework.data.domain.Pageable pageable);
     Optional<UserAIInsight> findByUserIdAndTargetPeriodAndInsightType(Long userId, String targetPeriod, InsightType insightType);
 }

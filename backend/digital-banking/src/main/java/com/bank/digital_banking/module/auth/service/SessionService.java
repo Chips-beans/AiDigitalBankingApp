@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.auth.service;
 
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.common.exception.AuthenticationFailedException;
 import com.bank.digital_banking.common.util.HashUtils;
 import com.bank.digital_banking.module.auth.dto.TokenResponseDto;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 public class SessionService {
     private final AuthSessionRepository sessions;
     private final JwtTokenProvider tokens;
+    private final AuditTrail audit;
 
     @Transactional
     public TokenResponseDto create(User user, Device device) {
@@ -43,7 +46,9 @@ public class SessionService {
             sessions.save(session);
             throw failure("REFRESH_REUSED", "Refresh token was already used; sign in again");
         }
-        return issue(session);
+        var response = issue(session);
+        audit.successAs(session.getUser(), "AUTH", "REFRESH", session.getId().toString());
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +68,7 @@ public class SessionService {
             if (session.getRevokedAt() == null) {
                 session.setRevokedAt(OffsetDateTime.now());
                 sessions.save(session);
+                audit.successAs(session.getUser(), "AUTH", "LOGOUT", session.getId().toString());
             }
         });
     }

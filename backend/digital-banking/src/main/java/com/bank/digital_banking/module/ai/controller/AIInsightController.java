@@ -29,8 +29,8 @@ public class AIInsightController {
     }
 
     @GetMapping("/insights/user/{userId}")
-    public ResponseEntity<List<SpendingInsightResponse>> getUserInsights(@AuthenticationPrincipal User user, @PathVariable Long userId) {
+    public ResponseEntity<List<SpendingInsightResponse>> getUserInsights(@AuthenticationPrincipal User user, @PathVariable Long userId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         if (!user.getId().equals(userId)) throw new com.bank.digital_banking.common.exception.ResourceNotFoundException("Insights not available");
-        return ResponseEntity.ok(aiService.getUserInsights(user.getId()));
+        return ResponseEntity.ok(aiService.getUserInsights(user.getId(), page, size));
     }
 }

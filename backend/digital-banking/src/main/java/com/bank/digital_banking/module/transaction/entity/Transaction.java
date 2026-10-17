@@ -54,6 +54,15 @@ public class Transaction {
     @Column(length = 255)
     private String remark;
 
+    @Column(name = "initiated_by_user_id")
+    private Long initiatedByUserId;
+
+    @Column(length = 40)
+    private String operation;
+
+    @Column(name = "correlation_id", length = 36)
+    private String correlationId;
+
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

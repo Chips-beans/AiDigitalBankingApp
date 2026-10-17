@@ -23,9 +23,9 @@ public interface MerchantRepository extends JpaRepository<Merchant, Long> {
 
     Optional<Merchant> findByBakongAccountId(String bakongAccountId);
 
-    List<Merchant> findByOwnerUserId(Long ownerUserId);
+    List<Merchant> findByOwnerUserId(Long ownerUserId, org.springframework.data.domain.Pageable pageable);
 
-    List<Merchant> findByStatus(MerchantStatus status);
+    List<Merchant> findByStatus(MerchantStatus status, org.springframework.data.domain.Pageable pageable);
 
     boolean existsByBakongAccountId(String bakongAccountId);
 }

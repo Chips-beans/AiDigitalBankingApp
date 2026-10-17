@@ -5,12 +5,16 @@ import com.bank.digital_banking.module.transaction.entity.TransactionStatus;
 import com.bank.digital_banking.module.transaction.entity.TransactionType;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TransactionResponseDto {
 
     private Long id;
@@ -37,7 +41,7 @@ public class TransactionResponseDto {
                 .transactionType(transaction.getTransactionType())
                 .status(transaction.getStatus())
                 .remark(transaction.getRemark())
-                .createdAt(transaction.getCreatedAt())
+                .createdAt(transaction.getCreatedAt() == null ? null : transaction.getCreatedAt().withOffsetSameInstant(java.time.ZoneOffset.UTC))
                 .build();
     }
 }

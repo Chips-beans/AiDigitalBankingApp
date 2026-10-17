@@ -587,6 +587,8 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
     HttpResponse<String> raw(String method,String path,String token,String data) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://localhost:"+port+path)).timeout(Duration.ofSeconds(20));
         if(token!=null) request.header("Authorization","Bearer "+token);
+        if (method.equals("POST") && (path.equals("/api/v1/transactions/transfer") || path.equals("/api/v1/transactions/deposit")))
+            request.header("Idempotency-Key", UUID.randomUUID().toString());
         if(data!=null) request.header("Content-Type","application/json");
         return client.send(request.method(method,data==null?HttpRequest.BodyPublishers.noBody():HttpRequest.BodyPublishers.ofString(data)).build(),HttpResponse.BodyHandlers.ofString());
     }

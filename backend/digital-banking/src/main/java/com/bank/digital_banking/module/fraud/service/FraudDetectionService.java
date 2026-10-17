@@ -8,6 +8,6 @@ import java.util.List;
 public interface FraudDetectionService {
     FraudCheckResponse evaluateTransaction(FraudCheckRequest request);
     void createRule(FraudRuleRequest request);
-    List<FlaggedTransactionResponse> getFlaggedTransactions();
-    List<FlaggedTransactionResponse> getFlaggedTransactionsByRisk(RiskLevel riskLevel);
+    List<FlaggedTransactionResponse> getFlaggedTransactions(int page, int size);
+    List<FlaggedTransactionResponse> getFlaggedTransactionsByRisk(RiskLevel riskLevel, int page, int size);
 }

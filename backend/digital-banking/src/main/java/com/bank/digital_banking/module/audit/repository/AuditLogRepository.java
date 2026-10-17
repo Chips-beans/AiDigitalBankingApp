@@ -11,11 +11,11 @@ import java.util.List;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
-    List<AuditLog> findByPerformerUserIdOrderByTimestampDesc(String performerUserId);
+    List<AuditLog> findByPerformerUserIdOrderByTimestampDesc(String performerUserId, org.springframework.data.domain.Pageable pageable);
 
-    List<AuditLog> findByModuleNameOrderByTimestampDesc(String moduleName);
+    List<AuditLog> findByModuleNameOrderByTimestampDesc(String moduleName, org.springframework.data.domain.Pageable pageable);
 
-    List<AuditLog> findBySeverityOrderByTimestampDesc(AuditSeverity severity);
+    List<AuditLog> findBySeverityOrderByTimestampDesc(AuditSeverity severity, org.springframework.data.domain.Pageable pageable);
 
-    List<AuditLog> findByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end);
+    List<AuditLog> findByTimestampBetweenOrderByTimestampDesc(LocalDateTime start, LocalDateTime end, org.springframework.data.domain.Pageable pageable);
 }

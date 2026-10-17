@@ -23,17 +23,22 @@ public class TransactionController {
     @PostMapping("/transfer")
     public ResponseEntity<ApiResponse<TransactionResponseDto>> transfer(
             @AuthenticationPrincipal User user,
+            @io.swagger.v3.oas.annotations.Parameter(required = true, description = "Stable unique key for this operation; reuse it for retries")
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
             @Valid @RequestBody TransferRequestDto request) {
 
-        TransactionResponseDto response = transactionService.processTransfer(user, request);
+        TransactionResponseDto response = transactionService.processTransfer(user, request, key);
         return ResponseEntity.ok(ApiResponse.success(response,"Transfer executed successfully" ));
     }
 
     @PostMapping("/deposit")
     public ResponseEntity<ApiResponse<TransactionResponseDto>> deposit(
+            @AuthenticationPrincipal User user,
+            @io.swagger.v3.oas.annotations.Parameter(required = true, description = "Stable unique key for this operation; reuse it for retries")
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
             @Valid @RequestBody DepositRequestDto request) {
 
-        TransactionResponseDto response = transactionService.processDeposit(request);
+        TransactionResponseDto response = transactionService.processDeposit(user, request, key);
         return ResponseEntity.ok(ApiResponse.success(response,"Deposit processed successfully"));
     }
 

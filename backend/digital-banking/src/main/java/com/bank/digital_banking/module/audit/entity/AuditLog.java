@@ -38,6 +38,9 @@ public class AuditLog {
 
     private String ipAddress;
 
+    @Column(name = "correlation_id", length = 36)
+    private String correlationId;
+
     private String userAgent;
 
     @Column(nullable = false)

@@ -14,6 +14,21 @@ import java.util.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.jdbc.UncategorizedSQLException.class)
+    public ResponseEntity<ApiErrorResponse> jdbcFailure(org.springframework.jdbc.UncategorizedSQLException ex, HttpServletRequest r) {
+        // JdbcTemplate does not classify PostgreSQL 55P03 consistently with Hibernate.
+        String state = ex.getSQLException().getSQLState();
+        if (Set.of("55P03", "40P01", "40001").contains(state == null ? "" : state)) return busy(ex, r);
+        return unexpected(ex, r);
+    }
+    @ExceptionHandler(AuditUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> auditUnavailable(Exception ex, HttpServletRequest r) {
+        return error(503, "AUDIT_UNAVAILABLE", "Required audit storage is unavailable; try again later", r);
+    }
+    @ExceptionHandler(org.springframework.dao.PessimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> busy(Exception ex, HttpServletRequest r) {
+        return error(409, "CONCURRENT_UPDATE", "Another request is changing this resource; try again", r);
+    }
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiErrorResponse> api(ApiException ex, HttpServletRequest request) {
         var builder = ResponseEntity.status(ex.getStatus());

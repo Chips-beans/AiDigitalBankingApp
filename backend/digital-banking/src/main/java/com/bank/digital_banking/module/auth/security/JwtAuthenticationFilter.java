@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.auth.security;
 
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.common.dto.ApiErrorResponse;
 import com.bank.digital_banking.common.exception.ApiException;
 import com.bank.digital_banking.module.auth.entity.AuthSession;
@@ -45,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 var auth = UsernamePasswordAuthenticationToken.authenticated(session.getUser(), null, authorities);
                 auth.setDetails(session.getId());
                 SecurityContextHolder.getContext().setAuthentication(auth);
+                request.setAttribute(AuditTrail.ACTOR, session.getUser().getId().toString());
             } catch (ApiException ex) {
                 SecurityContextHolder.clearContext();
                 response.setStatus(ex.getStatus().value());

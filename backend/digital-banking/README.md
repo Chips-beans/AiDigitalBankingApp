@@ -2,6 +2,12 @@
 
 Spring Boot backend for AI Digital Banking and Smart Wallet.
 
+Phase 1 financial correctness and automatic auditing are implemented. See
+[Phase 1 implementation](../../docs/PHASE_1_IMPLEMENTATION.md) for migration V8,
+required financial idempotency headers, currency rules, pagination, and verification.
+The [Phase 1 code review and QA report](../../docs/PHASE_1_CODE_REVIEW_QA.md)
+records six corrected defect groups, migration V9, and 74 passing backend tests.
+
 Phase 0 authentication and API readiness are implemented. See
 [Phase 0 implementation and setup](../../docs/PHASE_0_IMPLEMENTATION.md)
 for contracts, environment settings, local fixtures, and verification.

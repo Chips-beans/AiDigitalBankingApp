@@ -15,7 +15,8 @@ public record AuditLogResponse(
         String details,
         String ipAddress,
         boolean success,
-        LocalDateTime timestamp
+        LocalDateTime timestamp,
+        String correlationId
 ) {
     public static AuditLogResponse fromEntity(AuditLog entity) {
         return new AuditLogResponse(
@@ -28,7 +29,8 @@ public record AuditLogResponse(
                 entity.getDetails(),
                 entity.getIpAddress(),
                 entity.isSuccess(),
-                entity.getTimestamp()
+                entity.getTimestamp(),
+                entity.getCorrelationId()
         );
     }
 }

@@ -11,6 +11,6 @@ import java.util.List;
 @Repository
 public interface FlaggedTransactionRepository extends JpaRepository<FlaggedTransaction, Long> {
     List<FlaggedTransaction> findByAccountId(String accountId);
-    List<FlaggedTransaction> findByRiskLevel(RiskLevel riskLevel);
+    List<FlaggedTransaction> findByRiskLevel(RiskLevel riskLevel, org.springframework.data.domain.Pageable pageable);
     long countByAccountIdAndCreatedAtAfter(String accountId, LocalDateTime timestamp);
 }

@@ -1,5 +1,11 @@
 package com.bank.digital_banking.module.account.service.impl;
 
+import com.bank.digital_banking.common.util.PageBounds;
+
+import com.bank.digital_banking.common.util.CurrencyUtils;
+
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.common.exception.ResourceNotFoundException;
 import com.bank.digital_banking.module.account.dto.AccountResponseDto;
 import com.bank.digital_banking.module.account.dto.CreateAccountRequestDto;
@@ -21,11 +27,16 @@ import java.util.List;
 public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
+    private final AuditTrail audit;
+    private final jakarta.persistence.EntityManager entities;
+    private final com.bank.digital_banking.common.util.TransactionLockPolicy locks;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     @Override
     @Transactional
     public AccountResponseDto createAccount(User user, CreateAccountRequestDto request) {
+        String currency = CurrencyUtils.currency(request.getCurrency());
+        CurrencyUtils.amount(request.getInitialDeposit(), currency, true);
         if (request.getInitialDeposit().signum() != 0) {
             throw new com.bank.digital_banking.common.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "VERIFIED_FUNDING_REQUIRED", "New accounts must start at zero; use a verified funding process");
@@ -36,19 +47,20 @@ public class AccountServiceImpl implements AccountService {
                 .user(user)
                 .accountNumber(accountNumber)
                 .accountType(request.getAccountType())
-                .currency(request.getCurrency().toUpperCase())
+                .currency(currency)
                 .balance(request.getInitialDeposit())
                 .status(AccountStatus.ACTIVE)
                 .build();
 
         Account savedAccount = accountRepository.save(account);
+        audit.successAs(user, "ACCOUNT", "ACCOUNT_CREATED", savedAccount.getAccountNumber());
         return AccountResponseDto.fromEntity(savedAccount);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountResponseDto> getUserAccounts(User user) {
-        return accountRepository.findByUser(user)
+    public List<AccountResponseDto> getUserAccounts(User user, int page, int size) {
+        return accountRepository.findByUser(user, PageBounds.ascendingId(page, size))
                 .stream()
                 .map(AccountResponseDto::fromEntity)
                 .toList();
@@ -74,12 +86,16 @@ public class AccountServiceImpl implements AccountService {
                 role.getName() == com.bank.digital_banking.module.auth.entity.ERole.ROLE_ADMIN
                         || role.getName() == com.bank.digital_banking.module.auth.entity.ERole.ROLE_BANK_EMPLOYEE);
         if (!staff) throw new org.springframework.security.access.AccessDeniedException("Account status requires bank staff");
-        Account account = accountRepository.findByAccountNumber(accountNumber)
+        locks.apply();
+        Account account = accountRepository.findLockedByNumber(accountNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + accountNumber));
+        entities.refresh(account, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
 
+        if (request.getStatus() == null) throw new IllegalArgumentException("Status is required");
         account.setStatus(request.getStatus());
         Account updatedAccount = accountRepository.save(account);
 
+        audit.successAs(user, "ACCOUNT", "ACCOUNT_STATUS_CHANGED", account.getAccountNumber());
         return AccountResponseDto.fromEntity(updatedAccount);
     }
 

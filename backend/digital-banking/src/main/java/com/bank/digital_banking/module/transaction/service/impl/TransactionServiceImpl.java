@@ -1,156 +1,71 @@
 package com.bank.digital_banking.module.transaction.service.impl;
 
 import com.bank.digital_banking.common.dto.PageResponse;
-import com.bank.digital_banking.common.exception.InsufficientBalanceException;
-import com.bank.digital_banking.common.exception.ResourceNotFoundException;
-import com.bank.digital_banking.module.account.entity.Account;
-import com.bank.digital_banking.module.account.entity.AccountStatus;
+import com.bank.digital_banking.common.exception.*;
+import com.bank.digital_banking.common.util.PageBounds;
 import com.bank.digital_banking.module.account.repository.AccountRepository;
+import com.bank.digital_banking.module.audit.service.AuditTrail;
 import com.bank.digital_banking.module.auth.entity.User;
-import com.bank.digital_banking.module.transaction.dto.DepositRequestDto;
-import com.bank.digital_banking.module.transaction.dto.TransactionResponseDto;
-import com.bank.digital_banking.module.transaction.dto.TransferRequestDto;
-import com.bank.digital_banking.module.transaction.entity.Transaction;
-import com.bank.digital_banking.module.transaction.entity.TransactionStatus;
+import com.bank.digital_banking.module.transaction.dto.*;
 import com.bank.digital_banking.module.transaction.entity.TransactionType;
 import com.bank.digital_banking.module.transaction.repository.TransactionRepository;
-import com.bank.digital_banking.module.transaction.service.TransactionService;
+import com.bank.digital_banking.module.transaction.service.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
-
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
+    private final FinancialCommandService commands;
+    private final AuditTrail audit;
 
     @Override
-    @Transactional
-    public TransactionResponseDto processTransfer(User user, TransferRequestDto request) {
-        Account sourceAccount = accountRepository.findByAccountNumber(request.getSourceAccountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Source account not found"));
-
-        Account destinationAccount = accountRepository.findByAccountNumber(request.getDestinationAccountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Destination account not found"));
-
-        if (!sourceAccount.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Source account not available");
-        }
-
-        if (sourceAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Source account is not active");
-        }
-
-        if (destinationAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Destination account is not active");
-        }
-
-        if (sourceAccount.getAccountNumber().equals(destinationAccount.getAccountNumber())) {
-            throw new IllegalArgumentException("Source and destination accounts cannot be the same");
-        }
-
-        if (!sourceAccount.getCurrency().equalsIgnoreCase(request.getCurrency()) ||
-            !destinationAccount.getCurrency().equalsIgnoreCase(request.getCurrency())) {
-            throw new IllegalArgumentException("Currency mismatch across transfer accounts");
-        }
-
-        if (sourceAccount.getBalance().compareTo(request.getAmount()) < 0) {
-            throw new InsufficientBalanceException("Insufficient funds for this transfer");
-        }
-
-        sourceAccount.setBalance(sourceAccount.getBalance().subtract(request.getAmount()));
-        destinationAccount.setBalance(destinationAccount.getBalance().add(request.getAmount()));
-
-        accountRepository.save(sourceAccount);
-        accountRepository.save(destinationAccount);
-
-        Transaction transaction = Transaction.builder()
-                .referenceNumber(generateReferenceNumber())
-                .sourceAccount(sourceAccount)
-                .destinationAccount(destinationAccount)
-                .amount(request.getAmount())
-                .fee(BigDecimal.ZERO)
-                .currency(request.getCurrency().toUpperCase())
-                .transactionType(TransactionType.TRANSFER)
-                .status(TransactionStatus.SUCCESS)
-                .remark(request.getRemark())
-                .build();
-
-        Transaction savedTransaction = transactionRepository.save(transaction);
-        return TransactionResponseDto.fromEntity(savedTransaction);
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NEVER)
+    public TransactionResponseDto processTransfer(User user, TransferRequestDto request, String key) {
+        return attempt(user, "TRANSFER", () -> commands.execute(user, TransactionType.TRANSFER, key,
+                request.getSourceAccountNumber(), request.getDestinationAccountNumber(), request.getAmount(), request.getCurrency(), request.getRemark()));
     }
 
     @Override
-    @Transactional
-    public TransactionResponseDto processDeposit(DepositRequestDto request) {
-        Account destinationAccount = accountRepository.findByAccountNumber(request.getAccountNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NEVER)
+    public TransactionResponseDto processDeposit(User user, DepositRequestDto request, String key) {
+        return attempt(user, "DEPOSIT", () -> commands.execute(user, TransactionType.DEPOSIT, key,
+                null, request.getAccountNumber(), request.getAmount(), request.getCurrency(), request.getRemark()));
+    }
 
-        if (destinationAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw new IllegalStateException("Account is not active");
+    private TransactionResponseDto attempt(User actor, String action, Supplier<TransactionResponseDto> work) {
+        try {
+            return work.get();
+        } catch (RuntimeException ex) {
+            // The command transaction, including balances and claim, has already rolled back.
+            String outcome = ex instanceof ApiException api ? api.getCode() : ex instanceof InsufficientBalanceException ? "INSUFFICIENT_FUNDS" : "REJECTED";
+            audit.rejected(actor == null ? "ANONYMOUS" : actor.getId().toString(), "TRANSACTION", action, outcome);
+            throw ex;
         }
-
-        destinationAccount.setBalance(destinationAccount.getBalance().add(request.getAmount()));
-        accountRepository.save(destinationAccount);
-
-        Transaction transaction = Transaction.builder()
-                .referenceNumber(generateReferenceNumber())
-                .sourceAccount(null)
-                .destinationAccount(destinationAccount)
-                .amount(request.getAmount())
-                .fee(BigDecimal.ZERO)
-                .currency(request.getCurrency().toUpperCase())
-                .transactionType(TransactionType.DEPOSIT)
-                .status(TransactionStatus.SUCCESS)
-                .remark(request.getRemark())
-                .build();
-
-        Transaction savedTransaction = transactionRepository.save(transaction);
-        return TransactionResponseDto.fromEntity(savedTransaction);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<TransactionResponseDto> getAccountTransactions(User user, String accountNumber, int page, int size) {
-        Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
-
-        if (!account.getUser().getId().equals(user.getId())) {
-            throw new ResourceNotFoundException("Account not available");
-        }
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Transaction> transactionPage = transactionRepository.findAllByAccount(account, pageable);
-
-        Page<TransactionResponseDto> dtoPage = transactionPage.map(TransactionResponseDto::fromEntity);
-        return PageResponse.from(dtoPage);
+        var pageable = PageBounds.of(page, size);
+        var account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not available"));
+        if (!account.getUser().getId().equals(user.getId())) throw new ResourceNotFoundException("Account not available");
+        return PageResponse.from(transactionRepository.findAllByAccount(account, pageable).map(TransactionResponseDto::fromEntity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public TransactionResponseDto getTransactionByReference(User user, String referenceNumber) {
-        Transaction transaction = transactionRepository.findByReferenceNumber(referenceNumber)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction reference not found: " + referenceNumber));
-
+        var transaction = transactionRepository.findByReferenceNumber(referenceNumber)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not available"));
         boolean ownsSource = transaction.getSourceAccount() != null && transaction.getSourceAccount().getUser().getId().equals(user.getId());
         boolean ownsDestination = transaction.getDestinationAccount() != null && transaction.getDestinationAccount().getUser().getId().equals(user.getId());
         if (!ownsSource && !ownsDestination) throw new ResourceNotFoundException("Transaction not available");
         return TransactionResponseDto.fromEntity(transaction);
-    }
-
-    private String generateReferenceNumber() {
-        String datePrefix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String randomUUID = UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        return "TXN-" + datePrefix + "-" + randomUUID;
     }
 }

@@ -15,6 +15,7 @@ public class CreateAccountRequestDto {
     private AccountType accountType;
 
     @NotBlank(message = "Currency is required")
+    @jakarta.validation.constraints.Pattern(regexp = "(?i)USD|KHR", message = "Currency must be USD or KHR")
     private String currency;
 
     @NotNull(message = "Initial deposit balance is required")

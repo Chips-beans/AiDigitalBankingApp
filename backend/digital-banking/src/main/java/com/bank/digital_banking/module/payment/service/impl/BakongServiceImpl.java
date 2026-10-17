@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.payment.service.impl;
 
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.module.payment.adapter.BakongAdapter;
 import com.bank.digital_banking.module.payment.dto.*;
 import com.bank.digital_banking.module.payment.entity.Payment;
@@ -21,6 +23,7 @@ public class BakongServiceImpl implements BakongService {
     private final BakongAdapter bakongAdapter;
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
+    private final AuditTrail audit;
 
     @Override
     @Transactional
@@ -45,6 +48,7 @@ public class BakongServiceImpl implements BakongService {
                 .build();
 
         paymentRepository.save(payment);
+        audit.successAs(user, "PAYMENT", "QR_CREATED", payment.getId().toString());
 
         return new KhqrGenerateResponse(
                 khqrData.getQr(),
@@ -70,6 +74,7 @@ public class BakongServiceImpl implements BakongService {
         if (isSuccess) {
             payment.setStatus(PaymentStatus.SUCCESS);
             paymentRepository.save(payment);
+            audit.successAs(user, "PAYMENT", "PAYMENT_STATUS_UPDATED", payment.getId().toString());
             return new PaymentCheckStatusResponse(md5Hash, PaymentStatus.SUCCESS, true);
         }
 

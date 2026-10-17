@@ -26,24 +26,24 @@ public class AuditLogController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<AuditLogResponse>> getLogsByUser(@PathVariable String userId) {
-        return ResponseEntity.ok(auditService.getLogsByUser(userId));
+    public ResponseEntity<List<AuditLogResponse>> getLogsByUser(@PathVariable String userId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(auditService.getLogsByUser(userId, page, size));
     }
 
     @GetMapping("/module/{moduleName}")
-    public ResponseEntity<List<AuditLogResponse>> getLogsByModule(@PathVariable String moduleName) {
-        return ResponseEntity.ok(auditService.getLogsByModule(moduleName));
+    public ResponseEntity<List<AuditLogResponse>> getLogsByModule(@PathVariable String moduleName, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(auditService.getLogsByModule(moduleName, page, size));
     }
 
     @GetMapping("/severity/{severity}")
-    public ResponseEntity<List<AuditLogResponse>> getLogsBySeverity(@PathVariable AuditSeverity severity) {
-        return ResponseEntity.ok(auditService.getLogsBySeverity(severity));
+    public ResponseEntity<List<AuditLogResponse>> getLogsBySeverity(@PathVariable AuditSeverity severity, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(auditService.getLogsBySeverity(severity, page, size));
     }
 
     @GetMapping("/range")
     public ResponseEntity<List<AuditLogResponse>> getLogsByRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ResponseEntity.ok(auditService.getLogsByTimeRange(start, end));
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(auditService.getLogsByTimeRange(start, end, page, size));
     }
 }

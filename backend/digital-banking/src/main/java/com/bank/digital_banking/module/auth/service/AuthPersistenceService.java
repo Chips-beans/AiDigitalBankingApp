@@ -1,5 +1,7 @@
 package com.bank.digital_banking.module.auth.service;
 
+import com.bank.digital_banking.module.audit.service.AuditTrail;
+
 import com.bank.digital_banking.common.exception.AuthenticationFailedException;
 import com.bank.digital_banking.module.auth.dto.*;
 import com.bank.digital_banking.module.auth.entity.*;
@@ -17,6 +19,7 @@ public class AuthPersistenceService {
     private final RoleRepository roles;
     private final DeviceService devices;
     private final SessionService sessions;
+    private final AuditTrail audit;
 
     @Transactional
     public TokenResponseDto register(RegisterRequestDto request, String email, String passwordHash, String ip) {
@@ -27,7 +30,9 @@ public class AuthPersistenceService {
                 .enabled(true).roles(Set.of(role)).build());
         Device device = devices.bind(user, request.getDeviceFingerprint(), request.getDeviceName(),
                 request.getDeviceType(), null, ip);
-        return sessions.create(user, device);
+        var response = sessions.create(user, device);
+        audit.successAs(user, "AUTH", "REGISTER", user.getId().toString());
+        return response;
     }
 
     @Transactional
@@ -41,6 +46,8 @@ public class AuthPersistenceService {
         }
         Device device = devices.bind(user, request.getDeviceFingerprint(), request.getDeviceName(),
                 request.getDeviceType(), null, ip);
-        return sessions.create(user, device);
+        var response = sessions.create(user, device);
+        audit.successAs(user, "AUTH", "LOGIN", user.getId().toString());
+        return response;
     }
 }

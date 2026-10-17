@@ -7,5 +7,5 @@ import java.util.List;
 public interface AIService {
     SpendingInsightResponse generateSpendingInsight(SpendingInsightRequest request);
     FinancialChatResponse askFinancialAssistant(FinancialChatRequest request);
-    List<SpendingInsightResponse> getUserInsights(Long userId);
+    List<SpendingInsightResponse> getUserInsights(Long userId, int page, int size);
 }
