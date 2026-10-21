@@ -24,9 +24,13 @@ import java.util.Map;
 /** Documentation of the delivered foundation; does not change runtime authorization. */
 @Configuration
 public class FoundationOpenApiConfig {
+    // ===================================================================
+    // Swagger UI Group: Foundation Milestone (Authentication, Accounts, Transactions)
+    // ===================================================================
     @Bean
     GroupedOpenApi foundationApi() {
         return GroupedOpenApi.builder().group("foundation")
+                .displayName("Foundation (Core Banking)")
                 .pathsToMatch("/api/v1/auth/**", "/api/v1/accounts", "/api/v1/accounts/**",
                         "/api/v1/transactions/**").build();
     }
