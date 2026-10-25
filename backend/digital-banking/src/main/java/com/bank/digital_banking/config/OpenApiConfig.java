@@ -21,7 +21,7 @@ public class OpenApiConfig {
                         .version("1.0.0")
                         .description("Digital Banking & Smart Wallet API documentation. "
                                 + "Select the 'all' group to inspect all modules (Auth, Accounts, Transactions, "
-                                + "Bakong Payments, Merchants, Fraud, AI Insights, and Audit Logs), or 'foundation' "
+                                + "QR Payments, Merchants, Fraud, AI Insights, and Audit Logs), or 'foundation' "
                                 + "for the core milestone delivered contracts. Public auth calls require no bearer token. "
                                 + "Protected calls use an access token in Authorize (paste the token only)."))
                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
@@ -43,7 +43,7 @@ public class OpenApiConfig {
      * - Authentication & Sessions (/api/v1/auth/**)
      * - Accounts & Balances (/api/v1/accounts/**)
      * - Transactions & Deposits (/api/v1/transactions/**)
-     * - Bakong KHQR Payments (/api/v1/payments/**)
+     * - QR Payments (/api/v1/payments/**)
      * - Merchant Management (/api/v1/merchants/**)
      * - Fraud Detection & Rules (/api/v1/fraud/**)
      * - AI Insights & Assistant (/api/v1/ai/**)
@@ -60,8 +60,8 @@ public class OpenApiConfig {
 
     /**
      * Swagger UI Group for Payment and Merchant services:
-     * - Bakong KHQR Payments (/api/v1/payments/**)
-     * - Merchant Onboarding & KHQR Config (/api/v1/merchants/**)
+     * - QR Payments (/api/v1/payments/**)
+     * - Merchant Onboarding & QR Config (/api/v1/merchants/**)
      */
     @Bean
     public GroupedOpenApi paymentsGroupApi() {

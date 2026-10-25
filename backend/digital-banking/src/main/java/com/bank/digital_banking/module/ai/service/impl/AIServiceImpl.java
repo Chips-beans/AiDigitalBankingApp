@@ -80,7 +80,8 @@ public class AIServiceImpl implements AIService {
     @Override
     @Transactional(readOnly = true)
     public List<SpendingInsightResponse> getUserInsights(Long userId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = com.bank.digital_banking.common.util.PageBounds.of(page, size)
+                .withSort(Sort.by(Sort.Direction.DESC, "createdAt"));
 
         return insightRepository.findByUserId(userId, pageable)
                 .stream()

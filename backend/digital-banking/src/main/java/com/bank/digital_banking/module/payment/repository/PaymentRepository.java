@@ -9,7 +9,11 @@ import java.util.Optional;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
-    // Custom query method to look up payments by Bakong's generated MD5 hash
+    // Look up payment by MD5 / QR hash
     Optional<Payment> findByMd5Hash(String md5Hash);
+
+    default Optional<Payment> findByQrHash(String qrHash) {
+        return findByMd5Hash(qrHash);
+    }
     
 }

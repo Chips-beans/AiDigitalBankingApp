@@ -33,8 +33,8 @@ public class MerchantServiceImpl implements MerchantService {
         if (!isAdmin(actor) && !actor.getId().equals(request.ownerUserId())) {
             throw new AccessDeniedException("Cannot register a merchant for another user");
         }
-        if (merchantRepository.existsByBakongAccountId(request.bakongAccountId())) {
-            throw new IllegalArgumentException("Bakong account ID is already registered to another merchant");
+        if (merchantRepository.existsByBakongAccountId(request.merchantAccountId())) {
+            throw new IllegalArgumentException("Merchant QR account ID is already registered to another merchant");
         }
 
         String generatedMerchantId = "MCH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -42,7 +42,7 @@ public class MerchantServiceImpl implements MerchantService {
         Merchant merchant = Merchant.builder()
                 .merchantId(generatedMerchantId)
                 .storeName(request.storeName())
-                .bakongAccountId(request.bakongAccountId())
+                .bakongAccountId(request.merchantAccountId())
                 .merchantCity(request.merchantCity())
                 .mcc(request.mcc() != null ? request.mcc() : "5999")
                 .status(MerchantStatus.PENDING)

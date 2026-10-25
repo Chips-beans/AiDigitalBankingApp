@@ -18,13 +18,14 @@ import java.util.List;
 // ===================================================================
 // Added for Swagger UI categorization & documentation: Merchants
 // ===================================================================
-@Tag(name = "Merchants", description = "Merchant onboarding, profile lifecycle, and KHQR merchant configuration")
+@Tag(name = "Merchants", description = "Merchant onboarding, profile lifecycle, and QR merchant configuration")
 @RestController
 @RequestMapping("/api/v1/merchants")
 @RequiredArgsConstructor
 public class MerchantController {
 
     private final MerchantService merchantService;
+    private final com.bank.digital_banking.module.payment.qr.QrCodeEngine qrCodeEngine;
 
     // Added: OpenAPI Operation description
     @Operation(summary = "Register merchant", description = "Creates a new merchant profile for the authenticated user")
@@ -77,18 +78,35 @@ public class MerchantController {
     }
     
     // Added: OpenAPI Operation description
-    @Operation(summary = "Get merchant KHQR configuration", description = "Retrieves Bakong KHQR credentials and config for this merchant")
-    @GetMapping("/{id}/khqr-config")
-    public ResponseEntity<MerchantKhqrConfigResponse> getMerchantKhqrConfig(@AuthenticationPrincipal User actor, @PathVariable Long id) {
+    @Operation(summary = "Get merchant QR configuration", description = "Retrieves QR credentials, merchant account details, and pre-computed static QR code for this merchant")
+    @GetMapping(value = {"/{id}/qr-config", "/{id}/khqr-config"})
+    public ResponseEntity<MerchantQrConfigResponse> getMerchantQrConfig(@AuthenticationPrincipal User actor, @PathVariable Long id) {
         MerchantResponse merchant = merchantService.getMerchantById(actor, id);
         
-        MerchantKhqrConfigResponse response = new MerchantKhqrConfigResponse(
+        String staticQr = null;
+        try {
+            var qr = qrCodeEngine.generate(new com.bank.digital_banking.module.payment.qr.QrCodeEngine.GenerateOptions(
+                    merchant.merchantAccountId(),
+                    merchant.storeName(),
+                    null,
+                    "USD",
+                    "Payment to " + merchant.storeName(),
+                    null,
+                    merchant.merchantId(),
+                    false
+            ));
+            staticQr = qr.getQrString();
+        } catch (Exception ignored) {}
+
+        MerchantQrConfigResponse response = new MerchantQrConfigResponse(
                 merchant.merchantId(),
                 merchant.storeName(),
-                merchant.bakongAccountId(),
+                merchant.merchantAccountId(),
+                merchant.merchantAccountId(),
                 merchant.merchantCity(),
-                merchant.mcc(),
-                "Digital Bank" // Acquiring Bank Name
+                merchant.mcc() != null ? merchant.mcc() : "5999",
+                "Digital Bank",
+                staticQr
         );
         
         return ResponseEntity.ok(response);

@@ -9,13 +9,16 @@ public record MerchantResponse(
         Long id,
         String merchantId,
         String storeName,
-        String bakongAccountId,
+        String merchantAccountId,
         String merchantCity,
         String mcc,
         MerchantStatus status,
         Long ownerUserId,
         LocalDateTime createdAt
 ) {
+    /** Backward-compat alias used by existing tests. */
+    public String bakongAccountId() { return merchantAccountId; }
+
     public static MerchantResponse fromEntity(Merchant merchant) {
         return new MerchantResponse(
                 merchant.getId(),

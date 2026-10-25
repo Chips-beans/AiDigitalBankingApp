@@ -41,6 +41,14 @@ public class Payment {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    public String getQrHash() {
+        return this.md5Hash;
+    }
+
+    public void setQrHash(String qrHash) {
+        this.md5Hash = qrHash;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

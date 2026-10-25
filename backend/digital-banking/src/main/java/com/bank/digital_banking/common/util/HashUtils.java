@@ -17,4 +17,14 @@ public final class HashUtils {
             throw new IllegalStateException("SHA-256 is unavailable", ex);
         }
     }
+
+    /** MD5 hash for payment lookup keys and QR identifier strings. */
+    public static String md5(String value) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("MD5")
+                    .digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("MD5 is unavailable", ex);
+        }
+    }
 }
