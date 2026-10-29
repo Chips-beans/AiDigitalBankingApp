@@ -66,6 +66,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/audit/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/fraud/**").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/merchants/**").hasAnyRole("ADMIN", "MERCHANT")
+                .requestMatchers("/api/v1/analytics/**").hasAnyRole("CUSTOMER", "ADMIN")
                 // Provider verification is a payment-phase prerequisite; users cannot confirm payments themselves.
                 .requestMatchers("/api/v1/payments/webhook").denyAll()
                 .requestMatchers("/api/v1/payments/**").hasAnyRole("ADMIN", "CUSTOMER", "MERCHANT")
