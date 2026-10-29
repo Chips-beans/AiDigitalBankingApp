@@ -8,6 +8,11 @@ import java.util.List;
 
 public class FinancialAnalyticsDTO {
 
+    public record DailyOverview(LocalDate date, String totalIncome, String totalExpense) {}
+
+    public record MonthlyOverview(String month, String currency, String timeZone,
+                                  String totalIncome, String totalExpense, List<DailyOverview> daily) {}
+
     // 1. Daily breakdown entry
     public record DailyTransactionSummary(
             LocalDate date,

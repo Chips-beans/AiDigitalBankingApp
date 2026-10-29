@@ -25,6 +25,30 @@ class FoundationHandoffTests {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private int port;
 
+    @Test void nativeMigrationPreservesExistingV10ProfilesAndBrowserFlows() throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setPort(0).start()) {
+            String url = postgres.getJdbcUrl("postgres", "postgres");
+            Flyway.configure().dataSource(url, "postgres", "postgres").target("10").load().migrate();
+            try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
+                statement.executeUpdate("INSERT INTO users(username,email) VALUES ('native.upgrade','upgrade@example.test')");
+                statement.executeUpdate("INSERT INTO telegram_login_flows(id,exchange_secret_hash,verifier,nonce,expires_at,device_fingerprint,device_name) "
+                        + "VALUES ('upgrade-flow','saved-hash','saved-verifier','saved-nonce',CURRENT_TIMESTAMP + INTERVAL '5 minutes','saved-device','Existing browser')");
+            }
+            var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
+            upgraded.migrate(); upgraded.validate();
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("13");
+            try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
+                try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
+                    assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
+                }
+                try (var row = statement.executeQuery("SELECT native_flow,redirect_uri,verifier,nonce FROM telegram_login_flows WHERE id='upgrade-flow'")) {
+                    assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isFalse(); assertThat(row.getString(2)).isNull();
+                    assertThat(row.getString(3)).isEqualTo("saved-verifier"); assertThat(row.getString(4)).isEqualTo("saved-nonce");
+                }
+            }
+        }
+    }
+
     @Test void freshInstallAndRestartPreserveMoneyReplaySessionsAndLogout() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setPort(0).start();
              var smtp = new LocalSmtpServer()) {
@@ -34,20 +58,33 @@ class FoundationHandoffTests {
             String source;
             String destination;
             JsonNode receipt;
+            com.bank.digital_banking.module.auth.service.ProfilePhotoService.Photo savedPhoto;
+            String durablePinTicket;
             Map<String, Object> transfer;
 
             try (var app = start(url, smtp.port())) {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(9);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("10");
+                assertThat(flyway.info().applied()).hasSize(12);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
                 receiver = signup("handoff.receiver", smtp);
+                JsonNode pinCustomer = signup("handoff.pin", smtp);
+                durablePinTicket = ok("POST", "/auth/pin/prepare", pinCustomer.path("accessToken").asText(), null, null, 200).path("ticket").asText();
+                ok("POST", "/auth/pin/setup", null, null, Map.of("ticket", durablePinTicket, "pin", "0427", "confirmPin", "0427"), 200);
+                assertThat(call("POST", "/auth/pin/unlock", null, null, Map.of("ticket", durablePinTicket, "pin", "9999")).statusCode()).isEqualTo(403);
                 String senderAccess = sender.path("accessToken").asText();
                 String receiverAccess = receiver.path("accessToken").asText();
+                var photoImage = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                var photoBytes = new java.io.ByteArrayOutputStream();
+                javax.imageio.ImageIO.write(photoImage, "png", photoBytes);
+                savedPhoto = app.getBean(com.bank.digital_banking.module.auth.service.ProfilePhotoService.class).save(
+                        app.getBean(com.bank.digital_banking.module.auth.repository.UserRepository.class)
+                                .findByUsername("handoff.sender").orElseThrow(),
+                        new org.springframework.mock.web.MockMultipartFile("photo", "photo.png", "image/png", photoBytes.toByteArray()));
                 assertThat(ok("GET", "/accounts/me", senderAccess, null, null, 200).size()).isZero();
                 assertThat(ok("GET", "/accounts/me", receiverAccess, null, null, 200).size()).isZero();
                 source = open(senderAccess);
@@ -60,6 +97,7 @@ class FoundationHandoffTests {
                         "otpCode", smtp.code("employee.demo@example.test"),
                         "deviceFingerprint", "handoff.staff", "deviceName", "Handoff test"), 200);
                 String staffAccess = staff.path("accessToken").asText();
+                assertThat(call("GET", "/auth/profile/photo", staffAccess, null, null).statusCode()).isEqualTo(401);
                 Map<String, Object> deposit = Map.of("accountNumber", source, "amount", 100,
                         "currency", "USD", "remark", "Isolated test funds");
                 assertThat(call("POST", "/transactions/deposit", senderAccess, "forbidden", deposit).statusCode())
@@ -83,13 +121,21 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(9);
+                assertThat(flyway.info().applied()).hasSize(12);
                 assertThat(flyway.info().pending()).isEmpty();
+                JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
+                assertThat(pinState.path("configured").asBoolean()).isTrue();
+                assertThat(pinState.path("attemptsRemaining").asInt()).isEqualTo(4);
+                assertThat(pinState.path("canRecover").asBoolean()).isFalse();
+                JsonNode pinUnlocked = ok("POST", "/auth/pin/unlock", null, null, Map.of("ticket", durablePinTicket, "pin", "0427"), 200);
+                assertThat(ok("GET", "/accounts/me", pinUnlocked.path("accessToken").asText(), null, null, 200).size()).isZero();
                 renewed = ok("POST", "/auth/refresh", null, null,
                         Map.of("refreshToken", sender.path("refreshToken").asText()), 200);
                 assertThat(renewed.path("sessionId").asText()).isEqualTo(sender.path("sessionId").asText());
                 assertThat(renewed.path("refreshToken").asText()).isNotEqualTo(sender.path("refreshToken").asText());
                 String senderAccess = renewed.path("accessToken").asText();
+                assertThat(ok("GET", "/auth/profile/photo", senderAccess, null, null, 200)
+                        .path("imageBase64").asText()).isEqualTo(savedPhoto.imageBase64());
                 String receiverAccess = receiver.path("accessToken").asText();
                 assertThat(ok("GET", "/auth/me", senderAccess, null, null, 200).path("userId"))
                         .isEqualTo(sender.path("userId"));

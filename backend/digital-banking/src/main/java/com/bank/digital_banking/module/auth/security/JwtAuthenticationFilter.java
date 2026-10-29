@@ -24,7 +24,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Set<String> PUBLIC_AUTH = Set.of("/api/v1/auth/login", "/api/v1/auth/register",
             "/api/v1/auth/request-otp", "/api/v1/auth/refresh", "/api/v1/auth/email/request",
             "/api/v1/auth/email/verify", "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange",
-            "/api/v1/auth/telegram/callback");
+            "/api/v1/auth/telegram/callback", "/api/v1/auth/telegram/native/start", "/api/v1/auth/telegram/native/exchange",
+            "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard");
     private final SessionService sessions;
     private final ObjectMapper json;
 
@@ -44,6 +45,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (!header.startsWith("Bearer ") || header.length() <= 7)
                     throw new com.bank.digital_banking.common.exception.AuthenticationFailedException("TOKEN_INVALID", "A Bearer access token is required");
                 AuthSession session = sessions.authenticate(header.substring(7));
+                if (sessions.isPinLocked(session.getId()) && !request.getServletPath().startsWith("/api/v1/auth/pin/")
+                        && !request.getServletPath().equals("/api/v1/auth/logout"))
+                    throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "PIN_REQUIRED", "Unlock the app with your PIN");
                 var authorities = session.getUser().getRoles().stream()
                         .filter(r -> session.getUser().isProfileComplete())
                         .map(r -> new SimpleGrantedAuthority(r.getName().name())).toList();

@@ -3,6 +3,7 @@ package com.bank.digital_banking.module.analytics.controller;
 import com.bank.digital_banking.module.analytics.dto.FinancialAnalyticsDTO.*;
 import com.bank.digital_banking.module.analytics.service.AnalyticsService;
 import com.bank.digital_banking.module.auth.entity.User;
+import com.bank.digital_banking.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,15 @@ import java.util.List;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+
+    @GetMapping("/monthly-overview")
+    @Operation(summary = "Customer-wide monthly cash flow by currency; excludes transfers between own accounts")
+    public ResponseEntity<ApiResponse<MonthlyOverview>> getMonthlyOverview(
+            @AuthenticationPrincipal User currentUser, @RequestParam int year,
+            @RequestParam int month, @RequestParam String currency) {
+        return ResponseEntity.ok(ApiResponse.success(
+                analyticsService.getMonthlyOverview(currentUser, year, month, currency), "Monthly analytics"));
+    }
 
     @GetMapping("/daily")
     @Operation(summary = "Fetch daily transaction totals (Income & Expense) for every day in a month")

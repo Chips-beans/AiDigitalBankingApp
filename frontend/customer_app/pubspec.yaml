@@ -40,6 +40,7 @@ dependencies:
   web: ^1.1.1
   flutter_secure_storage: ^11.2.0
   flutter_svg: ^2.3.0
+  file_selector: ^1.1.0
 
 dev_dependencies:
   integration_test:
@@ -67,6 +68,8 @@ flutter:
   assets:
     - assets/auth/
     - assets/home/
+    - assets/analytics/
+    - assets/pin/
   fonts:
     - family: Google Sans
       fonts:
@@ -86,6 +89,8 @@ flutter:
           weight: 500
         - asset: assets/fonts/Poppins-SemiBold.ttf
           weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
     - family: Noto Sans Khmer
       fonts:
         - asset: assets/fonts/NotoSansKhmer-Variable.ttf

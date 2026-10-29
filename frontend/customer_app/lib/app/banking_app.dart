@@ -7,9 +7,11 @@ import 'app_preferences.dart';
 import '../core/config/app_config.dart';
 import '../features/auth/session_controller.dart';
 import '../features/auth/presentation/auth_pages.dart';
+import '../features/auth/presentation/app_pin_page.dart';
 import '../features/auth/presentation/continuation_pages.dart';
 import '../features/auth/data/auth_gateway.dart';
 import '../features/accounts/account_gateway.dart';
+import '../features/analytics/analytics_gateway.dart';
 import '../features/accounts/creation_store.dart';
 import '../features/accounts/presentation/accounts_shell.dart';
 import '../features/transactions/transaction_gateway.dart';
@@ -22,6 +24,7 @@ class BankingApp extends StatefulWidget {
     required this.session,
     required this.config,
     this.accountGateway,
+    this.analyticsGateway,
     this.creationStore,
     this.transactionGateway,
     this.transferStore,
@@ -31,6 +34,7 @@ class BankingApp extends StatefulWidget {
   final SessionController session;
   final AppConfig config;
   final AccountGateway? accountGateway;
+  final AnalyticsGateway? analyticsGateway;
   final CreationStore? creationStore;
   final TransactionGateway? transactionGateway;
   final TransferStore? transferStore;
@@ -88,10 +92,18 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final session = widget.session;
+    if (state == AppLifecycleState.inactive) session.coverPrivateContent();
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      if (!session.trustedPhotoSelection) session.lockApp();
+    }
     if (state == AppLifecycleState.resumed) {
-      widget.session.expirePendingIfNeeded();
-      if (widget.session.phase == SessionPhase.signedIn) {
-        widget.session.refreshProfile();
+      session.uncoverPrivateContent();
+      session.expirePendingIfNeeded();
+      if (session.phase == SessionPhase.signedIn &&
+          !session.trustedPhotoSelection) {
+        session.refreshProfile();
       }
     }
   }
@@ -132,7 +144,26 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            Expanded(child: child!),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: widget.session,
+                builder: (context, _) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ExcludeSemantics(
+                      excluding: widget.session.privacyCovered,
+                      child: child!,
+                    ),
+                    if (widget.session.privacyCovered)
+                      const Positioned.fill(
+                        child: AbsorbPointer(
+                          child: ColoredBox(color: Color(0xFF0B1F35)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         home: ListenableBuilder(
@@ -148,6 +179,9 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 onRetry: session.initialize,
               );
             }
+            if (session.phase == SessionPhase.pinLocked) {
+              return AppPinPage(session);
+            }
             if (session.phase == SessionPhase.signedIn) {
               if (session.linkingEmail) {
                 return session.screen == AuthScreen.otp
@@ -160,6 +194,15 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
               return AccountsShell(
                 session: session,
                 gateway: accounts,
+                analyticsGateway:
+                    widget.analyticsGateway ??
+                    (widget.config.isDemo
+                        ? DemoAnalyticsGateway()
+                        : widget.session.gateway is HttpAuthGateway
+                        ? HttpAnalyticsGateway(
+                            (widget.session.gateway as HttpAuthGateway).client,
+                          )
+                        : UnavailableAnalyticsGateway()),
                 store: creationStore,
                 transactions: transactions,
                 transferStore: transferStore,

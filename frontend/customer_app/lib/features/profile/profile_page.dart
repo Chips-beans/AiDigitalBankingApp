@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../shared/widgets/app_states.dart';
 import '../auth/session_controller.dart';
+import '../auth/presentation/profile_photo_card.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage(this.session, {super.key});
@@ -14,6 +15,8 @@ class ProfilePage extends StatelessWidget {
         'You’re signed in.',
         style: Theme.of(context).textTheme.headlineSmall,
       ),
+      const SizedBox(height: 24),
+      ProfilePhotoCard(session),
       const SizedBox(height: 24),
       Card(
         child: Padding(

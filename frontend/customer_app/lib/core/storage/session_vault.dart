@@ -9,7 +9,9 @@ abstract interface class SessionVault {
   Future<String> installationId();
 }
 
-/// The only persisted auth material is the rotating refresh token and an installation ID.
+/// PIN-enabled app sessions persist an opaque unlock ticket, never a banking
+/// refresh token. The legacy interface also supports existing pre-PIN sessions.
+/// The installation identifier is stored separately. No PIN is stored here.
 /// Default Android ciphers use the Keystore without biometric authentication.
 class SecureSessionVault implements SessionVault {
   SecureSessionVault(String namespace, {FlutterSecureStorage? storage})

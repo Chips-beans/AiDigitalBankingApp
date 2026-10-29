@@ -62,7 +62,7 @@ public class TelegramContinuationService {
     public TelegramCallbackResult callback(String state, String code, String error) {
         if (state == null || !state.matches("[A-Za-z0-9_-]{43}")) throw invalid();
         TelegramLoginFlow flow = flows.findLockedById(state).orElseThrow(this::invalid);
-        if (flow.isCallbackHandled() || !flow.getExpiresAt().isAfter(OffsetDateTime.now())) throw invalid();
+        if (flow.isNativeFlow() || flow.isCallbackHandled() || !flow.getExpiresAt().isAfter(OffsetDateTime.now())) throw invalid();
         flow.setCallbackHandled(true);
         String receipt = secret();
         flow.setApprovalReceiptHash(HashUtils.sha256(receipt));
@@ -82,7 +82,7 @@ public class TelegramContinuationService {
     @Transactional
     public TelegramExchangeResponse exchange(TelegramExchangeRequest request) {
         TelegramLoginFlow flow = flows.findLockedById(request.flowId()).orElseThrow(this::invalid);
-        if (!MessageDigest.isEqual(flow.getExchangeSecretHash().getBytes(StandardCharsets.US_ASCII),
+        if (flow.isNativeFlow() || !MessageDigest.isEqual(flow.getExchangeSecretHash().getBytes(StandardCharsets.US_ASCII),
                 HashUtils.sha256(request.exchangeSecret()).getBytes(StandardCharsets.US_ASCII))
                 || flow.isClaimed() || !flow.getExpiresAt().isAfter(OffsetDateTime.now())) throw invalid();
         if (!flow.isCallbackHandled()) return new TelegramExchangeResponse("PENDING", null);

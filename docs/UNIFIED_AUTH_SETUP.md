@@ -1,6 +1,26 @@
 # Unified customer authentication
 
+30 October PIN update: after verified continuation and profile completion, the
+normal Flutter app requires Create/Confirm PIN or Enter PIN before banking.
+Five wrong attempts require verified recovery; reopening/backgrounding locks.
+Read [APP_PIN.md](APP_PIN.md) for ticket/token lifecycle, recovery and V13 schema.
+Legacy primary-auth API clients remain compatible until `/auth/pin/prepare`.
+
+30 October 2026 UI update: email entry, verification and onboarding now follow
+Figma section `253:1457`. The user requested persistent profile photos as well;
+authenticated own-photo GET/PUT and additive schema V12 are implemented. Read
+[EMAIL_AUTH_SCREENS.md](../frontend/customer_app/docs/EMAIL_AUTH_SCREENS.md) for
+the photo contract, validation, screenshots and current acceptance limits. The
+development database remains V11 until the next normal startup. “Create Account”
+in the new design completes a profile and does not open a financial account.
+
 Customers enter through Continue with Telegram or Continue with Email. New and returning identities share each flow. Legacy password endpoints remain available for existing integrations and staff QA, but are not shown in the customer welcome UI.
+
+Native Android support was subsequently added; see [NATIVE_TELEGRAM_SETUP.md](NATIVE_TELEGRAM_SETUP.md).
+Its verified App Link delivers the code to the installed app, and separate native
+endpoints preserve state/nonce/PKCE and one-use exchange. Physical-device approval
+is deferred. The browser implementation and its historical verification below
+remain separate. iOS integration is not implemented.
 
 ## Routing and access
 
@@ -14,7 +34,7 @@ A newly verified identity creates an onboarding-only profile. The server withhol
 
 In the ignored backend `.env`, set `TELEGRAM_CLIENT_ID`, `TELEGRAM_CLIENT_SECRET`, and `TELEGRAM_REDIRECT_URI`. The client secret is not the bot token and must never be put in Flutter settings. The callback is `https://YOUR-HOST/api/v1/auth/telegram/callback`; register that exact URL with BotFather. Blank credentials disable Telegram gracefully while email remains available. `TELEGRAM_FRONTEND_ORIGIN` defaults to `http://localhost:8081`; open the frontend at exactly that origin, or explicitly configure another allowed origin without a trailing slash.
 
-The browser stays at `http://localhost:8081`, which is already a permitted backend CORS origin. A temporary HTTPS tunnel may forward the Telegram callback to the local backend on 8080. Keep its process running; if its hostname changes, update both BotFather and `.env`, then restart the backend. The redirect-based flow does not embed Telegram's JavaScript widget and needs no Trusted Origin entry. Native Telegram integration is outside this browser-targeted implementation; the shared email flow still supports native clients.
+The browser stays at `http://localhost:8081`, which is already a permitted backend CORS origin. A temporary HTTPS tunnel may forward the Telegram callback to the local backend on 8080. Keep its process running; if its hostname changes, update both BotFather and `.env`, then restart the backend. The redirect-based flow does not embed Telegram's JavaScript widget and needs no Trusted Origin entry. Android uses the separate native flow documented above; the shared email flow also supports native clients.
 
 ## Browser approval exchange
 

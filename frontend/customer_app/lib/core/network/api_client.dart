@@ -23,6 +23,16 @@ class ApiFailure implements Exception {
   String toString() => '$code: $message';
 
   static String messageFor(String code) => switch (code) {
+    'PIN_REQUIRED' => 'Unlock the app with your PIN.',
+    'PIN_INVALID' => 'Incorrect PIN. Please try again.',
+    'PIN_RECOVERY_REQUIRED' =>
+      'Five incorrect attempts. Verify your identity to reset your PIN.',
+    'PIN_RECOVERY_AUTH_REQUIRED' =>
+      'Verify your email or Telegram again to reset your PIN.',
+    'PIN_TICKET_INVALID' => 'Your app session has ended. Sign in again.',
+    'PIN_SETUP_REQUIRED' => 'Create your PIN to continue.',
+    'PIN_CONFIRMATION_MISMATCH' =>
+      'The PINs do not match. Try confirming again.',
     'TELEGRAM_CANCELLED' =>
       'Telegram approval was cancelled. Try again or continue with email.',
     'TELEGRAM_UNAVAILABLE' =>
@@ -59,6 +69,9 @@ class ApiFailure implements Exception {
     'VALIDATION_FAILED' ||
     'INVALID_REQUEST' => 'Please check the highlighted details.',
     'ACCESS_DENIED' => 'This action is not available for your profile.',
+    'PROFILE_PHOTO_INVALID' =>
+      'Choose a valid JPG or PNG up to 5 MB and 16 megapixels.',
+    'PROFILE_PHOTO_TOO_LARGE' => 'Choose a JPG or PNG up to 5 MB.',
     'INSUFFICIENT_FUNDS' => 'There are not enough funds in the source account.',
     'ACCOUNT_INACTIVE' => 'Both accounts must be active to make a transfer.',
     'CURRENCY_MISMATCH' => 'Both accounts must use the transfer currency.',
@@ -91,6 +104,7 @@ class ApiClient {
     Map<String, String>? query,
     int? expectedStatus,
     String? idempotencyKey,
+    List<int>? photoBytes,
   }) async {
     if (!path.startsWith('/') ||
         path.startsWith('//') ||
@@ -98,14 +112,23 @@ class ApiClient {
         path.contains('?')) {
       throw ArgumentError('Use an API-relative path');
     }
-    final request =
-        http.Request(
-            method,
-            Uri.parse('${config.apiBaseUrl}$path')
-                .replace(queryParameters: query),
-          )
-          ..followRedirects = false
-          ..headers['Accept'] = 'application/json';
+    final uri = Uri.parse('${config.apiBaseUrl}$path')
+        .replace(queryParameters: query);
+    final http.BaseRequest request;
+    if (photoBytes != null) {
+      request = http.MultipartRequest(method, uri)
+        ..files.add(
+          http.MultipartFile.fromBytes(
+            'photo',
+            photoBytes,
+            filename: 'profile-photo',
+          ),
+        );
+    } else {
+      request = http.Request(method, uri);
+    }
+    request.followRedirects = false;
+    request.headers['Accept'] = 'application/json';
     if (accessToken != null) {
       request.headers['Authorization'] = 'Bearer $accessToken';
     }
@@ -114,7 +137,7 @@ class ApiClient {
     }
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(body);
+      (request as http.Request).body = jsonEncode(body);
     }
     try {
       final response = await (() async => http.Response.fromStream(

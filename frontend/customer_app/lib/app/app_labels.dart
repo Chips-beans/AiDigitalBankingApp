@@ -9,6 +9,24 @@ String tx(BuildContext context, String english) =>
     : english;
 
 const _khmer = <String, String>{
+  'Send Code': 'ផ្ញើលេខកូដ',
+  'Verification code': 'លេខកូដផ្ទៀងផ្ទាត់',
+  'Enter the 6-digit code sent to': 'បញ្ចូលលេខកូដ ៦ ខ្ទង់ដែលបានផ្ញើទៅ',
+  'Verify': 'ផ្ទៀងផ្ទាត់',
+  'Didn’t receive the code?': 'មិនបានទទួលលេខកូដមែនទេ?',
+  'Resend code in': 'ផ្ញើលេខកូដម្ដងទៀតក្នុង',
+  'Create profile': 'បង្កើតប្រវត្តិរូប',
+  'Let’s get to know you. Add your details to get started.':
+      'សូមឱ្យយើងស្គាល់អ្នក។ បញ្ចូលព័ត៌មានរបស់អ្នកដើម្បីចាប់ផ្ដើម។',
+  'First Name': 'នាមខ្លួន',
+  'Last Name': 'នាមត្រកូល',
+  'Your First Name': 'នាមខ្លួនរបស់អ្នក',
+  'Your Last Name': 'នាមត្រកូលរបស់អ្នក',
+  'Create Account': 'បង្កើតគណនី',
+  'I agree to the Terms & Conditions and Privacy Policy':
+      'ខ្ញុំយល់ព្រមនឹងលក្ខខណ្ឌប្រើប្រាស់ និងគោលការណ៍ឯកជនភាព',
+  'Please agree to the terms and privacy policy to continue.':
+      'សូមយល់ព្រមនឹងលក្ខខណ្ឌ និងគោលការណ៍ឯកជនភាពដើម្បីបន្ត។',
   'Continue with email': 'បន្តជាមួយអ៊ីមែល',
   'Connect your email': 'ភ្ជាប់អ៊ីមែលរបស់អ្នក',
   'We’ll send a verification code. Your profile will be ready whether you’re new or returning.': 'យើងនឹងផ្ញើលេខកូដផ្ទៀងផ្ទាត់។ អ្នកថ្មី និងអ្នកត្រឡប់មកវិញអាចប្រើវិធីដូចគ្នា។',

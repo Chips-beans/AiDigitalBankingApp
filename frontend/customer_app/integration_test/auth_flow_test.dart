@@ -91,13 +91,16 @@ void main() {
       await tester.pumpAndSettle();
       await tap('Continue with Email');
       await enter('email', email);
-      await tap('Send verification code');
-      expect(find.text('Check your email'), findsOneWidget);
+      await tap('Send Code');
+      expect(find.text('Verification code'), findsOneWidget);
       await enter('otpCode', await latestCode('CONTINUE'));
-      await tap('Verify and continue');
+      await tap('Verify');
       await enter('firstName', 'Native');
       await enter('lastName', 'Customer');
-      await tap('Continue to Kesor');
+      await tester.ensureVisible(find.byKey(const ValueKey('profile-consent')));
+      await tester.tap(find.byKey(const ValueKey('profile-consent')));
+      await tester.pumpAndSettle();
+      await tap('Create Account');
       expect(session.phase, SessionPhase.signedIn);
       expect(session.identity!.email, email);
       debugPrint('Native QA: signup through the UI passed');
@@ -135,9 +138,9 @@ void main() {
       debugPrint('Native QA: logout and protected back navigation passed');
       await tap('Continue with Email');
       await enter('email', email);
-      await tap('Send verification code');
+      await tap('Send Code');
       await enter('otpCode', await latestCode('CONTINUE'));
-      await tap('Verify and continue');
+      await tap('Verify');
       expect(session.phase, SessionPhase.signedIn);
       debugPrint('Native QA: login through the UI passed');
       // Revoke the exact server session externally, then ensure the app drops private state.

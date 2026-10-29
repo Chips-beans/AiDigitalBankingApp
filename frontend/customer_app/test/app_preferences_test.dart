@@ -78,11 +78,10 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('bottom-tab-1')));
       await tester.pumpAndSettle();
+      expect(find.text('ប្រចាំខែ'), findsOneWidget);
       expect(
-        tester
-            .widget<Text>(find.byKey(const ValueKey('placeholder-tab-1')))
-            .data,
-        'ការវិភាគ',
+        find.byKey(const ValueKey('analytics-income-card')),
+        findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox.shrink());
       prefs.dispose();

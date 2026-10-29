@@ -23,21 +23,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Page<Transaction> findAllByAccount(@Param("account") Account account, Pageable pageable);
 
     interface DailyAggregateProjection {
-        java.sql.Date getTxDate();
-        String getType();
-        BigDecimal getTotalAmount();
+        java.time.LocalDate getTxDate();
+        BigDecimal getTotalIncome();
+        BigDecimal getTotalExpense();
     }
 
     @Query(value = """
-        SELECT CAST(t.created_at AS DATE) AS txDate, 
-               CAST(t.transaction_type AS VARCHAR) AS type, 
-               SUM(t.amount) AS totalAmount
+        SELECT CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE) AS txDate,
+               SUM(CASE WHEN t.destination_account_id = :accountId THEN t.amount ELSE 0 END) AS totalIncome,
+               SUM(CASE WHEN t.source_account_id = :accountId THEN t.amount ELSE 0 END) AS totalExpense
         FROM transactions t
         WHERE (t.source_account_id = :accountId OR t.destination_account_id = :accountId)
           AND t.created_at >= :startDate
           AND t.created_at < :endDate
           AND t.status = 'SUCCESS'
-        GROUP BY CAST(t.created_at AS DATE), t.transaction_type
+        GROUP BY CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE)
         ORDER BY txDate ASC
         """, nativeQuery = true)
     List<DailyAggregateProjection> findDailyAggregates(
@@ -45,6 +45,24 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("startDate") OffsetDateTime startDate,
             @Param("endDate") OffsetDateTime endDate
     );
+
+    @Query(value = """
+        SELECT CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE) AS txDate,
+               SUM(CASE WHEN dst.user_id = :userId THEN t.amount ELSE 0 END) AS totalIncome,
+               SUM(CASE WHEN src.user_id = :userId THEN t.amount ELSE 0 END) AS totalExpense
+        FROM transactions t
+        LEFT JOIN accounts src ON src.id = t.source_account_id
+        LEFT JOIN accounts dst ON dst.id = t.destination_account_id
+        WHERE (src.user_id = :userId OR dst.user_id = :userId)
+          AND NOT (COALESCE(src.user_id = :userId, FALSE) AND COALESCE(dst.user_id = :userId, FALSE))
+          AND t.currency = :currency AND t.status = 'SUCCESS'
+          AND t.created_at >= :startDate AND t.created_at < :endDate
+        GROUP BY CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE)
+        ORDER BY txDate
+        """, nativeQuery = true)
+    List<DailyAggregateProjection> findCustomerDailyAggregates(
+            @Param("userId") Long userId, @Param("currency") String currency,
+            @Param("startDate") OffsetDateTime startDate, @Param("endDate") OffsetDateTime endDate);
 
     @Query("""
         SELECT COALESCE(SUM(t.amount), 0)

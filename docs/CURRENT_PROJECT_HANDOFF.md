@@ -1,8 +1,164 @@
 # Current project handoff — Kesor Bank
 
-Updated 29 October 2026, Asia/Phnom_Penh (UTC+07:00).
+Updated 30 October 2026, Asia/Phnom_Penh (UTC+07:00).
 
 ## Read this first
+
+Latest implementation: the normal Flutter customer app now requires a **4-digit
+PIN** after profile completion, with Create/Confirm and returning Enter PIN screens
+from live Figma section `280:1494`. Read [APP_PIN.md](APP_PIN.md) before changing
+authentication or lifecycle behavior. Background/relaunch locks, persistent
+five-attempt limits, fresh verified identity recovery, hashed server verification,
+private session tickets and access-token epochs are implemented. Source is **V13**
+with **32 foundation API paths**. Development PostgreSQL remains V11: the next
+ordinary startup applies V12 photos and V13 PIN tables. Backend and emulator remain
+stopped; no live customer login, financial operation or migration was performed.
+Verification: **123 backend tests** and **149 Flutter checks** passed across full
+regression/visual fixtures and the corrected lifecycle-fixture rerun; analyzer
+clean, API-mode web build and Wasm dry run successful. Native Flutter screenshots
+at 440×999 and adaptive English/Khmer variants are in ignored `.local/qa/pin/`.
+Physical-device and complete live identity/PIN acceptance remain pending.
+The normal-entrypoint Android debug APK now includes PIN protection and built
+successfully in API mode with `APP_ENV=dev` and localhost port 8080. It supersedes
+the older email-auth APK described below. No emulator/device installation was
+performed. The temporary build daemon was stopped after the build.
+
+Latest implementation, 30 October 2026: the three Flutter email-auth screens now
+match live Figma section `253:1457` (email entry, OTP verification, create profile).
+Read [EMAIL_AUTH_SCREENS.md](../frontend/customer_app/docs/EMAIL_AUTH_SCREENS.md).
+The existing continuation/session behavior is preserved. The user additionally
+requested persistent profile-photo upload: authenticated own-photo GET/PUT,
+JPG/PNG validation, normalized private PostgreSQL storage, an audit event, OS file
+selection, saved-avatar reload and replacement are implemented. Source is now
+**V12**, with **27 foundation API paths**. The existing development database is
+still V11; no development backend startup or live migration occurred in this task.
+Its next ordinary startup applies the additive V12 photo table migration.
+
+Verification: **117 backend tests / 139 Flutter checks passed**, analyzer clean,
+API-mode web build, Wasm dry run and normal-entrypoint Android debug APK succeeded.
+The APK uses `APP_ENV=dev` and `API_BASE_URL=http://127.0.0.1:8080/api/v1`; it
+supersedes the older Analytics APK below. Flutter screenshots were inspected
+at 440×956, in both themes/languages and responsive variants. Evidence is ignored
+under `frontend/customer_app/.local/qa/email-auth/` / `.local/email-auth-*`.
+Personal login, physical file-picker interaction and live photo acceptance remain
+unverified. The “Create Account” design label completes a profile only; financial
+accounts still require explicit account opening. No funds or customer data changed.
+
+Latest runtime state: the user requested shutdown. The backend launcher/JVM tree
+was identity-checked and stopped; port 8080 was confirmed closed. The emulator was
+already stopped and ADB had no devices. PostgreSQL was left running. The older
+“left running” runtime records below are historical; never reuse their PIDs
+without verifying identities. No emulator or development server was started for
+this design task.
+
+Latest runtime update, 30 October 2026: the user requested the complete project
+for manual flow testing. PostgreSQL was already running. Started source Spring
+Boot with Maven in `local` mode on 8080; normal Flyway startup successfully applied
+V11 to the existing development database. It is now V11 (older V10 statements
+below are historical). Swagger returned 200 and protected accounts returned 401
+without a token. No customer login, OTP request or financial posting was performed.
+
+Pixel_6a exists but has only 455 MB free inside Android and rejected the APK for
+insufficient storage. Its apps/data were preserved and that emulator was closed.
+The two older Codex F2 AVD entries point to missing directories. Created a separate
+`Kesor_Bank_Test` AVD at `D:\CodexQa\KesorFullFlow\Kesor_Bank_Test.avd`, reusing the
+installed API 36.1 Play Store x86_64 system image, with an 8 GB data partition.
+No system image download was needed. It booted, and the current Analytics debug
+APK installed successfully. App launched using `com.bank.customer_app/.MainActivity`.
+ADB reverse forwards emulator localhost:8080 to host:8080. This is API mode.
+
+The workstation has 8 GB RAM and was under memory pressure; first Android boot
+took about 192 seconds and System UI briefly became unresponsive. At setup,
+C: had about 5.8 GB free and D: about 33 GB. No unrelated apps were closed.
+The fresh emulator has no Telegram login configured; email continuation is the
+immediate manual test path. Native Telegram link verification was requested from
+Android but successful personal provider acceptance remains unverified.
+
+Backend and emulator are intentionally left running. Launcher details/logs:
+`backend/digital-banking/.local/full-flow-backend.json` and
+`frontend/customer_app/.local/full-flow-emulator.json` / `full-flow-runtime.json`.
+Backend launcher PID 9300/JVM 30996, emulator launcher PID 8188. Recheck process
+identity before stopping these; PIDs can be reused. Browser/tunnel were not started.
+The Kesor welcome screen was visually confirmed open, with both continuation
+buttons visible. No authentication or OTP was entered by the agent.
+
+Latest implementation: the Flutter **Monthly Analytics** tab is implemented from
+live Kesor Figma node `166:177`, replacing its placeholder. Read
+[MONTHLY_ANALYTICS.md](MONTHLY_ANALYTICS.md) for financial meaning, API contract,
+interaction, verification commands and limitations before continuing this feature.
+It covers all owned accounts within USD or KHR, excludes own-account transfers,
+and shows monthly income/expense plus a switchable daily chart. Dates consistently
+use `Asia/Phnom_Penh`. Amounts stay exact; cards are sums of the same daily snapshot.
+
+The new authenticated customer route is
+`GET /api/v1/analytics/monthly-overview?year=2026&month=10&currency=USD`.
+The original three account-level analytics routes retain their wire formats and
+ownership checks, with incoming-transfer classification and date projection fixed.
+The new chart uses Flutter CustomPainter, without an additional chart package.
+The screen follows theme/language preferences and uses original exported assets.
+Its source motif shares Home's existing SVG/progressive-blur renderer; Home's
+default rendering geometry is preserved. Figma reauthentication succeeded.
+
+No migration, development-database startup, credentials change, live financial
+posting, external email, emulator, device installation, tunnel, or preview was
+performed for Analytics. Source remains V11; foundation route count remains 26.
+Verification used isolated PostgreSQL/local SMTP and Flutter fixtures. All prior
+native Telegram work remains intact and uncommitted. No commit was created.
+
+Analytics final verification: **114 backend tests / 134 Flutter checks passed**
+(133 tests plus the visual fixture); Flutter analysis clean. The normal-entrypoint
+Android debug APK built with `APP_ENV=dev` and
+`API_BASE_URL=http://127.0.0.1:8080/api/v1` for later USB `adb reverse` testing.
+The development web build and its Wasm dry run succeeded. Reference and small/2x
+text screenshots were reviewed in both languages/themes; additional tests cover
+375px, landscape/tablet, reduced motion and navigation clearance. Screenshot/log
+evidence is ignored under `frontend/customer_app/.local/qa/analytics/` and
+`.local/analytics-*`. Runtime preview/backend ports 8080–8083 remain closed.
+The new Analytics debug APK SHA-256 is
+`a9a2f9c8c828ea056ece8ad81e26c5995500b88a10b9fcb5854d53c6489b5bd8`;
+this supersedes the historical native-login APK hash below.
+
+Previous implementation update: Android native Telegram login is implemented using
+the registered App Link `https://app937652339-login.tg.dev/tglogin`. The user
+registered the native app and explicitly chose **prepare the build; test the phone
+later**. No device is connected and no personal Telegram approval was performed.
+Read [NATIVE_TELEGRAM_SETUP.md](NATIVE_TELEGRAM_SETUP.md) before continuing native
+work; it records the protocol choice, backend contract, build, USB test sequence,
+and remaining live-provider/device checks.
+
+Native login uses an Android platform bridge and separate start/link/exchange
+routes. State, nonce and S256 PKCE remain backend-owned; returned codes are checked
+against the active app flow. Exchanges are consumed before contacting Telegram and
+are not automatically retried. The browser popup/receipt flow remains separate.
+The official SDK's source protocol is used because its public API exposes no
+state/nonce hook. Native provider compatibility still needs live acceptance; nonce
+validation was not weakened. Activity/process recreation during approval requires
+a fresh login; secure completed sessions retain existing restoration behavior.
+
+Current source schema is **V11**, with **26 foundation API paths**. V11 is new;
+V10 was not edited. The existing development database remains at V10 because its
+backend was not started; the next normal startup will apply V11. Isolated tests
+verify fresh V11, V10-to-V11 preservation, and server restarts. Final validation:
+**110 backend tests / 120 Flutter tests passed**, Flutter analysis clean, normal
+Android debug APK built, web build and Wasm dry run succeeded. The initial full
+backend attempt failed only on an outdated migration-count assertion; it was
+updated and the full final run passed.
+
+The ignored backend `.env` now includes one `TELEGRAM_NATIVE_REDIRECT_URI` assignment.
+Other credential/browser settings were preserved. The APK's package, verified-link
+manifest, and signing certificate were inspected; Telegram's public association
+lists the same package/certificate. Credential packaging checks found no `.env`
+or Telegram/JWT/email secret values. No credential value was printed.
+
+The prepared normal-entrypoint debug APK uses explicit `APP_ENV=dev` and
+`API_BASE_URL=http://127.0.0.1:8080/api/v1` for later USB `adb reverse` testing.
+It is not a production build. Its SHA-256 is
+`41cca7c500ffb2be7d5bcbf624045583a1c0330d0094dfe7b06c8b496a847454`.
+It is at `frontend/customer_app/build/app/outputs/flutter-apk/app-debug.apk`.
+No development backend, tunnel, emulator, or browser preview was started. Only
+isolated test servers ran; ports 8080–8083 remain closed. No commit was created.
+This task started at HEAD `8a8c988` with a clean status; all native work is now
+uncommitted. The older branch/hash and evidence below remain historical.
 
 Latest runtime update: the user asked to close the review preview. The dedicated
 Flutter/Chrome demo process tree (launcher PID 6228) was stopped and port 8081 was
@@ -52,7 +208,7 @@ account. Do not describe that personal-account check as already completed.
 Read [UNIFIED_AUTH_SETUP.md](UNIFIED_AUTH_SETUP.md) for the full current auth
 contract and [FOUNDATION_F5_HANDOFF.md](FOUNDATION_F5_HANDOFF.md) for the older
 banking foundation. F5's V9 schema, 14-route contract, and test counts are historical;
-the current schema is **V10**, the foundation API has **23 paths**, and that auth
+that earlier schema was **V10**, the foundation API had **23 paths**, and that auth
 handoff recorded **105 backend tests / 96 Flutter tests**. Current Home verification
 is recorded above.
 
@@ -221,8 +377,9 @@ Two browser regressions were found and fixed during real compiled-browser checks
 
 Browser sessions intentionally use memory, not native secure storage: a browser
 reload requires continuation again. Native sessions retain their existing secure
-storage behavior. Native Telegram SDK integration was not implemented; this feature's
-Telegram acceptance target is the browser.
+storage behavior. At the original auth handoff, native Telegram integration was
+not implemented. Android was subsequently added as described in the latest update
+above; the successful native personal-account acceptance check remains pending.
 
 ## Telegram / Cloudflare setup and restart
 

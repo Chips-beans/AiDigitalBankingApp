@@ -23,6 +23,17 @@ public class SessionService {
     private final AuthSessionRepository sessions;
     private final JwtTokenProvider tokens;
     private final AuditTrail audit;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    public boolean isPinLocked(UUID id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM app_pin_locks WHERE session_id=? AND locked=TRUE)", Boolean.class, id));
+    }
+    private int pinGeneration(UUID id) {
+        return jdbc.queryForObject("SELECT COALESCE((SELECT pin_generation FROM app_pin_locks WHERE session_id=?),0)", Integer.class, id);
+    }
+
+    @Transactional
+    public TokenResponseDto issueAfterPin(AuthSession session) { return issue(session); }
 
     @Transactional
     public TokenResponseDto create(User user, Device device) {
@@ -40,6 +51,8 @@ public class SessionService {
         AuthSession session = sessions.findLockedById(UUID.fromString(claims.get("sid", String.class)))
                 .orElseThrow(() -> failure("SESSION_INVALID", "Session is not available"));
         validate(session, claims);
+        if (isPinLocked(session.getId())) throw new com.bank.digital_banking.common.exception.ApiException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "PIN_REQUIRED", "Unlock the app with your PIN");
         if (!MessageDigest.isEqual(session.getRefreshTokenHash().getBytes(StandardCharsets.US_ASCII),
                 HashUtils.sha256(rawToken).getBytes(StandardCharsets.US_ASCII))) {
             session.setRevokedAt(OffsetDateTime.now());
@@ -57,6 +70,9 @@ public class SessionService {
         AuthSession session = sessions.findById(UUID.fromString(claims.get("sid", String.class)))
                 .orElseThrow(() -> failure("SESSION_INVALID", "Session is not available"));
         validate(session, claims);
+        int supplied = claims.get("pin_epoch") instanceof Number n ? n.intValue() : 0;
+        if (supplied != pinGeneration(session.getId())) throw new com.bank.digital_banking.common.exception.ApiException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "PIN_REQUIRED", "This access token predates the latest app unlock");
         // Initialize current roles while the persistence context is open.
         session.getUser().getRoles().size();
         return session;
@@ -88,7 +104,7 @@ public class SessionService {
         String refresh = tokens.generateRefreshToken(user.getId(), session.getId());
         session.setRefreshTokenHash(HashUtils.sha256(refresh));
         sessions.save(session);
-        return TokenResponseDto.builder().accessToken(tokens.generateAccessToken(user.getId(), session.getId(), roles))
+        return TokenResponseDto.builder().accessToken(tokens.generateAccessToken(user.getId(), session.getId(), roles, pinGeneration(session.getId())))
                 .refreshToken(refresh).tokenType("Bearer").expiresInMs(tokens.getAccessMs())
                 .refreshExpiresAt(session.getExpiresAt()).sessionId(session.getId()).userId(user.getId())
                 .username(user.getUsername()).email(user.getEmail()).roles(roles).build();

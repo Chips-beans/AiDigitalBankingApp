@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface AnalyticsService {
 
+    MonthlyOverview getMonthlyOverview(User currentUser, int year, int month, String currency);
+
     List<DailyTransactionSummary> getDailyTransactionsForMonth(User currentUser, String accountNumber, int year, int month);
 
     MonthlySummaryResponse getMonthlySummary(User currentUser, String accountNumber, int year, int month);

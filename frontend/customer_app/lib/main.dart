@@ -10,6 +10,7 @@ import 'core/config/app_config.dart';
 import 'core/network/api_client.dart';
 import 'core/storage/session_vault.dart';
 import 'features/auth/data/auth_gateway.dart';
+import 'features/auth/data/app_pin_gateway.dart';
 import 'features/auth/session_controller.dart';
 import 'features/accounts/account_gateway.dart';
 
@@ -28,6 +29,9 @@ Future<void> main() async {
   final session = SessionController(
     gateway,
     vault,
+    pinGateway: config.isDemo
+        ? DemoAppPinGateway(gateway)
+        : HttpAppPinGateway(client),
     deviceType: kIsWeb ? 'WEB' : defaultTargetPlatform.name.toUpperCase(),
   );
   runApp(

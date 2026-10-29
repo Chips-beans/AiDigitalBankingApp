@@ -9,6 +9,9 @@ import '../../../shared/widgets/kesor_bottom_bar.dart';
 import '../../../app/app_preferences.dart';
 import '../../../app/design_system/design_system.dart';
 import '../../home/home_controller.dart';
+import '../../analytics/analytics_controller.dart';
+import '../../analytics/analytics_gateway.dart';
+import '../../analytics/presentation/analytics_screen.dart';
 import '../../home/home_gateway.dart';
 import '../../auth/session_controller.dart';
 import '../../profile/profile_page.dart';
@@ -38,6 +41,7 @@ class AccountsShell extends StatefulWidget {
     required this.transferStore,
     required this.transfersEnabled,
     this.designPreview = false,
+    this.analyticsGateway,
     super.key,
   });
   final SessionController session;
@@ -47,6 +51,7 @@ class AccountsShell extends StatefulWidget {
   final TransferStore transferStore;
   final bool transfersEnabled;
   final bool designPreview;
+  final AnalyticsGateway? analyticsGateway;
   @override
   State<AccountsShell> createState() => _AccountsShellState();
 }
@@ -54,6 +59,7 @@ class AccountsShell extends StatefulWidget {
 class _AccountsShellState extends State<AccountsShell> {
   late final AccountsController model;
   late final HomeController home;
+  AnalyticsController? analytics;
   late final TransferController transfers;
   late final HistoryController history;
   late final Listenable changes;
@@ -68,6 +74,10 @@ class _AccountsShellState extends State<AccountsShell> {
     super.initState();
     model = AccountsController(widget.session, widget.gateway, widget.store);
     home = HomeController(widget.session, AccountHomeGateway(widget.gateway));
+    final analyticsGateway = widget.analyticsGateway;
+    if (analyticsGateway != null) {
+      analytics = AnalyticsController(widget.session, analyticsGateway);
+    }
     history = HistoryController(widget.session, model, widget.transactions);
     transfers = TransferController(
       widget.session,
@@ -77,9 +87,10 @@ class _AccountsShellState extends State<AccountsShell> {
         await model.refresh();
         await history.refresh();
         await home.refresh();
+        await analytics?.invalidate();
       },
     );
-    changes = Listenable.merge([model, transfers, history, home]);
+    changes = Listenable.merge([model, transfers, history, home, ?analytics]);
     unawaited(transfers.initialize());
     unawaited(model.initialize());
     if (!widget.designPreview) unawaited(home.refresh());
@@ -88,6 +99,7 @@ class _AccountsShellState extends State<AccountsShell> {
   @override
   void dispose() {
     home.dispose();
+    analytics?.dispose();
     transfers.dispose();
     history.dispose();
     model.dispose();
@@ -238,6 +250,7 @@ class _AccountsShellState extends State<AccountsShell> {
       tab = index;
       page = null;
     });
+    if (index == 1) unawaited(analytics?.ensureLoaded());
   }
 
   Widget _root(BuildContext context) {
@@ -311,6 +324,8 @@ class _AccountsShellState extends State<AccountsShell> {
                             }
                           },
                         )
+                      : tab == 1 && analytics != null
+                      ? AnalyticsScreen(controller: analytics!)
                       : Center(
                           child: Text(
                             labels[tab],
@@ -606,6 +621,7 @@ class _AccountsShellState extends State<AccountsShell> {
           ? null
           : () async {
               final success = await model.open(type, currency);
+              if (success) await analytics?.invalidate();
               if (success && mounted) setState(() => page = 'accounts');
             },
     ),

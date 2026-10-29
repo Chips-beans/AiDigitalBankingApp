@@ -54,10 +54,15 @@ public class SecurityConfig {
                 .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/request-otp", "/api/v1/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/request", "/api/v1/auth/email/verify",
-                        "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange").permitAll()
+                        "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange",
+                        "/api/v1/auth/telegram/native/start", "/api/v1/auth/telegram/native/exchange").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/telegram/callback").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard").permitAll()
+                .requestMatchers("/api/v1/auth/pin/prepare").authenticated()
+                .requestMatchers("/api/v1/auth/profile/photo").authenticated()
                 .requestMatchers("/api/v1/auth/profile", "/api/v1/auth/email/link/request",
-                        "/api/v1/auth/email/link/verify", "/api/v1/auth/telegram/link/start").authenticated()
+                        "/api/v1/auth/email/link/verify", "/api/v1/auth/telegram/link/start",
+                        "/api/v1/auth/telegram/native/link/start").authenticated()
                 .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/*/status").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/accounts/**").hasRole("CUSTOMER")
@@ -66,6 +71,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/audit/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/fraud/**").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/merchants/**").hasAnyRole("ADMIN", "MERCHANT")
+                .requestMatchers("/api/v1/analytics/monthly-overview").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/analytics/**").hasAnyRole("CUSTOMER", "ADMIN")
                 // Provider verification is a payment-phase prerequisite; users cannot confirm payments themselves.
                 .requestMatchers("/api/v1/payments/webhook").denyAll()

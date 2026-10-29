@@ -16,6 +16,8 @@ public class TelegramLoginFlow {
     @Column(nullable = false) private OffsetDateTime expiresAt;
     @Column(nullable = false) private boolean callbackHandled;
     @Column(nullable = false) private boolean claimed;
+    @Column(nullable = false) private boolean nativeFlow;
+    @Column(length = 512) private String redirectUri;
     @Column(length = 128) private String subject;
     @Column(length = 50) private String firstName;
     @Column(length = 50) private String lastName;

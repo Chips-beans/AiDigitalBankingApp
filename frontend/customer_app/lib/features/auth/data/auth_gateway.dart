@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../../core/network/api_client.dart';
+import 'profile_photo.dart';
 
 class SessionIdentity {
   const SessionIdentity({
@@ -73,6 +75,18 @@ abstract interface class ContinuationGateway {
   });
 }
 
+abstract interface class NativeTelegramGateway {
+  Future<Map<String, dynamic>> startNativeTelegram(
+    Map<String, dynamic> device, {
+    String? linkToken,
+  });
+  Future<TokenPair> exchangeNativeTelegram(
+    String flowId,
+    String exchangeSecret,
+    String code,
+  );
+}
+
 class TokenPair {
   TokenPair({
     required this.accessToken,
@@ -134,9 +148,42 @@ abstract interface class AuthGateway {
   Future<void> logout(String accessToken);
 }
 
-class HttpAuthGateway implements AuthGateway, ContinuationGateway {
+class HttpAuthGateway
+    implements AuthGateway, ContinuationGateway, NativeTelegramGateway {
   HttpAuthGateway(this.client);
   final ApiClient client;
+  @override
+  Future<Map<String, dynamic>> startNativeTelegram(
+    Map<String, dynamic> device, {
+    String? linkToken,
+  }) async => _data(
+    await client.request(
+      'POST',
+      linkToken == null
+          ? '/auth/telegram/native/start'
+          : '/auth/telegram/native/link/start',
+      accessToken: linkToken,
+      body: device,
+    ),
+  );
+  @override
+  Future<TokenPair> exchangeNativeTelegram(
+    String flowId,
+    String exchangeSecret,
+    String code,
+  ) async => TokenPair.fromJson(
+    _data(
+      await client.request(
+        'POST',
+        '/auth/telegram/native/exchange',
+        body: {
+          'flowId': flowId,
+          'exchangeSecret': exchangeSecret,
+          'code': code,
+        },
+      ),
+    ),
+  );
   Map<String, dynamic> _data(Map<String, dynamic> response) {
     if (response['data'] is! Map<String, dynamic>) {
       throw const ApiFailure(
@@ -267,7 +314,22 @@ class HttpAuthGateway implements AuthGateway, ContinuationGateway {
 }
 
 /// Explicit development-only UI simulation. Never selected following an API error.
-class DemoAuthGateway implements AuthGateway, ContinuationGateway {
+class DemoAuthGateway
+    implements AuthGateway, ContinuationGateway, ProfilePhotoGateway {
+  final Map<int, ProfilePhoto> _photos = {};
+  @override
+  Future<ProfilePhoto?> readPhoto(String access) async =>
+      _photos[(await me(access)).userId];
+  @override
+  Future<ProfilePhoto> savePhoto(String access, Uint8List bytes) async {
+    final photo = ProfilePhoto(
+      bytes,
+      bytes.length > 2 && bytes[0] == 0x89 ? 'image/png' : 'image/jpeg',
+    );
+    _photos[(await me(access)).userId] = photo;
+    return photo;
+  }
+
   final Map<String, SessionIdentity> _access = {};
   final Map<String, SessionIdentity> _profiles = {};
   int _sequence = 0;

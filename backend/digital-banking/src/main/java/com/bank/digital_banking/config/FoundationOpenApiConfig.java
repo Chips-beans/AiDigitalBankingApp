@@ -46,6 +46,14 @@ public class FoundationOpenApiConfig {
             nullable(api, "LoginRequestDto", "deviceType");
             nullable(api, "SessionIdentityDto", "email", "firstName", "lastName");
             nullable(api, "TelegramExchangeResponse", "tokens");
+            describe(api, "/auth/pin/prepare", PathItem.HttpMethod.POST, "Authentication", "Prepare app PIN gate",
+                    "Authenticated, completed customer profile. Locks this session and returns an opaque device/session-bound app ticket. Persist this instead of banking refresh tokens.",
+                    "200", false, null, "401", "403");
+            for (String path : List.of("status", "setup", "unlock", "discard")) {
+                describe(api, "/auth/pin/" + path, PathItem.HttpMethod.POST, "Authentication", "App PIN: " + path,
+                        "Authorized by the private app ticket in the JSON body. Five wrong PINs require fresh verified identity recovery. Setup/reset requires matching four-digit values; reset requires a fresh identity session and revokes other sessions. Never log tickets or PINs.",
+                        "200", true, null, "400", "401", "403");
+            }
             describe(api, "/auth/email/request", PathItem.HttpMethod.POST, "Authentication", "Continue with email: request a code",
                     "Public. The same flow serves new and returning customers. No profile is created until ownership is verified.",
                     "200", true, Map.of("email", "customer@example.test"), "400", "429", "503");
@@ -71,6 +79,15 @@ public class FoundationOpenApiConfig {
             describe(api, "/auth/telegram/exchange", PathItem.HttpMethod.POST, "Authentication", "Collect Telegram approval",
                     "Public, authorized by the flow's private exchangeSecret. PENDING can be polled; COMPLETE issues tokens exactly once. No additional app OTP.",
                     "200", true, Map.of("flowId", "PASTE_FLOW_ID", "exchangeSecret", "PASTE_PRIVATE_EXCHANGE_SECRET"), "400", "401", "409");
+            for (String path : List.of("/auth/telegram/native/start", "/auth/telegram/native/link/start"))
+                describe(api, path, PathItem.HttpMethod.POST, "Authentication", "Start native Android Telegram approval",
+                        "Returns a state/nonce/PKCE-bound authorization URL and the registered Android App Link. Keep exchangeSecret private. Linking requires recent authentication.",
+                        "200", path.endsWith("/native/start"), Map.of("deviceFingerprint", "android-installation", "deviceName", "Android", "deviceType", "ANDROID"),
+                        "400", "401", "403", "429", "503");
+            describe(api, "/auth/telegram/native/exchange", PathItem.HttpMethod.POST, "Authentication", "Complete native Telegram approval once",
+                    "Requires the initiating app's private exchangeSecret and the code delivered to its verified App Link. Consumed before contacting Telegram; never retry an uncertain exchange. Start a new approval instead.",
+                    "200", true, Map.of("flowId", "PASTE_FLOW_ID", "exchangeSecret", "PASTE_PRIVATE_EXCHANGE_SECRET", "code", "PROVIDER_CODE"),
+                    "400", "401", "403", "409", "503");
             if (api.getPaths() != null && api.getPaths().get("/api/v1/auth/telegram/callback") != null) {
                 var callback = api.getPaths().get("/api/v1/auth/telegram/callback").getGet();
                 callback.setSecurity(List.of());

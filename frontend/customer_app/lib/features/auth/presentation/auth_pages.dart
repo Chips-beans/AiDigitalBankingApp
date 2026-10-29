@@ -10,6 +10,9 @@ import '../../../app/app_labels.dart';
 import '../../../app/app_preferences.dart';
 import '../../../shared/widgets/preference_controls.dart';
 import '../session_controller.dart';
+import '../../../app/design_system/design_system.dart';
+import 'email_auth_layout.dart';
+import 'email_otp_field.dart';
 
 class AuthLayout extends StatelessWidget {
   const AuthLayout({required this.children, this.onBack, super.key});
@@ -259,9 +262,14 @@ class _CredentialsPageState extends State<CredentialsPage> {
 }
 
 class OtpPage extends StatefulWidget {
-  const OtpPage(this.session, {required this.demo, super.key});
+  const OtpPage(
+    this.session, {
+    required this.demo,
+    this.showDeviceChrome = false,
+    super.key,
+  });
   final SessionController session;
-  final bool demo;
+  final bool demo, showDeviceChrome;
   @override
   State<OtpPage> createState() => _OtpPageState();
 }
@@ -293,90 +301,95 @@ class _OtpPageState extends State<OtpPage> {
     if (success) TextInput.finishAutofillContext();
   }
 
+  String get maskedEmail {
+    final parts = widget.session.otpEmail.split('@');
+    if (parts.length != 2) return widget.session.otpEmail;
+    final name = parts.first;
+    return '${name.substring(0, name.length.clamp(0, 4))}***@${parts.last}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    return AuthLayout(
+    final colors = AppColors.of(context);
+    final text = AppTextStyles.of(context);
+    final remaining = session.resendSeconds;
+    return EmailAuthLayout(
+      showDeviceChrome: widget.showDeviceChrome,
+      verification: true,
       onBack: session.busy ? null : session.back,
       children: [
-        const ExcludeSemantics(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Icon(Icons.mark_email_read_outlined, size: 40),
+        Text(
+          tx(context, 'Verification code'),
+          style: text.button.copyWith(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? colors.foreground
+                : colors.accent500,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
         Text(
-          tx(context, 'Check your email'),
-          style: Theme.of(context).textTheme.headlineMedium,
+          tx(context, 'Enter the 6-digit code sent to'),
+          style: text.body.copyWith(color: colors.disabledBackground),
         ),
-        const SizedBox(height: 12),
-        Text(
-          tr(
-            context,
-            'If eligible, a 6-digit code was sent to ${session.otpEmail}. Check your spam folder too.',
-            'បើអាចប្រើបាន លេខកូដ ៦ ខ្ទង់ត្រូវបានផ្ញើទៅ ${session.otpEmail}។ សូមពិនិត្យថតសារឥតបានការផងដែរ។',
-          ),
-        ),
+        Text(maskedEmail, style: text.body.copyWith(color: colors.foreground)),
         const SizedBox(height: 24),
         if (widget.demo)
           NoticePanel(
             tx(context, 'Demo mode: use code 123456. No email is sent.'),
           ),
         if (session.failure != null)
-          NoticePanel(session.failure!.message, error: true),
+          NoticePanel(tx(context, session.failure!.message), error: true),
         if (session.notice != null) NoticePanel(session.notice!),
         Form(
           key: _form,
-          child: TextFormField(
-            key: const ValueKey('otpCode'),
+          child: EmailOtpField(
             controller: _code,
             enabled: !session.busy,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.oneTimeCode],
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(6),
-            ],
-            decoration: InputDecoration(
-              labelText: tx(context, 'Email code'),
-              hintText: tx(context, '6 digits'),
-            ),
-            validator: (v) =>
-                v?.length == 6 ? null : tx(context, 'Enter the 6-digit code.'),
-            onFieldSubmitted: (_) => _verify(),
+            onSubmitted: _verify,
           ),
         ),
-        const SizedBox(height: 12),
-        Text(
-          session.expirySeconds > 0
-              ? '${tr(context, 'Code expires in', 'លេខកូដផុតកំណត់ក្នុង')} ${session.expirySeconds ~/ 60}:${(session.expirySeconds % 60).toString().padLeft(2, '0')}'
-              : tx(context, 'This code has expired. Request a new one.'),
-        ),
+        if (session.expirySeconds == 0) ...[
+          const SizedBox(height: 12),
+          Text(
+            tx(context, 'This code has expired. Request a new one.'),
+            style: text.caption.copyWith(color: colors.error),
+          ),
+        ],
         const SizedBox(height: 24),
-        BusyButton(
-          label: tx(context, 'Verify and continue'),
+        EmailAuthButton(
+          label: tx(context, 'Verify'),
           busy: session.busy,
           onPressed: session.expirySeconds == 0 ? null : _verify,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 24),
+        Text(
+          tx(context, 'Didn’t receive the code?'),
+          style: text.caption.copyWith(color: colors.disabledBackground),
+          textAlign: TextAlign.center,
+        ),
         TextButton(
-          onPressed: session.busy || session.resendSeconds > 0
+          onPressed: session.busy || remaining > 0
               ? null
               : () async {
                   _code.clear();
                   await session.resend();
                 },
-          child: Text(
-            session.resendSeconds > 0
-                ? '${tr(context, 'Resend code in', 'ផ្ញើម្ដងទៀតក្នុង')} ${session.resendSeconds}s'
-                : tx(context, 'Resend code'),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+            textStyle: text.button,
+            disabledForegroundColor: colors.disabledBackground,
+            foregroundColor: Theme.of(context).brightness == Brightness.dark
+                ? colors.primary400
+                : colors.primary700,
           ),
-        ),
-        TextButton(
-          onPressed: session.busy ? null : session.back,
-          child: Text(tx(context, 'Change your details')),
+          child: Text(
+            remaining > 0
+                ? '${tx(context, 'Resend code in')} ${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}'
+                : tx(context, 'Resend code'),
+            textAlign: TextAlign.center,
+          ),
         ),
       ],
     );

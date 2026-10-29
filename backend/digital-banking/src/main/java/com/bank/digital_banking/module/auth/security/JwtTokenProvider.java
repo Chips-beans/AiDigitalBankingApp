@@ -33,6 +33,9 @@ public class JwtTokenProvider {
     public String generateAccessToken(Long userId, UUID sessionId, Set<String> roles) {
         return token(userId, sessionId, "access", accessMs).claim("roles", roles).compact();
     }
+    public String generateAccessToken(Long userId, UUID sessionId, Set<String> roles, int pinGeneration) {
+        return token(userId, sessionId, "access", accessMs).claim("roles", roles).claim("pin_epoch", pinGeneration).compact();
+    }
     public String generateRefreshToken(Long userId, UUID sessionId) {
         return token(userId, sessionId, "refresh", refreshMs).compact();
     }

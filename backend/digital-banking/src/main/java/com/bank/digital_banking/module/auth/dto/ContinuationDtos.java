@@ -22,6 +22,12 @@ public final class ContinuationDtos {
             @NotBlank @Size(max = 50) String firstName,
             @NotBlank @Size(max = 50) String lastName) {}
     public record TelegramStartResponse(String authorizationUrl, String flowId, String exchangeSecret, int expiresInSeconds, String callbackOrigin) {}
+    public record TelegramNativeStartResponse(String authorizationUrl, String flowId, String exchangeSecret,
+                                              int expiresInSeconds, String redirectUri) {}
+    public record TelegramNativeExchangeRequest(
+            @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String flowId,
+            @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String exchangeSecret,
+            @NotBlank @Size(max = 4096) String code) {}
     public record TelegramCallbackResult(String flowId, String approvalReceipt) {}
     public record TelegramExchangeRequest(
             @NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}") String flowId,

@@ -8,7 +8,12 @@ import '../../app/design_system/design_system.dart';
 
 /// The source capsule is 44px high; transparent 48px hit areas surround it.
 class PreferenceControls extends StatelessWidget {
-  const PreferenceControls({super.key});
+  const PreferenceControls({
+    this.emailAuth = false,
+    this.verification = false,
+    super.key,
+  });
+  final bool emailAuth, verification;
   @override
   Widget build(BuildContext context) {
     final prefs = AppPreferences.of(context);
@@ -42,7 +47,7 @@ class PreferenceControls extends StatelessWidget {
             child: ExcludeSemantics(
               child: Material(
                 key: const ValueKey('preference-capsule'),
-                color: colors.surface,
+                color: emailAuth ? colors.background : colors.surface,
                 borderRadius: BorderRadius.circular(27),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -56,9 +61,17 @@ class PreferenceControls extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: SvgPicture.asset(
-                            'assets/auth/theme-moon-${dark ? 'dark' : 'light'}.svg',
+                            emailAuth
+                                ? 'assets/auth/${verification ? 'email-verification-moon' : 'email-moon'}.svg'
+                                : 'assets/auth/theme-moon-${dark ? 'dark' : 'light'}.svg',
                             width: 20,
                             height: 20,
+                            colorFilter: emailAuth && dark
+                                ? ColorFilter.mode(
+                                    colors.foreground,
+                                    BlendMode.srcIn,
+                                  )
+                                : null,
                           ),
                         ),
                       ),
@@ -69,7 +82,9 @@ class PreferenceControls extends StatelessWidget {
                           children: [
                             if (!prefs.isKhmer)
                               SvgPicture.asset(
-                                'assets/auth/flag-en.svg',
+                                emailAuth
+                                    ? 'assets/auth/${verification ? 'email-verification-flag-en' : 'email-flag-en'}.svg'
+                                    : 'assets/auth/flag-en.svg',
                                 width: 28,
                                 height: 28,
                               )

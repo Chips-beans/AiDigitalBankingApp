@@ -30,6 +30,22 @@ public class TelegramOidcClient {
     private volatile JsonNode cachedKeys;
     private volatile Instant keysUntil = Instant.EPOCH;
 
+    /** Registered native applications are public OAuth clients; their secret never enters the APK. */
+    public Identity authenticateNativeCode(String code, String verifier, String nonce, String redirectUri) {
+        try {
+            String body = "grant_type=authorization_code&code=" + encode(code)
+                    + "&redirect_uri=" + encode(redirectUri) + "&client_id=" + encode(properties.getClientId())
+                    + "&code_verifier=" + encode(verifier);
+            HttpResponse<String> response = http.send(HttpRequest.newBuilder(URI.create("https://oauth.telegram.org/token"))
+                    .timeout(Duration.ofSeconds(5)).header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) throw new AuthenticationFailedException("TELEGRAM_REJECTED", "Telegram approval could not be verified");
+            return verifyToken(json.readTree(response.body()).path("id_token").asText(), nonce, keys());
+        } catch (ApiException ex) { throw ex; }
+        catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw unavailable(); }
+        catch (Exception ex) { throw unavailable(); }
+    }
+
     public Identity authenticateCode(String code, String verifier, String nonce) {
         try {
             String body = "grant_type=authorization_code&code=" + encode(code)

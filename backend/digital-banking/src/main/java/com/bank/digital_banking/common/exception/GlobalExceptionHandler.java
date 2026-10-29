@@ -14,6 +14,14 @@ import java.util.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> photoTooLarge(Exception ex, HttpServletRequest r) {
+        return error(413, "PROFILE_PHOTO_TOO_LARGE", "Choose a JPG or PNG up to 5 MB", r);
+    }
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ApiErrorResponse> missingPart(Exception ex, HttpServletRequest r) {
+        return error(400, "INVALID_REQUEST", "Choose a profile photo", r);
+    }
     @ExceptionHandler(org.springframework.jdbc.UncategorizedSQLException.class)
     public ResponseEntity<ApiErrorResponse> jdbcFailure(org.springframework.jdbc.UncategorizedSQLException ex, HttpServletRequest r) {
         // JdbcTemplate does not classify PostgreSQL 55P03 consistently with Hibernate.

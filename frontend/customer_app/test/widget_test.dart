@@ -33,18 +33,19 @@ void main() {
       find.byKey(const ValueKey('email')),
       'customer@example.test',
     );
-    await tap(tester, find.text('Send verification code'));
+    await tap(tester, find.text('Send Code'));
   }
 
   Future<void> code(WidgetTester tester, String code) async {
     await tester.enterText(find.byKey(const ValueKey('otpCode')), code);
-    await tap(tester, find.text('Verify and continue'));
+    await tap(tester, find.text('Verify'));
   }
 
   Future<void> complete(WidgetTester tester) async {
     await tester.enterText(find.byKey(const ValueKey('firstName')), 'Dara');
     await tester.enterText(find.byKey(const ValueKey('lastName')), 'Sok');
-    await tap(tester, find.text('Continue to Kesor'));
+    await tap(tester, find.byKey(const ValueKey('profile-consent')));
+    await tap(tester, find.text('Create Account'));
   }
 
   testWidgets('one welcome screen offers only continuation options', (
@@ -64,7 +65,7 @@ void main() {
     await code(tester, '000000');
     expect(find.textContaining('did not match'), findsOneWidget);
     await code(tester, '123456');
-    expect(find.text('A little about you'), findsOneWidget);
+    expect(find.text('Create profile'), findsOneWidget);
     expect(find.byTooltip('Home'), findsNothing);
     expect(session.identity!.profileComplete, false);
     await complete(tester);
@@ -76,7 +77,7 @@ void main() {
     expect(find.text('Continue with Email'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('A little about you'), findsNothing);
+    expect(find.text('Create profile'), findsNothing);
   });
   testWidgets('returning email skips information form', (tester) async {
     await mount(tester);
@@ -88,23 +89,23 @@ void main() {
     await email(tester);
     await code(tester, '123456');
     expect(find.byTooltip('Home'), findsOneWidget);
-    expect(find.text('A little about you'), findsNothing);
+    expect(find.text('Create profile'), findsNothing);
   });
   testWidgets('email and information fields validate without passwords', (
     tester,
   ) async {
     await mount(tester);
     await tap(tester, find.text('Continue with Email'));
-    await tap(tester, find.text('Send verification code'));
+    await tap(tester, find.text('Send Code'));
     expect(find.text('Enter a valid email address.'), findsOneWidget);
     expect(find.byKey(const ValueKey('password')), findsNothing);
     await tester.enterText(
       find.byKey(const ValueKey('email')),
       'customer@example.test',
     );
-    await tap(tester, find.text('Send verification code'));
+    await tap(tester, find.text('Send Code'));
     await code(tester, '123456');
-    await tap(tester, find.text('Continue to Kesor'));
+    await tap(tester, find.text('Create Account'));
     expect(find.text('Enter your first name.'), findsOneWidget);
     expect(find.byTooltip('Home'), findsNothing);
   });
@@ -113,7 +114,7 @@ void main() {
   ) async {
     await mount(tester);
     await email(tester);
-    await tap(tester, find.text('Change your details'));
+    await tap(tester, find.byKey(const ValueKey('email-auth-back')));
     expect(session.screen, AuthScreen.email);
     expect(session.otpEmail, '');
     await tester.binding.handlePopRoute();

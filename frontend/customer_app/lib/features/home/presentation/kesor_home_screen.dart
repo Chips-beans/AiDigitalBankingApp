@@ -513,7 +513,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
               const Positioned(
                 right: -46.335,
                 top: -17.3583,
-                child: _BalanceMotif(),
+                child: KesorBalanceMotif(),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(17, 17, 23, 21),
@@ -1237,8 +1237,9 @@ class _BalanceBorder extends CustomPainter {
 
 /// Keeps the exported SVG intact and translates Figma's progressive layer blur.
 /// Flutter's SVG renderer ignores SVG filter tags, so the blur is applied here.
-class _BalanceMotif extends StatelessWidget {
-  const _BalanceMotif();
+class KesorBalanceMotif extends StatelessWidget {
+  const KesorBalanceMotif({this.asset, super.key});
+  final String? asset;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: 186.9292,
@@ -1272,7 +1273,12 @@ class _BalanceMotif extends StatelessWidget {
                           sigmaX: .35 + i * .28,
                           sigmaY: .35 + i * .28,
                         ),
-                        child: const _Svg('balance-motif.svg'),
+                        child: asset == null
+                            ? const _Svg('balance-motif.svg')
+                            : SvgPicture.asset(
+                                asset!,
+                                excludeFromSemantics: true,
+                              ),
                       ),
                     ),
                   ),

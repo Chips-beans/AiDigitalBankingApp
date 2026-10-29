@@ -284,10 +284,20 @@ void main() {
       for (final i in [1, 2]) {
         await tester.tap(find.byKey(ValueKey('bottom-tab-$i')));
         await tester.pumpAndSettle();
-        expect(
-          tester.widget<Text>(find.byKey(ValueKey('placeholder-tab-$i'))).data,
-          i == 1 ? 'Analytics' : 'Settings',
-        );
+        if (i == 1) {
+          expect(
+            find.byKey(const ValueKey('analytics-income-card')),
+            findsOneWidget,
+          );
+          expect(find.textContaining('DEMO'), findsNothing);
+        } else {
+          expect(
+            tester
+                .widget<Text>(find.byKey(ValueKey('placeholder-tab-$i')))
+                .data,
+            'Settings',
+          );
+        }
         expect(find.byKey(const ValueKey('home-usd-balance')), findsNothing);
       }
       await tester.tap(find.byKey(const ValueKey('bottom-tab-0')));

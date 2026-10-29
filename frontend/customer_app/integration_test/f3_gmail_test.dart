@@ -139,13 +139,16 @@ void main() {
       await mount(controller);
       await tap('Continue with Email');
       await enter('email', email);
-      await tap('Send verification code');
-      expect(find.text('Check your email'), findsOneWidget);
+      await tap('Send Code');
+      expect(find.text('Verification code'), findsOneWidget);
       await enter('otpCode', await code(email, 'CONTINUE'));
-      await tap('Verify and continue');
+      await tap('Verify');
       await enter('firstName', 'Gmail');
       await enter('lastName', 'Customer');
-      await tap('Continue to Kesor');
+      await tester.ensureVisible(find.byKey(const ValueKey('profile-consent')));
+      await tester.tap(find.byKey(const ValueKey('profile-consent')));
+      await tester.pumpAndSettle();
+      await tap('Create Account');
       expect(controller.phase, SessionPhase.signedIn);
       await tap('View accounts');
     }
@@ -324,9 +327,9 @@ void main() {
           // Verify Gmail LOGIN through the app after signup and logout.
           await tap('Continue with Email');
           await enter('email', secondEmail);
-          await tap('Send verification code');
+          await tap('Send Code');
           await enter('otpCode', await code(secondEmail, 'CONTINUE'));
-          await tap('Verify and continue');
+          await tap('Verify');
           expect(second.phase, SessionPhase.signedIn);
           await tap('Profile');
           await tap('Sign out');

@@ -8,7 +8,8 @@ import '../../../shared/widgets/kesor_layout.dart';
 import '../../../shared/widgets/preference_controls.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../session_controller.dart';
-import 'auth_pages.dart';
+import 'email_auth_layout.dart';
+import 'profile_photo_card.dart';
 
 class ContinueWelcomePage extends StatelessWidget {
   const ContinueWelcomePage(this.session, {super.key});
@@ -388,8 +389,13 @@ class ContinueWelcomePage extends StatelessWidget {
 }
 
 class EmailContinuePage extends StatefulWidget {
-  const EmailContinuePage(this.session, {super.key});
+  const EmailContinuePage(
+    this.session, {
+    this.showDeviceChrome = false,
+    super.key,
+  });
   final SessionController session;
+  final bool showDeviceChrome;
   @override
   State<EmailContinuePage> createState() => _EmailContinuePageState();
 }
@@ -415,30 +421,24 @@ class _EmailContinuePageState extends State<EmailContinuePage> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    return AuthLayout(
+    return EmailAuthLayout(
+      showDeviceChrome: widget.showDeviceChrome,
       onBack: session.busy ? null : session.back,
       children: [
-        const Icon(Icons.mail_outline_rounded, size: 36),
-        const SizedBox(height: 24),
-        Text(
-          session.linkingEmail
-              ? tx(context, 'Connect your email')
-              : tx(context, 'Continue with email'),
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          session.linkingEmail
-              ? tx(
-                  context,
-                  'Verify an email you control. If it already has a profile, we’ll help you use that profile.',
-                )
-              : tx(
-                  context,
-                  'We’ll send a verification code. Your profile will be ready whether you’re new or returning.',
-                ),
-        ),
-        const SizedBox(height: 32),
+        if (session.linkingEmail) ...[
+          Text(
+            tx(context, 'Connect your email'),
+            style: AppTextStyles.of(context).titleXL,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tx(
+              context,
+              'Verify an email you control. If it already has a profile, we’ll help you use that profile.',
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
         if (session.failure != null)
           NoticePanel(
             session.failure!.message,
@@ -450,19 +450,17 @@ class _EmailContinuePageState extends State<EmailContinuePage> {
           key: form,
           child: AutofillGroup(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
-                  key: const ValueKey('email'),
+                EmailAuthField(
+                  label: tx(context, 'Email address'),
+                  hint: 'example@gmail.com',
                   controller: email,
+                  fieldKey: const ValueKey('email'),
                   enabled: !session.busy,
-                  keyboardType: TextInputType.emailAddress,
+                  email: true,
                   autofillHints: const [AutofillHints.email],
-                  textInputAction: TextInputAction.done,
-                  autocorrect: false,
-                  decoration: InputDecoration(
-                    labelText: tx(context, 'Email address'),
-                    errorText: session.failure?.fields['email'],
-                  ),
+                  errorText: session.failure?.fields['email'],
                   validator: (value) =>
                       value != null &&
                           value.trim().length <= 100 &&
@@ -470,11 +468,11 @@ class _EmailContinuePageState extends State<EmailContinuePage> {
                               .hasMatch(value.trim())
                       ? null
                       : tx(context, 'Enter a valid email address.'),
-                  onFieldSubmitted: (_) => submit(),
+                  onSubmitted: (_) => submit(),
                 ),
                 const SizedBox(height: 24),
-                BusyButton(
-                  label: tx(context, 'Send verification code'),
+                EmailAuthButton(
+                  label: tx(context, 'Send Code'),
                   busy: session.busy,
                   onPressed: submit,
                 ),
@@ -488,8 +486,13 @@ class _EmailContinuePageState extends State<EmailContinuePage> {
 }
 
 class InformationPage extends StatefulWidget {
-  const InformationPage(this.session, {super.key});
+  const InformationPage(
+    this.session, {
+    this.showDeviceChrome = false,
+    super.key,
+  });
   final SessionController session;
+  final bool showDeviceChrome;
   @override
   State<InformationPage> createState() => _InformationPageState();
 }
@@ -503,6 +506,7 @@ class _InformationPageState extends State<InformationPage> {
   late final last = TextEditingController(
     text: widget.session.identity?.lastName ?? '',
   );
+  bool agreed = false, consentError = false;
   @override
   void dispose() {
     first.dispose();
@@ -512,29 +516,62 @@ class _InformationPageState extends State<InformationPage> {
   }
 
   Future<void> submit() async {
-    if (!form.currentState!.validate()) return;
+    final valid = form.currentState!.validate();
+    setState(() => consentError = !agreed);
+    if (!valid || !agreed) return;
     FocusScope.of(context).unfocus();
     await widget.session.completeInformation(first.text, last.text);
     if (mounted && widget.session.failure != null) summary.requestFocus();
   }
 
+  Widget nameField(bool given) => EmailAuthField(
+    label: tx(context, given ? 'First Name' : 'Last Name'),
+    hint: tx(context, given ? 'Your First Name' : 'Your Last Name'),
+    controller: given ? first : last,
+    fieldKey: ValueKey(given ? 'firstName' : 'lastName'),
+    enabled: !widget.session.busy,
+    autofillHints: [given ? AutofillHints.givenName : AutofillHints.familyName],
+    action: given ? TextInputAction.next : TextInputAction.done,
+    errorText: widget.session.failure?.fields[given ? 'firstName' : 'lastName'],
+    validator: (value) => value == null || value.trim().isEmpty
+        ? tr(
+            context,
+            'Enter your ${given ? 'first' : 'last'} name.',
+            given ? 'សូមបញ្ចូលនាមខ្លួន។' : 'សូមបញ្ចូលនាមត្រកូល។',
+          )
+        : value.trim().length > 50
+        ? tx(context, 'Use at most 50 characters.')
+        : null,
+    onSubmitted: given ? null : (_) => submit(),
+  );
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    return AuthLayout(
+    final colors = AppColors.of(context);
+    final text = AppTextStyles.of(context);
+    final navy = Theme.of(context).brightness == Brightness.dark
+        ? colors.foreground
+        : colors.accent500;
+    return EmailAuthLayout(
+      showDeviceChrome: widget.showDeviceChrome,
+      verification: true,
+      onBack: session.busy || session.photoBusy ? null : session.signOut,
       children: [
         Text(
-          tx(context, 'A little about you'),
-          style: Theme.of(context).textTheme.headlineMedium,
+          tx(context, 'Create profile'),
+          style: text.titleXL.copyWith(color: navy),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           tx(
             context,
-            'Your identity is verified. Complete your details to make this profile yours.',
+            'Let’s get to know you. Add your details to get started.',
           ),
+          style: text.body.copyWith(color: colors.disabledBackground),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
+        ProfilePhotoCard(session),
+        const SizedBox(height: 24),
         if (session.failure != null)
           NoticePanel(
             session.failure!.message,
@@ -544,58 +581,103 @@ class _InformationPageState extends State<InformationPage> {
         Form(
           key: form,
           child: AutofillGroup(
-            child: Column(
-              children: [
-                for (final entry in [
-                  (
-                    first,
-                    'firstName',
-                    tx(context, 'First name'),
-                    AutofillHints.givenName,
-                  ),
-                  (
-                    last,
-                    'lastName',
-                    tx(context, 'Last name'),
-                    AutofillHints.familyName,
-                  ),
-                ]) ...[
-                  TextFormField(
-                    key: ValueKey(entry.$2),
-                    controller: entry.$1,
-                    enabled: !session.busy,
-                    autofillHints: [entry.$4],
-                    textCapitalization: TextCapitalization.words,
-                    textInputAction: entry.$2 == 'lastName'
-                        ? TextInputAction.done
-                        : TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: entry.$3,
-                      errorText: session.failure?.fields[entry.$2],
-                    ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? tr(
-                            context,
-                            'Enter your ${entry.$3.toLowerCase()}.',
-                            'សូមបញ្ចូល${entry.$3}។',
-                          )
-                        : v.trim().length > 50
-                        ? tx(context, 'Use at most 50 characters.')
-                        : null,
-                    onFieldSubmitted: entry.$2 == 'lastName'
-                        ? (_) => submit()
-                        : null,
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                BusyButton(
-                  label: tx(context, 'Continue to Kesor'),
-                  busy: session.busy,
-                  onPressed: submit,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, box) {
+                if (box.maxWidth < 320 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 20) {
+                  return Column(
+                    children: [
+                      nameField(true),
+                      const SizedBox(height: 20),
+                      nameField(false),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: nameField(true)),
+                    const SizedBox(width: 20),
+                    Expanded(child: nameField(false)),
+                  ],
+                );
+              },
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        Semantics(
+          label: tx(
+            context,
+            'I agree to the Terms & Conditions and Privacy Policy',
+          ),
+          checked: agreed,
+          child: InkWell(
+            key: const ValueKey('profile-consent'),
+            onTap: session.busy
+                ? null
+                : () => setState(() {
+                    agreed = !agreed;
+                    consentError = false;
+                  }),
+            borderRadius: BorderRadius.circular(4),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: ExcludeSemantics(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: agreed ? colors.primary500 : colors.background,
+                        border: Border.all(
+                          color: consentError ? colors.error : colors.border,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: agreed
+                          ? const Icon(
+                              Icons.check,
+                              size: 13,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tx(
+                          context,
+                          'I agree to the Terms & Conditions and Privacy Policy',
+                        ),
+                        style: text.caption.copyWith(color: navy),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (consentError)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Semantics(
+              liveRegion: true,
+              child: Text(
+                tx(
+                  context,
+                  'Please agree to the terms and privacy policy to continue.',
+                ),
+                style: text.caption.copyWith(color: colors.error),
+              ),
+            ),
+          ),
+        EmailAuthButton(
+          label: tx(context, 'Create Account'),
+          busy: session.busy,
+          onPressed: session.photoBusy ? null : submit,
         ),
         if (session.identity!.telegramLinked &&
             session.identity!.email == null) ...[
@@ -607,11 +689,6 @@ class _InformationPageState extends State<InformationPage> {
             child: Text(tx(context, 'Connect an existing email profile')),
           ),
         ],
-        const SizedBox(height: 24),
-        TextButton(
-          onPressed: session.signOut,
-          child: Text(tx(context, 'Use another identity')),
-        ),
       ],
     );
   }

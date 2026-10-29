@@ -11,138 +11,121 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AnalyticsServiceImpl implements AnalyticsService {
-
+    public static final ZoneId ZONE = ZoneId.of("Asia/Phnom_Penh");
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
 
-    private Account validateAndGetAccount(User currentUser, String accountNumber) {
-        Account account = accountRepository.findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", "Account not found: " + accountNumber));
-
-        if (currentUser == null || currentUser.getId() == null) {
+    private void requireUser(User user) {
+        if (user == null || user.getId() == null)
             throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "User session invalid");
-        }
+    }
 
-        // Compare primary keys safely
-        if (!account.getUser().getId().equals(currentUser.getId())) {
+    private Account validateAndGetAccount(User user, String number) {
+        requireUser(user);
+        Account account = accountRepository.findByAccountNumber(number).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", "Account not found"));
+        if (!account.getUser().getId().equals(user.getId()))
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You do not have permission for this action");
-        }
-
         return account;
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<DailyTransactionSummary> getDailyTransactionsForMonth(User currentUser, String accountNumber, int year, int month) {
-        Account account = validateAndGetAccount(currentUser, accountNumber);
-        Long accountId = account.getId();
+    private YearMonth period(int year, int month) {
+        if (year < 1 || year > 9999 || month < 1 || month > 12)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Invalid year or month");
+        return YearMonth.of(year, month);
+    }
 
-        YearMonth ym = YearMonth.of(year, month);
-        
-        // Convert to OffsetDateTime matching Transaction entity
-        OffsetDateTime start = ym.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+    private OffsetDateTime start(YearMonth month) {
+        return month.atDay(1).atStartOfDay(ZONE).toOffsetDateTime();
+    }
 
-        var projections = transactionRepository.findDailyAggregates(accountId, start, end);
-
-        Map<LocalDate, BigDecimal> dailyIncome = new HashMap<>();
-        Map<LocalDate, BigDecimal> dailyExpense = new HashMap<>();
-
-        if (projections != null) {
-            for (var p : projections) {
-                if (p.getTxDate() != null) {
-                    LocalDate date = p.getTxDate().toLocalDate();
-                    String typeStr = p.getType();
-                    BigDecimal amount = p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO;
-
-                    if ("DEPOSIT".equalsIgnoreCase(typeStr)) {
-                        dailyIncome.merge(date, amount, BigDecimal::add);
-                    } else if ("WITHDRAWAL".equalsIgnoreCase(typeStr) || "TRANSFER".equalsIgnoreCase(typeStr)) {
-                        dailyExpense.merge(date, amount, BigDecimal::add);
-                    }
-                }
-            }
+    private List<DailyTransactionSummary> fill(YearMonth month,
+            List<TransactionRepository.DailyAggregateProjection> rows) {
+        Map<LocalDate, DailyTransactionSummary> found = new HashMap<>();
+        for (var row : rows) {
+            LocalDate date = row.getTxDate();
+            found.put(date, new DailyTransactionSummary(date, row.getTotalIncome(), row.getTotalExpense()));
         }
-
-        List<DailyTransactionSummary> result = new ArrayList<>();
-        int daysInMonth = ym.lengthOfMonth();
-
-        for (int day = 1; day <= daysInMonth; day++) {
-            LocalDate currentDate = ym.atDay(day);
-            BigDecimal income = dailyIncome.getOrDefault(currentDate, BigDecimal.ZERO);
-            BigDecimal expense = dailyExpense.getOrDefault(currentDate, BigDecimal.ZERO);
-            result.add(new DailyTransactionSummary(currentDate, income, expense));
+        List<DailyTransactionSummary> days = new ArrayList<>();
+        for (int i = 1; i <= month.lengthOfMonth(); i++) {
+            LocalDate date = month.atDay(i);
+            days.add(found.getOrDefault(date, new DailyTransactionSummary(date, BigDecimal.ZERO, BigDecimal.ZERO)));
         }
+        return List.copyOf(days);
+    }
 
-        return result;
+    private BigDecimal income(List<DailyTransactionSummary> days) {
+        return days.stream().map(DailyTransactionSummary::totalIncome).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal expense(List<DailyTransactionSummary> days) {
+        return days.stream().map(DailyTransactionSummary::totalExpense).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private List<DailyTransactionSummary> accountDays(Long id, YearMonth month) {
+        return fill(month, transactionRepository.findDailyAggregates(id, start(month), start(month.plusMonths(1))));
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public MonthlySummaryResponse getMonthlySummary(User currentUser, String accountNumber, int year, int month) {
-        Account account = validateAndGetAccount(currentUser, accountNumber);
-        Long accountId = account.getId();
+    public MonthlyOverview getMonthlyOverview(User user, int year, int month, String currency) {
+        requireUser(user);
+        YearMonth ym = period(year, month);
+        if (currency == null || !Set.of("USD", "KHR").contains(currency))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Currency must be USD or KHR");
+        var days = fill(ym, transactionRepository.findCustomerDailyAggregates(
+                user.getId(), currency, start(ym), start(ym.plusMonths(1))));
+        int scale = "USD".equals(currency) ? 2 : 0;
+        var daily = days.stream().map(day -> new DailyOverview(day.date(),
+                money(day.totalIncome(), scale), money(day.totalExpense(), scale))).toList();
+        return new MonthlyOverview(ym.toString(), currency, ZONE.getId(),
+                money(income(days), scale), money(expense(days), scale), daily);
+    }
 
-        YearMonth ym = YearMonth.of(year, month);
-        OffsetDateTime start = ym.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-        OffsetDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-
-        BigDecimal totalIncome = transactionRepository.sumIncomeByAccountAndDateRange(accountId, start, end);
-        BigDecimal totalExpense = transactionRepository.sumExpensesByAccountAndDateRange(accountId, start, end);
-
-        if (totalIncome == null) totalIncome = BigDecimal.ZERO;
-        if (totalExpense == null) totalExpense = BigDecimal.ZERO;
-
-        BigDecimal netSavings = totalIncome.subtract(totalExpense);
-
-        return new MonthlySummaryResponse(ym, totalIncome, totalExpense, netSavings);
+    private String money(BigDecimal amount, int scale) {
+        return amount.setScale(scale, RoundingMode.UNNECESSARY).toPlainString();
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public SemesterComparisonResponse getSemesterComparison(User currentUser, String accountNumber, int year, int endMonth) {
-        Account account = validateAndGetAccount(currentUser, accountNumber);
-        Long accountId = account.getId();
+    public List<DailyTransactionSummary> getDailyTransactionsForMonth(User user, String number, int year, int month) {
+        return accountDays(validateAndGetAccount(user, number).getId(), period(year, month));
+    }
 
-        List<MonthlyBarChartItem> chartData = new ArrayList<>();
-        BigDecimal semesterIncome = BigDecimal.ZERO;
-        BigDecimal semesterExpense = BigDecimal.ZERO;
+    @Override
+    public MonthlySummaryResponse getMonthlySummary(User user, String number, int year, int month) {
+        var days = getDailyTransactionsForMonth(user, number, year, month);
+        var in = income(days);
+        var out = expense(days);
+        return new MonthlySummaryResponse(period(year, month), in, out, in.subtract(out));
+    }
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy");
-
-        YearMonth endYm = YearMonth.of(year, endMonth);
-        YearMonth startYm = endYm.minusMonths(5);
-
-        for (int i = 0; i < 6; i++) {
-            YearMonth currentYm = startYm.plusMonths(i);
-            OffsetDateTime start = currentYm.atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-            OffsetDateTime end = currentYm.plusMonths(1).atDay(1).atStartOfDay().atOffset(ZoneOffset.UTC);
-
-            BigDecimal income = transactionRepository.sumIncomeByAccountAndDateRange(accountId, start, end);
-            BigDecimal expense = transactionRepository.sumExpensesByAccountAndDateRange(accountId, start, end);
-
-            if (income == null) income = BigDecimal.ZERO;
-            if (expense == null) expense = BigDecimal.ZERO;
-
-            semesterIncome = semesterIncome.add(income);
-            semesterExpense = semesterExpense.add(expense);
-
-            chartData.add(new MonthlyBarChartItem(
-                    currentYm.format(formatter),
-                    income,
-                    expense
-            ));
+    @Override
+    public SemesterComparisonResponse getSemesterComparison(User user, String number, int year, int endMonth) {
+        Long id = validateAndGetAccount(user, number).getId();
+        YearMonth end = period(year, endMonth);
+        if (end.minusMonths(5).getYear() < 1)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Period precedes supported calendar");
+        List<MonthlyBarChartItem> items = new ArrayList<>();
+        BigDecimal totalIn = BigDecimal.ZERO, totalOut = BigDecimal.ZERO;
+        var labels = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH);
+        for (int i = 5; i >= 0; i--) {
+            YearMonth ym = end.minusMonths(i);
+            var days = accountDays(id, ym);
+            var in = income(days);
+            var out = expense(days);
+            items.add(new MonthlyBarChartItem(ym.format(labels), in, out));
+            totalIn = totalIn.add(in);
+            totalOut = totalOut.add(out);
         }
-
-        return new SemesterComparisonResponse(chartData, semesterIncome, semesterExpense);
+        return new SemesterComparisonResponse(List.copyOf(items), totalIn, totalOut);
     }
 }

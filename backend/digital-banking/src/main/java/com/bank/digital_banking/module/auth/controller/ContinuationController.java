@@ -20,6 +20,7 @@ public class ContinuationController {
     private final OtpService otps;
     private final ContinuationPersistence persistence;
     private final TelegramContinuationService telegram;
+    private final TelegramNativeContinuationService nativeTelegram;
     private final TelegramProperties properties;
     private final tools.jackson.databind.ObjectMapper json;
 
@@ -57,6 +58,19 @@ public class ContinuationController {
         String email = email(request.email());
         otps.validateOtp(email, request.otpCode(), "LINK_" + user.getId());
         return ApiResponse.success(persistence.linkEmail(user.getId(), email, request.device(), http.getRemoteAddr()), "Email connected");
+    }
+    @PostMapping("/telegram/native/start")
+    public ApiResponse<TelegramNativeStartResponse> nativeStart(@Valid @RequestBody DeviceRequest request, HttpServletRequest http) {
+        return ApiResponse.success(nativeTelegram.start(request, http.getRemoteAddr(), null, null), "Approve in Telegram");
+    }
+    @PostMapping("/telegram/native/link/start")
+    public ApiResponse<TelegramNativeStartResponse> nativeLinkStart(@AuthenticationPrincipal User user, Authentication auth,
+            @Valid @RequestBody DeviceRequest request, HttpServletRequest http) {
+        return ApiResponse.success(nativeTelegram.start(request, http.getRemoteAddr(), user, (UUID) auth.getDetails()), "Approve in Telegram");
+    }
+    @PostMapping("/telegram/native/exchange")
+    public ApiResponse<TokenResponseDto> nativeExchange(@Valid @RequestBody TelegramNativeExchangeRequest request) {
+        return ApiResponse.success(nativeTelegram.exchange(request), "Telegram continuation");
     }
     @PostMapping("/telegram/start")
     public ApiResponse<TelegramStartResponse> start(@Valid @RequestBody DeviceRequest request, HttpServletRequest http) {

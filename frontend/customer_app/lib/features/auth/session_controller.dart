@@ -5,9 +5,14 @@ import 'package:flutter/foundation.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/session_vault.dart';
 import 'data/auth_gateway.dart';
+import 'data/app_pin_gateway.dart';
+import 'data/profile_photo.dart';
 import 'telegram_window.dart';
+import 'telegram_native.dart';
 
-enum SessionPhase { starting, signedOut, signedIn, storageError }
+enum SessionPhase { starting, signedOut, signedIn, storageError, pinLocked }
+
+enum PinStage { none, checking, create, confirm, unlock }
 
 enum AuthScreen { welcome, login, register, email, otp }
 
@@ -36,8 +41,13 @@ class SessionController extends ChangeNotifier {
     this.vault, {
     DateTime Function()? clock,
     this.deviceType = 'MOBILE',
-  }) : _clock = clock ?? DateTime.now;
+    this.pinGateway,
+    NativeTelegramClient? nativeTelegram,
+  }) : nativeTelegram = nativeTelegram ?? NativeTelegramClient(),
+       _clock = clock ?? DateTime.now;
+  final NativeTelegramClient nativeTelegram;
   final AuthGateway gateway;
+  final AppPinGateway? pinGateway;
   final SessionVault vault;
   final DateTime Function() _clock;
   final String deviceType;
@@ -47,6 +57,364 @@ class SessionController extends ChangeNotifier {
   ApiFailure? failure;
   String? notice;
   bool busy = false;
+  ProfilePhoto? profilePhoto;
+  ApiFailure? photoFailure;
+  bool photoBusy = false, photoLoaded = false;
+  int _photoGeneration = 0;
+  ProfilePhotoGateway? get _photos => gateway is HttpAuthGateway
+      ? HttpProfilePhotoGateway((gateway as HttpAuthGateway).client)
+      : gateway is ProfilePhotoGateway
+      ? gateway as ProfilePhotoGateway
+      : null;
+
+  Future<void> loadProfilePhoto() async {
+    final photos = _photos;
+    if (photos == null ||
+        photoLoaded ||
+        photoBusy ||
+        phase != SessionPhase.signedIn) {
+      return;
+    }
+    final generation = ++_photoGeneration;
+    final identityId = identity?.userId;
+    photoBusy = true;
+    photoFailure = null;
+    _emit();
+    try {
+      final photo = await authorizedRead(photos.readPhoto);
+      if (!_disposed &&
+          generation == _photoGeneration &&
+          identity?.userId == identityId) {
+        profilePhoto = photo;
+        photoLoaded = true;
+      }
+    } on ApiFailure catch (error) {
+      if (!_disposed && generation == _photoGeneration) photoFailure = error;
+    } finally {
+      if (!_disposed && generation == _photoGeneration) {
+        photoBusy = false;
+        _emit();
+      }
+    }
+  }
+
+  Future<bool> saveProfilePhoto(Uint8List bytes) async {
+    final photos = _photos;
+    if (photos == null || photoBusy || phase != SessionPhase.signedIn) {
+      return false;
+    }
+    final generation = ++_photoGeneration;
+    final identityId = identity?.userId;
+    photoBusy = true;
+    photoFailure = null;
+    _emit();
+    try {
+      final photo = await authorizedMutation(
+        (access) => photos.savePhoto(access, bytes),
+      );
+      if (_disposed ||
+          generation != _photoGeneration ||
+          identity?.userId != identityId) {
+        return false;
+      }
+      profilePhoto = photo;
+      photoLoaded = true;
+      return true;
+    } on ApiFailure catch (error) {
+      if (!_disposed && generation == _photoGeneration) photoFailure = error;
+      return false;
+    } finally {
+      if (!_disposed && generation == _photoGeneration) {
+        photoBusy = false;
+        _emit();
+      }
+    }
+  }
+
+  PinChallenge? pinChallenge;
+  PinStage pinStage = PinStage.none;
+  int pinEntryRevision = 0;
+  bool pinResetting = false, _recoverPin = false;
+  int? _recoveryUserId;
+  String? _newPin;
+  bool privacyCovered = false, selectingProfilePhoto = false;
+  DateTime? _selectionStarted;
+
+  void coverPrivateContent() {
+    if (pinChallenge == null || phase != SessionPhase.signedIn) return;
+    privacyCovered = true;
+    _emit();
+  }
+
+  void beginPhotoSelection() {
+    selectingProfilePhoto = true;
+    _selectionStarted = _clock();
+  }
+
+  void endPhotoSelection() {
+    selectingProfilePhoto = false;
+    if (_selectionStarted != null &&
+        _clock().difference(_selectionStarted!).inSeconds > 60) {
+      lockApp();
+    }
+    _selectionStarted = null;
+  }
+
+  bool get trustedPhotoSelection =>
+      selectingProfilePhoto &&
+      _selectionStarted != null &&
+      _clock().difference(_selectionStarted!).inSeconds <= 60;
+  void uncoverPrivateContent() {
+    privacyCovered = false;
+    _emit();
+  }
+
+  Future<void> _preparePin(
+    TokenPair pair,
+    SessionIdentity profile,
+    int generation,
+  ) async {
+    phase = SessionPhase.pinLocked;
+    pinStage = PinStage.checking;
+    identity = profile;
+    _emit();
+    try {
+      final challenge = await pinGateway!.prepare(pair.accessToken);
+      if (!_current(generation)) throw _StaleOperation();
+      await _storage(() async {
+        if (!_current(generation)) throw _StaleOperation();
+        await vault.writeRefreshToken(challenge.encode());
+      });
+      if (!_current(generation)) throw _StaleOperation();
+      pinChallenge = challenge;
+      pinResetting =
+          _recoverPin &&
+          challenge.canRecover &&
+          challenge.userId == _recoveryUserId;
+      pinStage = !challenge.configured || pinResetting
+          ? PinStage.create
+          : PinStage.unlock;
+      _recoverPin = false;
+      _newPin = null;
+      _tokens = null;
+      _refreshToken = null;
+      _accessUntil = null;
+      failure = null;
+      notice = null;
+    } catch (_) {
+      if (_current(generation)) {
+        _forget();
+        phase = SessionPhase.signedOut;
+        screen = AuthScreen.welcome;
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> restorePinStatus() async {
+    final cached = pinChallenge;
+    if (cached == null || pinGateway == null || busy) return;
+    final generation = _generation;
+    busy = true;
+    failure = null;
+    _emit();
+    try {
+      final status = await pinGateway!.status(cached.ticket);
+      if (!_current(generation)) return;
+      pinChallenge = status;
+      pinStage = status.configured ? PinStage.unlock : PinStage.create;
+      await _storage(() async {
+        if (_current(generation)) {
+          await vault.writeRefreshToken(status.encode());
+        }
+      });
+    } on ApiFailure catch (error) {
+      if (_current(generation)) {
+        if (error.status == 401) {
+          await _invalidate(generation, error.message);
+        } else {
+          failure = error;
+          pinStage = cached.configured ? PinStage.unlock : PinStage.create;
+        }
+      }
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+  }
+
+  void restartPinSetup() {
+    if (busy || phase != SessionPhase.pinLocked) return;
+    _newPin = null;
+    failure = null;
+    pinStage = PinStage.create;
+    _emit();
+  }
+
+  Future<bool> submitPin(String value) async {
+    if (pinGateway == null ||
+        busy ||
+        phase != SessionPhase.pinLocked ||
+        !RegExp(r'^[0-9]{4}$').hasMatch(value)) {
+      return false;
+    }
+    final challenge = pinChallenge;
+    if (challenge == null) return false;
+    failure = null;
+    if (pinStage == PinStage.create) {
+      _newPin = value;
+      pinStage = PinStage.confirm;
+      _emit();
+      return true;
+    }
+    if (pinStage == PinStage.confirm && value != _newPin) {
+      failure = const ApiFailure(
+        'PIN_CONFIRMATION_MISMATCH',
+        'The PINs do not match. Try confirming again.',
+      );
+      _emit();
+      return false;
+    }
+    if (pinStage == PinStage.unlock && challenge.recoveryRequired) {
+      failure = const ApiFailure(
+        'PIN_RECOVERY_REQUIRED',
+        'Five incorrect attempts. Verify your identity to reset your PIN.',
+      );
+      _emit();
+      return false;
+    }
+    final generation = _generation;
+    final confirming = pinStage == PinStage.confirm;
+    busy = true;
+    _emit();
+    try {
+      final pair = confirming
+          ? await pinGateway!.setup(
+              challenge.ticket,
+              _newPin!,
+              value,
+              reset: pinResetting,
+            )
+          : await pinGateway!.unlock(challenge.ticket, value);
+      if (!_current(generation)) return false;
+      pinChallenge = PinChallenge(
+        ticket: challenge.ticket,
+        userId: challenge.userId,
+        configured: true,
+        attemptsRemaining: 5,
+        recoveryRequired: false,
+        canRecover: false,
+        displayName: challenge.displayName,
+      );
+      _newPin = null;
+      await _install(pair, generation);
+      if (!_current(generation)) return false;
+      pinStage = PinStage.none;
+      pinResetting = false;
+      return true;
+    } on ApiFailure catch (error) {
+      if (!_current(generation)) return false;
+      failure = error;
+      if (error.code == 'PIN_RECOVERY_AUTH_REQUIRED') {
+        final recovering = pinResetting;
+        await signOut();
+        _recoverPin = recovering;
+        _recoveryUserId = challenge.userId;
+        if (!_disposed && phase == SessionPhase.signedOut) {
+          notice = 'Verify your email or Telegram before creating or resetting your PIN.';
+          _emit();
+        }
+        return false;
+      }
+      if (error.code == 'PIN_RECOVERY_REQUIRED') {
+        pinChallenge = PinChallenge(
+          ticket: challenge.ticket,
+          userId: challenge.userId,
+          configured: true,
+          attemptsRemaining: 0,
+          recoveryRequired: true,
+          canRecover: challenge.canRecover,
+          displayName: challenge.displayName,
+        );
+      }
+      if (error.status == 401) {
+        await _invalidate(generation, error.message);
+        return false;
+      }
+      try {
+        final status = await pinGateway!.status(challenge.ticket);
+        if (_current(generation)) {
+          pinChallenge = status;
+          // A lost setup response is resolved by a fresh, explicit PIN entry.
+          if (confirming &&
+              status.configured &&
+              error.code != 'PIN_CONFIRMATION_MISMATCH') {
+            _newPin = null;
+            pinStage = PinStage.unlock;
+          }
+        }
+      } on ApiFailure catch (_) {
+        /* Keep the gate closed and retain the ticket. */
+      }
+      return false;
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+      return false;
+    } on _StaleOperation {
+      return false;
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+  }
+
+  void lockApp() {
+    if (pinGateway == null || pinChallenge == null || _disposed) return;
+    ++_generation;
+    ++pinEntryRevision;
+    ++_photoGeneration;
+    photoBusy = false;
+    photoLoaded = false;
+    photoFailure = null;
+    phase = SessionPhase.pinLocked;
+    pinStage = pinChallenge!.configured ? PinStage.unlock : PinStage.create;
+    _newPin = null;
+    _tokens = null;
+    _refreshToken = null;
+    _accessUntil = null;
+    busy = false;
+    failure = null;
+    privacyCovered = false;
+    _emit();
+    unawaited(restorePinStatus());
+  }
+
+  Future<void> forgotPin() async {
+    if (busy || phase != SessionPhase.pinLocked) return;
+    if (pinChallenge?.canRecover == true) {
+      pinResetting = true;
+      _newPin = null;
+      failure = null;
+      pinStage = PinStage.create;
+      _emit();
+      return;
+    }
+    final recoveryUser = pinChallenge?.userId;
+    await signOut();
+    _recoverPin = true;
+    _recoveryUserId = recoveryUser;
+    if (!_disposed && phase == SessionPhase.signedOut) {
+      notice = 'Verify your email or Telegram to reset your PIN.';
+      _emit();
+    }
+  }
+
   bool registering = false;
   bool _unifiedEmail = false, _linkingEmail = false;
   bool telegramPending = false;
@@ -113,6 +481,25 @@ class SessionController extends ChangeNotifier {
       if (!_current(generation)) return;
       if (saved == null || saved.isEmpty) {
         phase = SessionPhase.signedOut;
+      } else if (saved.startsWith('kesor-pin-v1:')) {
+        if (pinGateway == null) {
+          await _storage(() => vault.writeRefreshToken(null));
+          phase = SessionPhase.signedOut;
+        } else {
+          try {
+            pinChallenge = PinChallenge.decode(saved);
+          } catch (_) {
+            await _storage(() => vault.writeRefreshToken(null));
+            phase = SessionPhase.signedOut;
+            return;
+          }
+          phase = SessionPhase.pinLocked;
+          pinStage = pinChallenge!.configured
+              ? PinStage.unlock
+              : PinStage.create;
+          busy = false;
+          await restorePinStatus();
+        }
       } else {
         _refreshToken = saved;
         await _refresh(generation);
@@ -323,20 +710,37 @@ class SessionController extends ChangeNotifier {
         );
       }
       if (!_current(generation)) throw _StaleOperation();
+      if (pinGateway != null &&
+          profile.profileComplete &&
+          pinChallenge == null) {
+        await _preparePin(pair, profile, generation);
+        return;
+      }
       await _storage(() async {
         if (!_current(generation)) throw _StaleOperation();
-        await vault.writeRefreshToken(pair.refreshToken);
+        await vault.writeRefreshToken(
+          pinChallenge?.encode() ?? pair.refreshToken,
+        );
       });
       if (!_current(generation)) throw _StaleOperation();
       _tokens = pair;
       _accessUntil = _clock().add(Duration(milliseconds: pair.expiresInMs));
       _refreshToken = pair.refreshToken;
+      if (identity?.userId != profile.userId) {
+        ++_photoGeneration;
+        profilePhoto = null;
+        photoFailure = null;
+        photoBusy = false;
+        photoLoaded = false;
+      }
       identity = profile;
       phase = SessionPhase.signedIn;
       failure = null;
       notice = null;
     } catch (_) {
-      await _logoutQuietly(pair.accessToken);
+      if (!(phase == SessionPhase.pinLocked && pinChallenge != null)) {
+        await _logoutQuietly(pair.accessToken);
+      }
       rethrow;
     }
   }
@@ -361,7 +765,7 @@ class SessionController extends ChangeNotifier {
       // Consume locally before sending: an uncertain rotating refresh is never replayed.
       await _storage(() async {
         if (!_current(generation)) throw _StaleOperation();
-        await vault.writeRefreshToken(null);
+        if (pinChallenge == null) await vault.writeRefreshToken(null);
       });
       if (!_current(generation)) throw _StaleOperation();
       _refreshToken = null;
@@ -393,6 +797,13 @@ class SessionController extends ChangeNotifier {
     Future<T> Function(String token) action, {
     required bool retryRead,
   }) async {
+    if (phase == SessionPhase.pinLocked) {
+      throw const ApiFailure(
+        'PIN_REQUIRED',
+        'Unlock the app with your PIN.',
+        status: 403,
+      );
+    }
     final generation = _generation;
     try {
       if (_tokens == null) {
@@ -496,7 +907,11 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    if (_disposed || phase != SessionPhase.signedIn) return;
+    if (_disposed ||
+        (phase != SessionPhase.signedIn && phase != SessionPhase.pinLocked)) {
+      return;
+    }
+    final pinTicket = pinChallenge?.ticket;
     final pair = _tokens;
     final saved = _refreshToken;
     final pendingRefresh = _refreshing;
@@ -516,6 +931,14 @@ class SessionController extends ChangeNotifier {
       _storageFailed();
     }
     bool revoked = false;
+    if (pinTicket != null && pinGateway != null) {
+      try {
+        await pinGateway!.discard(pinTicket);
+        revoked = true;
+      } catch (_) {
+        /* Local logout still completes. */
+      }
+    }
     if (pendingRefresh != null) {
       try {
         await pendingRefresh;
@@ -566,7 +989,20 @@ class SessionController extends ChangeNotifier {
   }
 
   void _forget() {
+    pinChallenge = null;
+    pinStage = PinStage.none;
+    _newPin = null;
+    pinResetting = false;
+    privacyCovered = false;
+    selectingProfilePhoto = false;
+    _selectionStarted = null;
+    ++_photoGeneration;
+    profilePhoto = null;
+    photoFailure = null;
+    photoBusy = false;
+    photoLoaded = false;
     _telegramWindow?.close();
+    unawaited(nativeTelegram.cancel());
     _telegramWindow = null;
     telegramPending = false;
     _unifiedEmail = false;
@@ -670,7 +1106,14 @@ class SessionController extends ChangeNotifier {
       if (_current(generation)) {
         identity = profile;
         screen = AuthScreen.welcome;
+        if (pinGateway != null && _tokens != null) {
+          await _preparePin(_tokens!, profile, generation);
+        }
       }
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+    } on _StaleOperation {
+      /* A background lock superseded onboarding. */
     } on ApiFailure catch (e) {
       if (_current(generation)) failure = e;
     } finally {
@@ -683,6 +1126,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> continueTelegram() async {
     if (busy) return;
+    if (nativeTelegram.supported) return _continueNativeTelegram();
     final generation = ++_generation;
     final linking = phase == SessionPhase.signedIn;
     final popup = TelegramWindow();
@@ -785,11 +1229,96 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> _continueNativeTelegram() async {
+    final generation = ++_generation;
+    final linking = phase == SessionPhase.signedIn;
+    busy = true;
+    telegramPending = true;
+    failure = null;
+    notice = null;
+    _emit();
+    try {
+      final candidate = gateway;
+      if (candidate is! NativeTelegramGateway) {
+        throw const ApiFailure(
+          'TELEGRAM_UNAVAILABLE',
+          'Telegram login requires an API connection.',
+        );
+      }
+      final nativeGateway = candidate as NativeTelegramGateway;
+      final installation = await _storage(vault.installationId);
+      if (!_current(generation)) return;
+      final device = <String, dynamic>{
+        'deviceFingerprint': installation,
+        'deviceName': 'Kesor Bank Android',
+        'deviceType': 'ANDROID',
+      };
+      final start = linking
+          ? await authorizedMutation(
+              (access) =>
+                  nativeGateway.startNativeTelegram(device, linkToken: access),
+            )
+          : await nativeGateway.startNativeTelegram(device);
+      if (!_current(generation)) return;
+      final flowId = start['flowId'] as String;
+      final exchangeSecret = start['exchangeSecret'] as String;
+      final code = await nativeTelegram
+          .authorize(
+            authorizationUrl: start['authorizationUrl'] as String,
+            redirectUri: start['redirectUri'] as String,
+            flowId: flowId,
+          )
+          .timeout(
+            Duration(seconds: (start['expiresInSeconds'] as int).clamp(1, 300)),
+          );
+      if (!_current(generation)) return;
+      // Exactly one request: on an uncertain outcome, begin a fresh approval.
+      final pair = await nativeGateway.exchangeNativeTelegram(
+        flowId,
+        exchangeSecret,
+        code,
+      );
+      if (!_current(generation)) {
+        await _logoutQuietly(pair.accessToken);
+        return;
+      }
+      await _install(pair, generation);
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+    } on ApiFailure catch (error) {
+      if (_current(generation)) failure = error;
+    } on TimeoutException {
+      if (_current(generation)) {
+        failure = ApiFailure(
+          'TELEGRAM_FLOW_INVALID',
+          ApiFailure.messageFor('TELEGRAM_FLOW_INVALID'),
+        );
+      }
+    } on _StaleOperation {
+      // Sign-out or disposal superseded the login response.
+    } catch (_) {
+      if (_current(generation)) {
+        failure = ApiFailure(
+          'TELEGRAM_REJECTED',
+          ApiFailure.messageFor('TELEGRAM_REJECTED'),
+        );
+      }
+    } finally {
+      if (_current(generation)) await nativeTelegram.cancel();
+      if (_current(generation)) {
+        busy = false;
+        telegramPending = false;
+        _emit();
+      }
+    }
+  }
+
   void cancelTelegram() {
     if (!telegramPending) return;
     ++_generation;
     _telegramWindow?.close();
     _telegramWindow = null;
+    unawaited(nativeTelegram.cancel());
     busy = false;
     telegramPending = false;
     failure = null;
