@@ -83,7 +83,8 @@ public class OtpServiceImpl implements OtpService {
         return limits.findLockedById(id).orElseThrow();
     }
     private void checkPurpose(String purpose) {
-        if (!"SIGNUP".equals(purpose) && !"LOGIN".equals(purpose))
+        if (!"SIGNUP".equals(purpose) && !"LOGIN".equals(purpose)
+                && !"CONTINUE".equals(purpose) && !purpose.matches("LINK_[0-9]{1,19}"))
             throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Purpose must be SIGNUP or LOGIN");
     }
     private ApiException throttled(OffsetDateTime until, OffsetDateTime now) {

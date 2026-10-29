@@ -26,7 +26,7 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(UserRepository users) {
         return username -> users.findByUsername(username).map(u -> User.withUsername(u.getUsername())
-                .password(u.getPassword()).disabled(!u.isEnabled())
+                .password(u.getPassword() == null ? "" : u.getPassword()).disabled(!u.isEnabled())
                 .authorities(u.getRoles().stream().map(r -> r.getName().name()).toArray(String[]::new)).build())
                 .orElseThrow(() -> new UsernameNotFoundException("User unavailable"));
     }
@@ -53,6 +53,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/request-otp", "/api/v1/auth/refresh").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/request", "/api/v1/auth/email/verify",
+                        "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/auth/telegram/callback").permitAll()
+                .requestMatchers("/api/v1/auth/profile", "/api/v1/auth/email/link/request",
+                        "/api/v1/auth/email/link/verify", "/api/v1/auth/telegram/link/start").authenticated()
                 .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout").authenticated()
                 .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/*/status").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
                 .requestMatchers("/api/v1/accounts/**").hasRole("CUSTOMER")

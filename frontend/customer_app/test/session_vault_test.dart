@@ -1,4 +1,5 @@
 import 'package:customer_app/core/storage/session_vault.dart';
+import 'package:customer_app/features/accounts/creation_store.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,4 +33,30 @@ void main() {
     expect(await other.readRefreshToken(), null);
     expect(await demo.installationId() == await api.installationId(), false);
   });
+  test('opening uncertainty survives store recreation and isolates user/backend/mode', () async {
+    final original = SecureCreationStore('api-a|api');
+    await original.setPending(1, true);
+    expect(await SecureCreationStore('api-a|api').pending(1), true);
+    expect(await original.pending(2), false);
+    expect(await SecureCreationStore('api-a|demo').pending(1), false);
+    expect(await SecureCreationStore('api-b|api').pending(1), false);
+    final values = await const FlutterSecureStorage().readAll();
+    expect(values.values.toSet(), {'uncertain'});
+    await original.setPending(1, false);
+    expect(await SecureCreationStore('api-a|api').pending(1), false);
+  });
+  test(
+    'overlapping secure marker operations stay ordered across store instances',
+    () async {
+      final first = SecureCreationStore('serial-api');
+      final next = SecureCreationStore('serial-api');
+      final write = first.setPending(1, true);
+      final observed = next.pending(1);
+      final clear = first.setPending(1, false);
+      final afterClear = next.pending(1);
+      await Future.wait([write, clear]);
+      expect(await observed, true);
+      expect(await afterClear, false);
+    },
+  );
 }

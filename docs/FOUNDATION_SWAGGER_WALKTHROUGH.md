@@ -1,8 +1,9 @@
-# Foundation Swagger walkthrough (F1)
+# Foundation Swagger walkthrough
 
 First follow [local setup](FOUNDATION_LOCAL_SETUP.md). Open
 [Swagger](http://localhost:8080/swagger-ui/index.html), select **foundation**, and
-open [Mailpit](http://127.0.0.1:8025) alongside it. All API paths below begin with
+open your controlled recipient inbox alongside it. Configure the sender using
+[Gmail email setup](GMAIL_EMAIL_SETUP.md). All API paths below begin with
 `/api/v1`. For each call, click **Try it out**, enter JSON/parameters, and **Execute**.
 
 Public auth calls have no lock. Protected calls require a valid access token.
@@ -11,15 +12,17 @@ Registration and account opening return **201**; other successful calls return
 
 ## 1. Register a sender
 
-Choose a unique suffix for this run, such as `1017a`. This guide uses
-`foundation.sender.1017a@example.test`. Use the exact same address through signup.
-These are local capture addresses; no real email account is required.
+Choose a unique suffix for a new run, such as `1020a`. Replace every sender and
+receiver email below with distinct, unused addresses in inboxes you control;
+the sample Gmail addresses are placeholders. Use the exact same address through
+signup. To reuse an existing approved identity, log in instead of registering
+again. Do not rerun funding/transfers from an earlier attempt with new keys.
 
 POST `/auth/request-otp`:
 
 ```json
 {
-  "email": "foundation.sender.1017a@example.test",
+  "email": "your-inbox+sender-1020a@gmail.com",
   "purpose": "SIGNUP"
 }
 ```
@@ -34,20 +37,20 @@ Expected **200** with this data (inside the success envelope):
 }
 ```
 
-Read the matching SIGNUP message in Mailpit. Use its actual six-digit code,
+Read the matching SIGNUP message in the recipient's Inbox/Spam. Use its actual six-digit code,
 including leading zeroes. `123456` below is a placeholder.
 
 POST `/auth/register`:
 
 ```json
 {
-  "username": "foundation.sender.1017a",
-  "email": "foundation.sender.1017a@example.test",
+  "username": "foundation.sender.1020a",
+  "email": "your-inbox+sender-1020a@gmail.com",
   "password": "ChooseYourTestPassword!",
   "otpCode": "123456",
   "firstName": "Foundation",
   "lastName": "Sender",
-  "deviceFingerprint": "swagger-sender-1017a",
+  "deviceFingerprint": "swagger-sender-1020a",
   "deviceName": "Swagger on Windows",
   "deviceType": "WEB"
 }
@@ -90,8 +93,8 @@ first. Only transfers/deposits have the financial idempotency contract.
 ## 3. Register a receiver and open an account
 
 Repeat steps 1–2 using a unique receiver identity, for example
-`foundation.receiver.1017a` / `foundation.receiver.1017a@example.test` and
-`swagger-receiver-1017a`. Request a separate SIGNUP code. Authorize the receiver
+`foundation.receiver.1020a` / `your-inbox+receiver-1020a@gmail.com` and
+`swagger-receiver-1020a`. Request a separate SIGNUP code. Authorize the receiver
 access token before opening their zero-balance USD account.
 
 Save the receiver tokens and number as **RECEIVER_ACCOUNT**. Keep the two
@@ -103,19 +106,23 @@ POST `/auth/request-otp`:
 
 ```json
 {
-  "email": "employee.demo@example.test",
+  "email": "your-staff@gmail.com",
   "purpose": "LOGIN"
 }
 ```
 
-Read the employee's LOGIN code in Mailpit, then POST `/auth/login`:
+Use the existing approved Gmail staff identity. On a new local installation,
+provision a separate staff fixture as described in the setup guide. Replace the
+staff email/password below with its configured values. The historical
+`employee.demo@example.test` fixture cannot receive Gmail. Read the staff LOGIN
+code in its real inbox, then POST `/auth/login`:
 
 ```json
 {
-  "usernameOrEmail": "employee.demo@example.test",
-  "password": "YOUR_DEV_SEED_PASSWORD",
+  "usernameOrEmail": "your-staff@gmail.com",
+  "password": "YOUR_QA_STAFF_PASSWORD",
   "otpCode": "123456",
-  "deviceFingerprint": "swagger-employee-1017a",
+  "deviceFingerprint": "swagger-employee-1020a",
   "deviceName": "Swagger on Windows",
   "deviceType": "WEB"
 }
@@ -127,7 +134,7 @@ Every login requires a fresh LOGIN OTP; a SIGNUP code cannot replace it.
 Expected **200**, with ROLE_BANK_EMPLOYEE. Authorize this staff access token.
 
 POST `/transactions/deposit`, setting the separate **Idempotency-Key** header
-parameter to `f1-deposit-1017a`, and replacing the account number below:
+parameter to `f1-deposit-1020a`, and replacing the account number below:
 
 ```json
 {
@@ -156,7 +163,7 @@ While authorized as sender:
 - This privacy restriction does not prevent a permitted transfer to a known
   destination number. No public recipient-name lookup is provided.
 
-POST `/transactions/transfer`, with header **Idempotency-Key: f1-transfer-1017a**:
+POST `/transactions/transfer`, with header **Idempotency-Key: f1-transfer-1020a**:
 
 ```json
 {
@@ -262,12 +269,12 @@ Log out other test sessions separately if you saved them.
 | Missing Idempotency-Key | 400 IDEMPOTENCY_KEY_REQUIRED |
 | Used key with changed payload | 409 IDEMPOTENCY_CONFLICT |
 | Too many OTP/login requests | 429 with Retry-After and retryAfterSeconds |
-| Mailpit stopped / incorrect mail configuration | 503 OTP_DELIVERY_UNAVAILABLE for eligible OTP requests |
+| SMTP unavailable / incorrect mail configuration | 503 OTP_DELIVERY_UNAVAILABLE for eligible OTP requests |
 
 Errors use success=false, error, message, status, path, timestamp, fieldErrors,
 retryAfterSeconds. The error field is a stable code; do not match message text.
 
-F1 passes when local OTP delivery, documented core calls, correct Swagger
+The API walkthrough passes when real inbox OTP delivery, documented core calls, correct Swagger
 statuses/security, zero-balance account creation, staff funding, one-posting
 transfer retries, history, refresh/logout, and role/ownership rejection all work.
 AI, fraud scoring, QR payments, and the other deferred modules are not required.

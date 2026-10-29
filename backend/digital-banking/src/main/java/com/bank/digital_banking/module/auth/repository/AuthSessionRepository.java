@@ -9,6 +9,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AuthSessionRepository extends JpaRepository<AuthSession, UUID> {
+    @Modifying
+    @Query("update AuthSession s set s.revokedAt = :now where s.user.id = :userId and s.revokedAt is null")
+    int revokeForUser(@Param("userId") Long userId, @Param("now") OffsetDateTime now);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from AuthSession s where s.id = :id")
     Optional<AuthSession> findLockedById(@Param("id") UUID id);

@@ -29,7 +29,6 @@ void main() {
       );
       final suffix = DateTime.now().microsecondsSinceEpoch.toString();
       final email = 'f2.$suffix@example.test';
-      final username = 'f2.$suffix';
       final client = ApiClient(config);
       final gateway = HttpAuthGateway(client);
       final vault = SecureSessionVault('f2-integration-$suffix');
@@ -41,7 +40,9 @@ void main() {
         client.close();
       });
       Future<void> tap(String label) async {
-        final finder = find.text(label);
+        final finder = find.text(label).evaluate().isNotEmpty
+            ? find.text(label)
+            : find.byTooltip(label);
         await tester.ensureVisible(finder);
         await tester.tap(finder);
         await tester.pumpAndSettle();
@@ -88,15 +89,15 @@ void main() {
       debugPrint('Native QA: secure storage initialized');
       await tester.pumpWidget(BankingApp(session: session, config: config));
       await tester.pumpAndSettle();
-      await tap('Create a profile');
-      await enter('username', username);
+      await tap('Continue with Email');
       await enter('email', email);
-      await enter('password', 'QaFoundation2!');
-      await enter('confirmPassword', 'QaFoundation2!');
-      await tap('Send email code');
+      await tap('Send verification code');
       expect(find.text('Check your email'), findsOneWidget);
-      await enter('otpCode', await latestCode('SIGNUP'));
-      await tap('Create profile');
+      await enter('otpCode', await latestCode('CONTINUE'));
+      await tap('Verify and continue');
+      await enter('firstName', 'Native');
+      await enter('lastName', 'Customer');
+      await tap('Continue to Kesor');
       expect(session.phase, SessionPhase.signedIn);
       expect(session.identity!.email, email);
       debugPrint('Native QA: signup through the UI passed');
@@ -120,23 +121,23 @@ void main() {
       debugPrint('Native QA: vault recreation and refresh rotation passed');
       await tester.pumpWidget(BankingApp(session: session, config: config));
       await tester.pumpAndSettle();
+      await tap('Profile');
       await tap('Sign out');
       expect(session.phase, SessionPhase.signedOut);
       expect(await vault.readRefreshToken(), null);
       // Back from the public root correctly exits Android. Exercise Back from
       // the login route instead, so the remaining native test stays foreground.
-      await tap('Sign in');
+      await tap('Continue with Email');
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('You’re signed in.'), findsNothing);
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.text('Continue with Email'), findsOneWidget);
       debugPrint('Native QA: logout and protected back navigation passed');
-      await tap('Sign in');
+      await tap('Continue with Email');
       await enter('email', email);
-      await enter('password', 'QaFoundation2!');
-      await tap('Send email code');
-      await enter('otpCode', await latestCode('LOGIN'));
-      await tap('Sign in');
+      await tap('Send verification code');
+      await enter('otpCode', await latestCode('CONTINUE'));
+      await tap('Verify and continue');
       expect(session.phase, SessionPhase.signedIn);
       debugPrint('Native QA: login through the UI passed');
       // Revoke the exact server session externally, then ensure the app drops private state.

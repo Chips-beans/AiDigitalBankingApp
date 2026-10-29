@@ -42,81 +42,6 @@ class AuthLayout extends StatelessWidget {
   );
 }
 
-class WelcomePage extends StatelessWidget {
-  const WelcomePage(this.session, {super.key});
-  final SessionController session;
-  @override
-  Widget build(BuildContext context) => AuthLayout(
-    children: [
-      const SizedBox(height: 24),
-      Container(
-        padding: const EdgeInsets.all(28),
-        decoration: BoxDecoration(
-          color: const Color(0xFF142D4E),
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ExcludeSemantics(
-              child: Icon(
-                Icons.account_balance_outlined,
-                color: Color(0xFFF5D99D),
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'DIGITAL BANKING',
-              style: TextStyle(
-                color: Color(0xFFF5D99D),
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'A simpler start\nto everyday banking.',
-              style: Theme.of(context).textTheme.headlineMedium
-                  ?.copyWith(color: Colors.white),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Your profile. Your session.\nReady when you are.',
-              style: TextStyle(
-                color: Color(0xFFD7E2F0),
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 32),
-      Text('Welcome', style: Theme.of(context).textTheme.headlineMedium),
-      const SizedBox(height: 12),
-      const Text('Sign in or create your customer profile to get started.'),
-      const SizedBox(height: 24),
-      if (session.notice != null) NoticePanel(session.notice!),
-      BusyButton(
-        label: 'Sign in',
-        busy: session.busy,
-        onPressed: () => session.openForm(register: false),
-      ),
-      const SizedBox(height: 12),
-      TextButton(
-        onPressed: session.busy ? null : () => session.openForm(register: true),
-        child: const Text('Create a profile'),
-      ),
-      const SizedBox(height: 24),
-      const Text(
-        'We’ll send an email code each time you sign in.',
-        textAlign: TextAlign.center,
-      ),
-    ],
-  );
-}
-
 class CredentialsPage extends StatefulWidget {
   const CredentialsPage(this.session, {required this.register, super.key});
   final SessionController session;
@@ -413,7 +338,7 @@ class _OtpPageState extends State<OtpPage> {
         ),
         const SizedBox(height: 24),
         BusyButton(
-          label: session.registering ? 'Create profile' : 'Sign in',
+          label: 'Verify and continue',
           busy: session.busy,
           onPressed: session.expirySeconds == 0 ? null : _verify,
         ),
@@ -438,71 +363,4 @@ class _OtpPageState extends State<OtpPage> {
       ],
     );
   }
-}
-
-class SignedInPage extends StatelessWidget {
-  const SignedInPage(this.session, {super.key});
-  final SessionController session;
-  @override
-  Widget build(BuildContext context) => AuthLayout(
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Your profile',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ),
-          IconButton(
-            onPressed: session.busy ? null : session.refreshProfile,
-            tooltip: 'Refresh profile',
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      const SizedBox(height: 32),
-      const ExcludeSemantics(
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Icon(Icons.check_circle_outline, size: 48),
-        ),
-      ),
-      const SizedBox(height: 24),
-      Text(
-        'You’re signed in.',
-        style: Theme.of(context).textTheme.headlineMedium,
-      ),
-      const SizedBox(height: 24),
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('USERNAME'),
-              const SizedBox(height: 8),
-              Text(
-                session.identity!.username,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 24),
-              const Text('EMAIL'),
-              const SizedBox(height: 8),
-              SelectableText(session.identity!.email),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(height: 24),
-      if (session.failure != null)
-        NoticePanel(session.failure!.message, error: true),
-      if (session.notice != null) NoticePanel(session.notice!),
-      BusyButton(
-        label: 'Sign out',
-        busy: session.busy,
-        onPressed: session.signOut,
-      ),
-    ],
-  );
 }

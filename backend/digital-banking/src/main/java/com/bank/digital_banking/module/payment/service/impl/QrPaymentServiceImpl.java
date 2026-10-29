@@ -116,6 +116,15 @@ public class QrPaymentServiceImpl implements QrPaymentService {
 
 
     @Override
+    @Transactional
+    public KhqrGenerateResponse generateKhqr(User user, KhqrGenerateRequest request) {
+        QrGenerateResponse response = generateQr(user, new QrGenerateRequest(
+                request.accountNumber(), request.amount(), request.currency(), null, null, null));
+        return new KhqrGenerateResponse(response.qrString(), response.md5Hash(),
+                response.accountNumber(), request.amount(), response.currency());
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public QrScanResponse scanQr(User user, QrScanRequest request) {
         EmvcoQrCode qrCode = qrCodeEngine.parse(request.qrString());

@@ -7,6 +7,7 @@ import 'package:customer_app/core/config/app_config.dart';
 import 'package:customer_app/core/storage/session_vault.dart';
 import 'package:customer_app/features/auth/data/auth_gateway.dart';
 import 'package:customer_app/features/auth/session_controller.dart';
+import 'package:customer_app/features/accounts/account_gateway.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +44,9 @@ void main() {
       await icons.load();
     });
     final session = SessionController(DemoAuthGateway(), MemorySessionVault());
+    final accounts = DemoAccountGateway();
+    await accounts.open('demo', 'SAVINGS', 'USD');
+    await accounts.open('demo', 'CHECKING', 'KHR');
     final config = AppConfig(
       apiBaseUrl: 'http://localhost:8080/api/v1',
       environment: 'dev',
@@ -53,7 +57,11 @@ void main() {
     await tester.pumpWidget(
       RepaintBoundary(
         key: boundary,
-        child: BankingApp(session: session, config: config),
+        child: BankingApp(
+          session: session,
+          config: config,
+          accountGateway: accounts,
+        ),
       ),
     );
     Future<void> capture(String name) async {
@@ -82,7 +90,18 @@ void main() {
     );
     await capture('otp');
     await session.verifyCode('123456');
+    await capture('f3-home');
+    await tester.tap(find.byTooltip('Activity'));
+    await capture('f3-activity');
+    await tester.tap(find.text('Profile'));
     await capture('profile');
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('View accounts'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Open account'));
+    await tester.tap(find.text('Open account'));
+    await capture('f3-open-account');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     session.dispose();

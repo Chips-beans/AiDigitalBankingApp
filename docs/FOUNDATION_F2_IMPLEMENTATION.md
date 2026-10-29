@@ -1,6 +1,15 @@
 # F2 — Flutter authentication and session foundation
 
+F3 now builds on this session foundation with accounts, balances, recent activity,
+and Profile. Its separate non-authentication opening-uncertainty flag and current
+Gmail/native acceptance are documented in [F3 delivery](FOUNDATION_F3_IMPLEMENTATION.md).
+
 Implemented 17 October 2026 in `frontend/customer_app`.
+
+**Live email update, 19 October 2026:** use [Gmail email setup](GMAIL_EMAIL_SETUP.md)
+for current live runs. Mailpit-based commands and results below describe the
+historical F2 acceptance environment. The captured-inbox test drivers use generated
+`@example.test` recipients and must not run against the Gmail backend.
 
 Implementation, local/live API QA, and Android emulator acceptance are complete.
 Native authentication and the three-process persistence/rotation/logout check

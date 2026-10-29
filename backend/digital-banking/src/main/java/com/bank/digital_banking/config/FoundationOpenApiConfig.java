@@ -44,6 +44,39 @@ public class FoundationOpenApiConfig {
             nullable(api, "ApiErrorResponse", "retryAfterSeconds");
             nullable(api, "RegisterRequestDto", "firstName", "lastName", "deviceType");
             nullable(api, "LoginRequestDto", "deviceType");
+            nullable(api, "SessionIdentityDto", "email", "firstName", "lastName");
+            nullable(api, "TelegramExchangeResponse", "tokens");
+            describe(api, "/auth/email/request", PathItem.HttpMethod.POST, "Authentication", "Continue with email: request a code",
+                    "Public. The same flow serves new and returning customers. No profile is created until ownership is verified.",
+                    "200", true, Map.of("email", "customer@example.test"), "400", "429", "503");
+            describe(api, "/auth/email/verify", PathItem.HttpMethod.POST, "Authentication", "Verify email and continue",
+                    "Public. Consumes a CONTINUE code once. Read /auth/me: profileComplete=false requires onboarding before banking access.",
+                    "200", true, Map.of("email", "customer@example.test", "otpCode", "123456", "deviceFingerprint", "browser-installation",
+                            "deviceName", "Browser", "deviceType", "WEB"), "400", "401", "409");
+            describe(api, "/auth/profile", PathItem.HttpMethod.PATCH, "Authentication", "Complete your information",
+                    "Authenticated onboarding profiles only gain banking permissions after this succeeds. Existing complete profiles remain unchanged.",
+                    "200", false, Map.of("firstName", "Dara", "lastName", "Sok"), "400", "401");
+            describe(api, "/auth/email/link/request", PathItem.HttpMethod.POST, "Authentication", "Request a code to connect email",
+                    "Authenticated. Codes are bound to this profile. Verify the code before connecting the email identity.",
+                    "200", false, Map.of("email", "customer@example.test"), "400", "401", "429");
+            describe(api, "/auth/email/link/verify", PathItem.HttpMethod.POST, "Authentication", "Connect verified email",
+                    "Authenticated. A new onboarding-only Telegram profile can connect to an existing verified email profile. Complete profiles are never automatically merged.",
+                    "200", false, Map.of("email", "customer@example.test", "otpCode", "123456", "deviceFingerprint", "browser-installation",
+                            "deviceName", "Browser", "deviceType", "WEB"), "400", "401", "409");
+            for (String start : List.of("/auth/telegram/start", "/auth/telegram/link/start"))
+                describe(api, start, PathItem.HttpMethod.POST, "Authentication", "Start Telegram approval",
+                        "Open authorizationUrl in a browser. Keep flowId and exchangeSecret private in the initiating browser. Linking requires authentication within ten minutes.",
+                        "200", start.endsWith("/telegram/start"), Map.of("deviceFingerprint", "browser-installation", "deviceName", "Browser", "deviceType", "WEB"),
+                        "400", "401", "403", "429", "503");
+            describe(api, "/auth/telegram/exchange", PathItem.HttpMethod.POST, "Authentication", "Collect Telegram approval",
+                    "Public, authorized by the flow's private exchangeSecret. PENDING can be polled; COMPLETE issues tokens exactly once. No additional app OTP.",
+                    "200", true, Map.of("flowId", "PASTE_FLOW_ID", "exchangeSecret", "PASTE_PRIVATE_EXCHANGE_SECRET"), "400", "401", "409");
+            if (api.getPaths() != null && api.getPaths().get("/api/v1/auth/telegram/callback") != null) {
+                var callback = api.getPaths().get("/api/v1/auth/telegram/callback").getGet();
+                callback.setSecurity(List.of());
+                callback.setTags(List.of("Authentication"));
+                callback.setSummary("Telegram browser callback (not called manually)");
+            }
             nullable(api, "TransferRequestDto", "remark");
             nullable(api, "DepositRequestDto", "remark");
             nullable(api, "TransactionResponseDto", "sourceAccountNumber", "destinationAccountNumber", "remark");

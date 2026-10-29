@@ -57,7 +57,9 @@ public class AuthServiceImpl implements AuthService {
         // Case normalization can expand Unicode input beyond the DTO's character limit.
         String key = user == null ? "identity:" + HashUtils.sha256(identity.toLowerCase(Locale.ROOT)) : "user:" + user.getId();
         loginAttempts.recordAttempt(key);
-        boolean validPassword = passwords.matches(request.getPassword(), user == null ? dummyPasswordHash : user.getPassword());
+        boolean validPassword = passwords.matches(request.getPassword(),
+                user == null || user.getPassword() == null ? dummyPasswordHash : user.getPassword());
+        validPassword = validPassword && user != null && user.getPassword() != null;
         if (!validPassword || user == null)
             throw new AuthenticationFailedException("Invalid credentials");
         if (!user.isEnabled()) throw new AuthenticationFailedException("USER_DISABLED", "Account is disabled");

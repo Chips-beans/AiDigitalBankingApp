@@ -9,11 +9,15 @@ class SessionIdentity {
     required this.email,
     required this.roles,
     required this.sessionId,
+    this.profileComplete = true,
+    this.firstName,
+    this.lastName,
+    this.telegramLinked = false,
   });
   factory SessionIdentity.fromJson(Map<String, dynamic> data) {
     if (data['userId'] is! int ||
         data['username'] is! String ||
-        data['email'] is! String ||
+        (data['email'] != null && data['email'] is! String) ||
         data['sessionId'] is! String ||
         data['roles'] is! List ||
         (data['roles'] as List).any((r) => r is! String)) {
@@ -25,16 +29,48 @@ class SessionIdentity {
     return SessionIdentity(
       userId: data['userId'] as int,
       username: data['username'] as String,
-      email: data['email'] as String,
+      email: data['email'] as String?,
       roles: List<String>.from(data['roles'] as List),
       sessionId: data['sessionId'] as String,
+      profileComplete: data['profileComplete'] as bool? ?? true,
+      firstName: data['firstName'] as String?,
+      lastName: data['lastName'] as String?,
+      telegramLinked: data['telegramLinked'] as bool? ?? false,
     );
   }
   final int userId;
   final String username;
-  final String email;
+  final String? email;
   final List<String> roles;
   final String sessionId;
+  final bool profileComplete, telegramLinked;
+  final String? firstName, lastName;
+  String get displayName => [
+    firstName,
+    lastName,
+  ].whereType<String>().where((s) => s.isNotEmpty).join(' ');
+}
+
+abstract interface class ContinuationGateway {
+  Future<OtpReceipt> requestContinueOtp(String email, {String? linkToken});
+  Future<TokenPair> verifyEmail(
+    Map<String, dynamic> payload, {
+    String? linkToken,
+  });
+  Future<SessionIdentity> completeProfile(
+    String access,
+    String firstName,
+    String lastName,
+  );
+  Future<Map<String, dynamic>> startTelegram(
+    Map<String, dynamic> device, {
+    String? linkToken,
+  });
+  Future<Map<String, dynamic>> exchangeTelegram(
+    String flowId,
+    String exchangeSecret, {
+    String? approvalReceipt,
+  });
 }
 
 class TokenPair {
@@ -98,7 +134,7 @@ abstract interface class AuthGateway {
   Future<void> logout(String accessToken);
 }
 
-class HttpAuthGateway implements AuthGateway {
+class HttpAuthGateway implements AuthGateway, ContinuationGateway {
   HttpAuthGateway(this.client);
   final ApiClient client;
   Map<String, dynamic> _data(Map<String, dynamic> response) {
@@ -110,6 +146,78 @@ class HttpAuthGateway implements AuthGateway {
     }
     return response['data'] as Map<String, dynamic>;
   }
+
+  @override
+  Future<OtpReceipt> requestContinueOtp(
+    String email, {
+    String? linkToken,
+  }) async => OtpReceipt.fromJson(
+    _data(
+      await client.request(
+        'POST',
+        linkToken == null ? '/auth/email/request' : '/auth/email/link/request',
+        accessToken: linkToken,
+        body: {'email': email},
+      ),
+    ),
+  );
+  @override
+  Future<TokenPair> verifyEmail(
+    Map<String, dynamic> payload, {
+    String? linkToken,
+  }) async => TokenPair.fromJson(
+    _data(
+      await client.request(
+        'POST',
+        linkToken == null ? '/auth/email/verify' : '/auth/email/link/verify',
+        accessToken: linkToken,
+        body: payload,
+      ),
+    ),
+  );
+  @override
+  Future<SessionIdentity> completeProfile(
+    String access,
+    String firstName,
+    String lastName,
+  ) async => SessionIdentity.fromJson(
+    _data(
+      await client.request(
+        'PATCH',
+        '/auth/profile',
+        accessToken: access,
+        body: {'firstName': firstName, 'lastName': lastName},
+      ),
+    ),
+  );
+  @override
+  Future<Map<String, dynamic>> startTelegram(
+    Map<String, dynamic> device, {
+    String? linkToken,
+  }) async => _data(
+    await client.request(
+      'POST',
+      linkToken == null ? '/auth/telegram/start' : '/auth/telegram/link/start',
+      accessToken: linkToken,
+      body: device,
+    ),
+  );
+  @override
+  Future<Map<String, dynamic>> exchangeTelegram(
+    String flowId,
+    String exchangeSecret, {
+    String? approvalReceipt,
+  }) async => _data(
+    await client.request(
+      'POST',
+      '/auth/telegram/exchange',
+      body: {
+        'flowId': flowId,
+        'exchangeSecret': exchangeSecret,
+        'approvalReceipt': approvalReceipt,
+      },
+    ),
+  );
 
   @override
   Future<OtpReceipt> requestOtp(String email, String purpose) async =>
@@ -159,8 +267,9 @@ class HttpAuthGateway implements AuthGateway {
 }
 
 /// Explicit development-only UI simulation. Never selected following an API error.
-class DemoAuthGateway implements AuthGateway {
+class DemoAuthGateway implements AuthGateway, ContinuationGateway {
   final Map<String, SessionIdentity> _access = {};
+  final Map<String, SessionIdentity> _profiles = {};
   int _sequence = 0;
   @override
   Future<OtpReceipt> requestOtp(String email, String purpose) async =>
@@ -176,6 +285,10 @@ class DemoAuthGateway implements AuthGateway {
           'email': identity.email,
           'roles': identity.roles,
           'sessionId': identity.sessionId,
+          'profileComplete': identity.profileComplete,
+          'firstName': identity.firstName,
+          'lastName': identity.lastName,
+          'telegramLinked': identity.telegramLinked,
         }),
       ),
     );
@@ -214,12 +327,11 @@ class DemoAuthGateway implements AuthGateway {
   Future<TokenPair> refresh(String refreshToken) async {
     try {
       if (!refreshToken.startsWith('demo-only:')) throw const FormatException();
-      return _issue(
-        SessionIdentity.fromJson(
-          jsonDecode(utf8.decode(base64Url.decode(refreshToken.substring(10))))
-              as Map<String, dynamic>,
-        ),
+      final previous = SessionIdentity.fromJson(
+        jsonDecode(utf8.decode(base64Url.decode(refreshToken.substring(10))))
+            as Map<String, dynamic>,
       );
+      return _issue(_profiles[previous.email] ?? previous);
     } catch (_) {
       throw const ApiFailure(
         'SESSION_INVALID',
@@ -242,4 +354,75 @@ class DemoAuthGateway implements AuthGateway {
   Future<void> logout(String accessToken) async {
     _access.remove(accessToken);
   }
+
+  @override
+  Future<OtpReceipt> requestContinueOtp(
+    String email, {
+    String? linkToken,
+  }) async => const OtpReceipt(resendAfterSeconds: 5);
+  @override
+  Future<TokenPair> verifyEmail(
+    Map<String, dynamic> payload, {
+    String? linkToken,
+  }) async {
+    if (payload['otpCode'] != '123456') {
+      throw ApiFailure(
+        'OTP_INVALID',
+        ApiFailure.messageFor('OTP_INVALID'),
+        status: 401,
+      );
+    }
+    final email = payload['email'] as String;
+    final identity = _profiles.putIfAbsent(
+      email,
+      () => SessionIdentity(
+        userId: _profiles.length + 1,
+        username: 'demo.customer',
+        email: email,
+        roles: const ['ROLE_CUSTOMER'],
+        sessionId: 'demo-session',
+        profileComplete: false,
+      ),
+    );
+    return _issue(identity);
+  }
+
+  @override
+  Future<SessionIdentity> completeProfile(
+    String access,
+    String firstName,
+    String lastName,
+  ) async {
+    final previous = await me(access);
+    final identity = SessionIdentity(
+      userId: previous.userId,
+      username: previous.username,
+      email: previous.email,
+      roles: previous.roles,
+      sessionId: previous.sessionId,
+      firstName: firstName,
+      lastName: lastName,
+    );
+    _access[access] = identity;
+    if (identity.email != null) _profiles[identity.email!] = identity;
+    return identity;
+  }
+
+  @override
+  Future<Map<String, dynamic>> startTelegram(
+    Map<String, dynamic> device, {
+    String? linkToken,
+  }) async => throw const ApiFailure(
+    'TELEGRAM_UNAVAILABLE',
+    'Telegram requires live API mode. Use email to explore this demo.',
+  );
+  @override
+  Future<Map<String, dynamic>> exchangeTelegram(
+    String flowId,
+    String exchangeSecret, {
+    String? approvalReceipt,
+  }) async => throw const ApiFailure(
+    'TELEGRAM_UNAVAILABLE',
+    'Telegram requires live API mode.',
+  );
 }

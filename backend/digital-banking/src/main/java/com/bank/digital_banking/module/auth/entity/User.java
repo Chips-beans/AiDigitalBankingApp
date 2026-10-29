@@ -22,11 +22,18 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(unique = true, length = 100)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String password;
+
+    @Builder.Default
+    @Column(name = "profile_complete", nullable = false)
+    private boolean profileComplete = true;
+
+    @Column(name = "telegram_subject", length = 128)
+    private String telegramSubject;
 
     @Column(name = "first_name", length = 50)
     private String firstName;

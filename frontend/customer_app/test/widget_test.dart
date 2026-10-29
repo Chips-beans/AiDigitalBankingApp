@@ -27,95 +27,105 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('register, wrong code, success, sign-out and back guard', (
-    tester,
-  ) async {
-    await mount(tester);
-    await tap(tester, find.text('Create a profile'));
-    await tester.enterText(find.byKey(const ValueKey('username')), 'customer');
+  Future<void> email(WidgetTester tester) async {
+    await tap(tester, find.text('Continue with Email'));
     await tester.enterText(
       find.byKey(const ValueKey('email')),
       'customer@example.test',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('password')),
-      'Password123!',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('confirmPassword')),
-      'Password123!',
-    );
-    await tap(tester, find.text('Send email code'));
-    expect(find.text('Check your email'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('otpCode')), '000000');
-    await tap(tester, find.text('Create profile'));
+    await tap(tester, find.text('Send verification code'));
+  }
+
+  Future<void> code(WidgetTester tester, String code) async {
+    await tester.enterText(find.byKey(const ValueKey('otpCode')), code);
+    await tap(tester, find.text('Verify and continue'));
+  }
+
+  Future<void> complete(WidgetTester tester) async {
+    await tester.enterText(find.byKey(const ValueKey('firstName')), 'Dara');
+    await tester.enterText(find.byKey(const ValueKey('lastName')), 'Sok');
+    await tap(tester, find.text('Continue to Kesor'));
+  }
+
+  testWidgets('one welcome screen offers only continuation options', (
+    tester,
+  ) async {
+    await mount(tester);
+    expect(find.text('Continue with Telegram'), findsOneWidget);
+    expect(find.text('Continue with Email'), findsOneWidget);
+    expect(find.text('Sign in'), findsNothing);
+    expect(find.text('Create a profile'), findsNothing);
+  });
+  testWidgets('new email, wrong code, onboarding, home, and sign-out', (
+    tester,
+  ) async {
+    await mount(tester);
+    await email(tester);
+    await code(tester, '000000');
     expect(find.textContaining('did not match'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('otpCode')), '123456');
-    await tap(tester, find.text('Create profile'));
-    expect(find.text('You’re signed in.'), findsOneWidget);
+    await code(tester, '123456');
+    expect(find.text('A little about you'), findsOneWidget);
+    expect(find.byTooltip('Home'), findsNothing);
+    expect(session.identity!.profileComplete, false);
+    await complete(tester);
+    expect(find.byTooltip('Home'), findsOneWidget);
+    await tap(tester, find.byTooltip('Profile'));
+    expect(find.text('Dara Sok'), findsOneWidget);
     await tap(tester, find.text('Sign out'));
-    expect(find.text('Welcome'), findsOneWidget);
-    expect(find.text('You’re signed in.'), findsNothing);
+    expect(find.text('Continue with Email'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('You’re signed in.'), findsNothing);
+    expect(find.text('A little about you'), findsNothing);
   });
-  testWidgets('form validation blocks empty input and password mismatch', (
+  testWidgets('returning email skips information form', (tester) async {
+    await mount(tester);
+    await email(tester);
+    await code(tester, '123456');
+    await complete(tester);
+    await session.signOut();
+    await tester.pumpAndSettle();
+    await email(tester);
+    await code(tester, '123456');
+    expect(find.byTooltip('Home'), findsOneWidget);
+    expect(find.text('A little about you'), findsNothing);
+  });
+  testWidgets('email and information fields validate without passwords', (
     tester,
   ) async {
     await mount(tester);
-    await tap(tester, find.text('Create a profile'));
-    await tap(tester, find.text('Send email code'));
+    await tap(tester, find.text('Continue with Email'));
+    await tap(tester, find.text('Send verification code'));
     expect(find.text('Enter a valid email address.'), findsOneWidget);
-    expect(session.screen, AuthScreen.register);
-    await tester.enterText(find.byKey(const ValueKey('username')), 'customer');
+    expect(find.byKey(const ValueKey('password')), findsNothing);
     await tester.enterText(
       find.byKey(const ValueKey('email')),
       'customer@example.test',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('password')),
-      'Password123!',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('confirmPassword')),
-      'different',
-    );
-    await tap(tester, find.text('Send email code'));
-    expect(find.text('Passwords must match.'), findsOneWidget);
+    await tap(tester, find.text('Send verification code'));
+    await code(tester, '123456');
+    await tap(tester, find.text('Continue to Kesor'));
+    expect(find.text('Enter your first name.'), findsOneWidget);
+    expect(find.byTooltip('Home'), findsNothing);
   });
-  testWidgets('back from OTP discards draft and stays on login form', (
+  testWidgets('back from code discards challenge and returns to email', (
     tester,
   ) async {
     await mount(tester);
-    await tap(tester, find.text('Sign in'));
-    await tester.enterText(
-      find.byKey(const ValueKey('email')),
-      'customer@example.test',
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('password')),
-      'Password123!',
-    );
-    await tap(tester, find.text('Send email code'));
+    await email(tester);
     await tap(tester, find.text('Change your details'));
-    expect(session.screen, AuthScreen.login);
-    expect(find.text('Welcome back'), findsOneWidget);
+    expect(session.screen, AuthScreen.email);
     expect(session.otpEmail, '');
-    expect(
-      tester
-          .widget<TextFormField>(find.byKey(const ValueKey('password')))
-          .controller!
-          .text,
-      '',
-    );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(session.screen, AuthScreen.welcome);
   });
-  for (final size in [const Size(375, 667), const Size(667, 375)]) {
+  for (final size in [
+    const Size(375, 667),
+    const Size(667, 375),
+    const Size(1024, 768),
+  ]) {
     testWidgets(
-      'all screens fit $size with 2x text, dark mode and reduced motion',
+      'continuation screens fit $size with large text and reduced motion',
       (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
@@ -128,37 +138,27 @@ void main() {
         addTearDown(tester.platformDispatcher.clearAllTestValues);
         await mount(tester);
         expect(tester.takeException(), null);
-        await tap(tester, find.text('Create a profile'));
+        await email(tester);
         expect(tester.takeException(), null);
-        session.back();
-        session.openForm(register: false);
-        await session.begin(
-          email: 'x@example.test',
-          password: 'Password1!',
-          register: false,
-        );
-        await tester.pumpAndSettle();
+        await code(tester, '123456');
         expect(tester.takeException(), null);
-        await session.verifyCode('123456');
-        await tester.pumpAndSettle();
+        await complete(tester);
         expect(tester.takeException(), null);
-        expect(find.text('Your profile'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
       },
     );
   }
-  testWidgets(
-    'visible controls meet Android target size and semantics labels',
-    (tester) async {
-      final handle = tester.ensureSemantics();
-      await mount(tester);
-      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      await tap(tester, find.text('Create a profile'));
-      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      handle.dispose();
-    },
-  );
+  testWidgets('continuation controls meet target and label guidelines', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await mount(tester);
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    await tap(tester, find.text('Continue with Email'));
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
+  });
 }

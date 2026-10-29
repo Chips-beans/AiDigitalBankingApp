@@ -1,6 +1,6 @@
 # Digital Banking Foundation Implementation Plan
 
-Revised 17 October 2026 for the basic application scope.
+Revised 20 October 2026 for the basic application scope.
 
 ## Goal and stopping point
 
@@ -24,11 +24,11 @@ from historical backend phase numbers.
 | --- | --- | --- |
 | Registration/login | Password, email OTP, validation, request limits | Setup, Swagger examples, Flutter integration |
 | Sessions | Access/refresh tokens, rotation, identity, server logout | Client storage, coordinated refresh, restoration, cleanup |
-| Accounts | Zero-balance creation, own-account list/detail, staff status changes | Customer screens and verified demo journey |
-| Transfers/deposits | Atomic posting, locks, idempotency, ownership, money checks | Transfer UI, retry handling, staff demo instructions |
-| History/details | Owner-scoped reads and bounded history pagination | Activity and detail screens |
+| Accounts | Backend and F3 customer opening/list/detail/balance/status screens verified | Preserve ownership and money safeguards |
+| Transfers/deposits | Atomic posting plus F4 review/confirm UI and secure same-key recovery verified | F5 clean regression and restart checks passed |
+| History/details | F4 paginated owner-scoped history and reference details verified | F5 clean regression and handoff complete |
 | Audit/database | Automatic auditing and migrations V2–V9 | Preserve behavior and verify startup/upgrade |
-| Flutter | F2 authentication, OTP, guarded identity and session foundation | Accounts/balances, transfers and activity |
+| Flutter | F2 authentication, F3 accounts/Profile, and F4 transfers/full history verified | F5 analysis/86-test regression and handoff complete |
 
 Historical verification: **74 backend tests passed** in the Phase 1 QA run.
 Existing reports support that record; this planning revision is not a new test
@@ -44,7 +44,20 @@ See [F1 delivery and evidence](FOUNDATION_F1_IMPLEMENTATION.md),
 F2 is implemented and verified on the Android 14 QA emulator, including native
 authentication and process-restart persistence. See
 [delivery and QA](FOUNDATION_F2_IMPLEMENTATION.md) for evidence and platform
-limits. F3–F5 remain planned.
+limits. F3 is implemented and verified with Gmail on Android 14, including
+accounts, funding visibility, ownership, process restart, and uncertain creation.
+See [F3 delivery and QA](FOUNDATION_F3_IMPLEMENTATION.md): 66 Flutter tests and
+83 backend tests passed, with clean Flutter analysis. F4 is implemented and
+verified: 86 Flutter tests, 83 backend tests, clean analysis, real Gmail Android
+transfers, ownership checks, lost-response recovery across process restart, and
+persistent logout. See [F4 delivery and QA](FOUNDATION_F4_IMPLEMENTATION.md).
+F5 is verified on 20 October 2026: **84 backend tests** in `clean verify`,
+**86 Flutter tests**, clean Flutter analysis, fresh installation and V6/V7/V8
+upgrade checks, server-restart persistence/replay/logout, and rebuilt JAR startup
+against the unchanged development V9 database. See
+[F5 handoff and evidence](FOUNDATION_F5_HANDOFF.md) and the
+[demo checklist](FOUNDATION_DEMO_CHECKLIST.md). F3/F4 provide the real Gmail/native
+acceptance; those inbox/device runs were not repeated during F5.
 
 Retain the Spring Boot modular monolith, PostgreSQL, Flyway, Maven wrapper, Java 21
 target, and /api/v1 prefix. Existing money, ownership, session, idempotency, and
@@ -83,9 +96,9 @@ working features. Preserve the blocked unsigned payment webhook.
 | --- | --- | --- | --- |
 | F1 — Verified | Local setup and core API baseline | Delivered local inbox/setup, Swagger contracts and verification | One server, working database/OTP, usable API examples; 78 tests passed after review |
 | F2 — Verified | Customer authentication and sessions | Existing APIs integrated | Local/live API checks, native authentication, and three-process restart/rotation/logout pass on Android 14 (see F2 QA) |
-| F3 | Accounts, balance, basic profile | Integrate existing APIs; fix demonstrated gaps | Customer opens an account and sees only their own data |
-| F4 | Internal transfers and activity | Integrate existing financial APIs | One transfer posts once; balances/history agree; retries are safe |
-| F5 | Verification and handoff | Targeted fixes and regression checks | Complete two-customer journey works against the real backend |
+| F3 — Verified | Accounts, balance, basic profile | Existing APIs integrated; demonstrated gaps fixed | Gmail Android opening, funding, ownership and native restoration passed |
+| F4 — Verified | Internal transfers and activity | Existing financial APIs integrated | One transfer posts once; balances/history agree; original-key retry survives native restart |
+| F5 — Verified | Verification and handoff | Clean regression, fresh/upgrade/restart checks and setup/demo docs | 84 backend tests, 86 Flutter tests, clean analysis; completed Gmail/native journey retained as evidence |
 
 No speculative new backend modules or tables are required. Add a migration only
 when an actual foundation change needs one; allocate the next free version and
@@ -139,6 +152,10 @@ or read another customer's private account data.
 real backend. Private screens cannot be revisited after sign-out.
 
 ## F3 — Accounts, balance and profile
+
+Approved scope: [F3 implementation plan](FOUNDATION_F3_IMPLEMENTATION_PLAN.md).
+Implementation and current acceptance evidence:
+[F3 delivery and QA](FOUNDATION_F3_IMPLEMENTATION.md).
 
 - Add Home, Activity, and Profile navigation; show /auth/me identity in Profile.
 - Display own accounts and a clear empty state.
@@ -207,6 +224,11 @@ Protected calls use the access token. Refresh receives the refresh token in JSON
 
 ## F5 — Verification and definition of done
 
+**Completed:** [F5 handoff](FOUNDATION_F5_HANDOFF.md) records actual final results,
+migration/restart coverage, the [demo checklist](FOUNDATION_DEMO_CHECKLIST.md),
+preserved development data, and platform limits. The numbered gates below are
+retained as the acceptance requirements.
+
 1. Run the backend regression suite with **.\mvnw.cmd clean verify** from
    backend/digital-banking. Preserve financial race, rollback, ownership, session,
    idempotency, and migration coverage. Tests use isolated PostgreSQL/local SMTP
@@ -226,10 +248,14 @@ Protected calls use the access token. Refresh receives the refresh token in JSON
    separately before claiming support.
 
 **Stop when F1–F5 pass.** Deferred advanced features are not required for acceptance.
-These are planned tasks; completed status requires implementation and verification.
+The foundation gates have passed within the local/Android emulator boundary
+documented in the F5 handoff. Other platforms and production acceptance remain
+separate work.
 
-## Immediate next task
+## Handoff and stopping point
 
-F1 is verified. Start **F2: Flutter foundation, authentication, and session
-integration**. Use the F1 setup and Swagger contracts; reuse the existing backend
-and address only demonstrated integration gaps required for the basic milestone.
+F1–F5 are implemented and verified. Use the [local setup](FOUNDATION_LOCAL_SETUP.md),
+[Swagger walkthrough](FOUNDATION_SWAGGER_WALKTHROUGH.md), and
+[demo checklist](FOUNDATION_DEMO_CHECKLIST.md) to run and present the foundation.
+Preserve the Gmail/Android evidence and local financial data. Stop here unless
+the user requests another milestone; the advanced roadmap is not a prerequisite.

@@ -5,10 +5,11 @@ import 'package:flutter/foundation.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/session_vault.dart';
 import 'data/auth_gateway.dart';
+import 'telegram_window.dart';
 
 enum SessionPhase { starting, signedOut, signedIn, storageError }
 
-enum AuthScreen { welcome, login, register, otp }
+enum AuthScreen { welcome, login, register, email, otp }
 
 class _Draft {
   _Draft(
@@ -47,6 +48,21 @@ class SessionController extends ChangeNotifier {
   String? notice;
   bool busy = false;
   bool registering = false;
+  bool _unifiedEmail = false, _linkingEmail = false;
+  bool telegramPending = false;
+  TelegramWindow? _telegramWindow;
+  bool get linkingEmail => _linkingEmail;
+  ContinuationGateway get _continuation {
+    final candidate = gateway;
+    if (candidate is ContinuationGateway) {
+      return candidate as ContinuationGateway;
+    }
+    throw const ApiFailure(
+      'AUTH_UNAVAILABLE',
+      'This authentication method is unavailable.',
+    );
+  }
+
   _Draft? _draft;
   DateTime? _expiresAt, _resendAt, _draftUntil, _accessUntil;
   String? _refreshToken;
@@ -130,6 +146,17 @@ class SessionController extends ChangeNotifier {
     if (busy) return;
     _draft = null;
     failure = null;
+    if (_unifiedEmail) {
+      if (screen == AuthScreen.otp) {
+        screen = AuthScreen.email;
+      } else {
+        screen = AuthScreen.welcome;
+        _linkingEmail = false;
+        _unifiedEmail = false;
+      }
+      _emit();
+      return;
+    }
     screen = screen == AuthScreen.otp
         ? (registering ? AuthScreen.register : AuthScreen.login)
         : AuthScreen.welcome;
@@ -193,10 +220,19 @@ class SessionController extends ChangeNotifier {
     failure = null;
     _emit();
     try {
-      final receipt = await gateway.requestOtp(
-        draft.email,
-        draft.register ? 'SIGNUP' : 'LOGIN',
-      );
+      final receipt = _unifiedEmail
+          ? (_linkingEmail
+                ? await authorizedMutation(
+                    (access) => _continuation.requestContinueOtp(
+                      draft.email,
+                      linkToken: access,
+                    ),
+                  )
+                : await _continuation.requestContinueOtp(draft.email))
+          : await gateway.requestOtp(
+              draft.email,
+              draft.register ? 'SIGNUP' : 'LOGIN',
+            );
       if (!_current(generation) || _draft != draft) return;
       _expiresAt = _clock().add(Duration(seconds: receipt.expiresInSeconds));
       _resendAt = _clock().add(Duration(seconds: receipt.resendAfterSeconds));
@@ -226,7 +262,7 @@ class SessionController extends ChangeNotifier {
     notice = null;
     _emit();
     try {
-      final tokens = await gateway.authenticate({
+      final payload = <String, dynamic>{
         if (draft.register) 'username': draft.username,
         draft.register ? 'email' : 'usernameOrEmail': draft.email,
         'password': draft.password,
@@ -234,9 +270,28 @@ class SessionController extends ChangeNotifier {
         'deviceFingerprint': draft.deviceId,
         'deviceName': 'Digital Banking $deviceType',
         'deviceType': deviceType,
-      }, register: draft.register);
+      };
+      final TokenPair tokens;
+      if (_unifiedEmail) {
+        payload['email'] = draft.email;
+        payload.remove('password');
+        payload.remove('usernameOrEmail');
+        tokens = _linkingEmail
+            ? await _continuation.verifyEmail(
+                payload,
+                linkToken: await authorizedRead((access) async => access),
+              )
+            : await _continuation.verifyEmail(payload);
+      } else {
+        tokens = await gateway.authenticate(payload, register: draft.register);
+      }
       await _install(tokens, generation);
-      if (_current(generation)) _draft = null;
+      if (_current(generation)) {
+        _draft = null;
+        _unifiedEmail = false;
+        _linkingEmail = false;
+        screen = AuthScreen.welcome;
+      }
       return _current(generation);
     } on _StorageFailure {
       if (_current(generation)) _storageFailed();
@@ -326,8 +381,18 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// Shared protected-read entry point for F2 identity and later account repositories.
-  Future<SessionIdentity> checkIdentity() async {
+  /// Coordinated refresh and at most one retry, exclusively for safe reads.
+  Future<T> authorizedRead<T>(Future<T> Function(String token) action) =>
+      _authorized(action, retryRead: true);
+
+  /// Preflight renewal is safe; once sent, a mutation is never replayed.
+  Future<T> authorizedMutation<T>(Future<T> Function(String token) action) =>
+      _authorized(action, retryRead: false);
+
+  Future<T> _authorized<T>(
+    Future<T> Function(String token) action, {
+    required bool retryRead,
+  }) async {
     final generation = _generation;
     try {
       if (_tokens == null) {
@@ -337,29 +402,27 @@ class SessionController extends ChangeNotifier {
         await _refresh(generation);
       }
       if (!_current(generation)) throw _StaleOperation();
-      SessionIdentity profile;
+      T result;
       final attemptedAccess = _tokens!.accessToken;
       try {
-        profile = await gateway.me(attemptedAccess);
+        result = await action(attemptedAccess);
       } on ApiFailure catch (e) {
-        if (e.status != 401 || e.code != 'TOKEN_INVALID') rethrow;
+        if (!retryRead || e.status != 401 || e.code != 'TOKEN_INVALID') rethrow;
         if (!_current(generation)) throw _StaleOperation();
         // Another read may already have renewed the token while this response was in flight.
         if (_tokens?.accessToken == attemptedAccess) await _refresh(generation);
         if (!_current(generation)) throw _StaleOperation();
-        profile = await gateway.me(_tokens!.accessToken);
+        result = await action(_tokens!.accessToken);
       }
       if (!_current(generation)) throw _StaleOperation();
-      if (!profile.roles.contains('ROLE_CUSTOMER')) {
-        await signOut();
-        throw const ApiFailure(
-          'CUSTOMER_REQUIRED',
-          'This app requires a customer profile.',
-        );
-      }
-      identity = profile;
-      _emit();
-      return profile;
+      return result;
+    } on _StorageFailure {
+      throw const ApiFailure(
+        'STORAGE_UNAVAILABLE',
+        'Secure storage is unavailable. Please sign in again.',
+      );
+    } on _StaleOperation {
+      throw const ApiFailure('SESSION_CHANGED', 'Your session has changed.');
     } on ApiFailure catch (e) {
       if (_current(generation) && e.status == 401) {
         await _invalidate(generation, e.message);
@@ -368,11 +431,30 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<SessionIdentity> checkIdentity() async {
+    final generation = _generation;
+    final profile = await authorizedRead(gateway.me);
+    if (!_current(generation)) {
+      throw const ApiFailure('SESSION_CHANGED', 'Your session has changed.');
+    }
+    if (!profile.roles.contains('ROLE_CUSTOMER')) {
+      await signOut();
+      throw const ApiFailure(
+        'CUSTOMER_REQUIRED',
+        'This app requires a customer profile.',
+      );
+    }
+    identity = profile;
+    _emit();
+    return profile;
+  }
+
   Future<void> refreshProfile() async {
     if (busy || phase != SessionPhase.signedIn) return;
     final generation = _generation;
     busy = true;
     failure = null;
+    notice = null;
     _emit();
     try {
       await checkIdentity();
@@ -472,7 +554,11 @@ class SessionController extends ChangeNotifier {
   void expirePendingIfNeeded() {
     if (_draft != null && !busy && !(_draftUntil?.isAfter(_clock()) ?? false)) {
       _draft = null;
-      screen = registering ? AuthScreen.register : AuthScreen.login;
+      screen = _unifiedEmail
+          ? AuthScreen.email
+          : registering
+          ? AuthScreen.register
+          : AuthScreen.login;
       failure = null;
       notice = 'For your privacy, enter your details again to continue.';
       _emit();
@@ -480,6 +566,11 @@ class SessionController extends ChangeNotifier {
   }
 
   void _forget() {
+    _telegramWindow?.close();
+    _telegramWindow = null;
+    telegramPending = false;
+    _unifiedEmail = false;
+    _linkingEmail = false;
     identity = null;
     _tokens = null;
     _refreshToken = null;
@@ -505,5 +596,204 @@ class SessionController extends ChangeNotifier {
     ++_generation;
     _forget();
     super.dispose();
+  }
+
+  void openEmail({bool link = false}) {
+    if (busy ||
+        (link
+            ? phase != SessionPhase.signedIn
+            : phase != SessionPhase.signedOut)) {
+      return;
+    }
+    _unifiedEmail = true;
+    _linkingEmail = link;
+    registering = false;
+    _draft = null;
+    failure = null;
+    notice = null;
+    screen = AuthScreen.email;
+    _emit();
+  }
+
+  Future<bool> beginEmail(String email) async {
+    if (busy) return false;
+    final generation = ++_generation;
+    busy = true;
+    failure = null;
+    notice = null;
+    _draft = null;
+    _unifiedEmail = true;
+    _emit();
+    try {
+      final device = await _storage(vault.installationId);
+      if (!_current(generation)) return false;
+      final normalized = email.trim().toLowerCase();
+      final receipt = _linkingEmail
+          ? await authorizedMutation(
+              (access) => _continuation.requestContinueOtp(
+                normalized,
+                linkToken: access,
+              ),
+            )
+          : await _continuation.requestContinueOtp(normalized);
+      if (!_current(generation)) return false;
+      _draft = _Draft(normalized, '', null, device, false);
+      _expiresAt = _clock().add(Duration(seconds: receipt.expiresInSeconds));
+      _resendAt = _clock().add(Duration(seconds: receipt.resendAfterSeconds));
+      _draftUntil = _clock().add(const Duration(minutes: 10));
+      screen = AuthScreen.otp;
+      return true;
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+    } on ApiFailure catch (e) {
+      if (_current(generation)) failure = e;
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+    return false;
+  }
+
+  Future<void> completeInformation(String first, String last) async {
+    if (busy || phase != SessionPhase.signedIn) return;
+    final generation = _generation;
+    busy = true;
+    failure = null;
+    _emit();
+    try {
+      final profile = await authorizedMutation(
+        (access) =>
+            _continuation.completeProfile(access, first.trim(), last.trim()),
+      );
+      if (_current(generation)) {
+        identity = profile;
+        screen = AuthScreen.welcome;
+      }
+    } on ApiFailure catch (e) {
+      if (_current(generation)) failure = e;
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+  }
+
+  Future<void> continueTelegram() async {
+    if (busy) return;
+    final generation = ++_generation;
+    final linking = phase == SessionPhase.signedIn;
+    final popup = TelegramWindow();
+    if (!popup.available) {
+      popup.close();
+      failure = const ApiFailure(
+        'POPUP_BLOCKED',
+        'Allow the Telegram login popup in your browser, then try again. Browser login is required for Telegram.',
+      );
+      _emit();
+      return;
+    }
+    _telegramWindow = popup;
+    busy = true;
+    telegramPending = true;
+    failure = null;
+    notice = null;
+    _emit();
+    try {
+      final installation = await _storage(vault.installationId);
+      if (!_current(generation)) return;
+      final device = <String, dynamic>{
+        'deviceFingerprint': installation,
+        'deviceName': 'Kesor Bank $deviceType',
+        'deviceType': deviceType,
+      };
+      final start = linking
+          ? await authorizedMutation(
+              (access) =>
+                  _continuation.startTelegram(device, linkToken: access),
+            )
+          : await _continuation.startTelegram(device);
+      if (!_current(generation)) return;
+      popup.configure(
+        start['flowId'] as String,
+        start['callbackOrigin'] as String,
+      );
+      popup.navigate(start['authorizationUrl'] as String);
+      final until = _clock().add(
+        Duration(seconds: (start['expiresInSeconds'] as int).clamp(1, 300)),
+      );
+      while (_current(generation) && _clock().isBefore(until)) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!_current(generation)) return;
+        if (popup.approvalReceipt == null) continue;
+        final result = await _continuation.exchangeTelegram(
+          start['flowId'] as String,
+          start['exchangeSecret'] as String,
+          approvalReceipt: popup.approvalReceipt,
+        );
+        if (!_current(generation)) {
+          if (result['status'] == 'COMPLETE') {
+            final latePair = TokenPair.fromJson(
+              Map<String, dynamic>.from(result['tokens'] as Map),
+            );
+            await _logoutQuietly(latePair.accessToken);
+          }
+          return;
+        }
+        if (result['status'] == 'PENDING') continue;
+        if (result['status'] != 'COMPLETE') {
+          throw ApiFailure(
+            result['status'] as String,
+            ApiFailure.messageFor(result['status'] as String),
+          );
+        }
+        await _install(
+          TokenPair.fromJson(
+            Map<String, dynamic>.from(result['tokens'] as Map),
+          ),
+          generation,
+        );
+        return;
+      }
+      if (_current(generation)) {
+        throw const ApiFailure(
+          'TELEGRAM_FLOW_INVALID',
+          'Telegram approval timed out. Please try again.',
+        );
+      }
+    } on _StorageFailure {
+      if (_current(generation)) _storageFailed();
+    } on ApiFailure catch (e) {
+      if (_current(generation)) failure = e;
+    } catch (_) {
+      if (_current(generation)) {
+        failure = const ApiFailure(
+          'TELEGRAM_REJECTED',
+          'Telegram approval could not be completed. Try again or continue with email.',
+        );
+      }
+    } finally {
+      popup.close();
+      if (_current(generation)) {
+        _telegramWindow = null;
+        busy = false;
+        telegramPending = false;
+        _emit();
+      }
+    }
+  }
+
+  void cancelTelegram() {
+    if (!telegramPending) return;
+    ++_generation;
+    _telegramWindow?.close();
+    _telegramWindow = null;
+    busy = false;
+    telegramPending = false;
+    failure = null;
+    notice = 'Telegram approval cancelled.';
+    _emit();
   }
 }

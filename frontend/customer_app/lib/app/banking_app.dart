@@ -1,23 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/config/app_config.dart';
 import '../features/auth/session_controller.dart';
 import '../features/auth/presentation/auth_pages.dart';
+import '../features/auth/presentation/continuation_pages.dart';
+import '../features/auth/data/auth_gateway.dart';
+import '../features/accounts/account_gateway.dart';
+import '../features/accounts/creation_store.dart';
+import '../features/accounts/presentation/accounts_shell.dart';
+import '../features/transactions/transaction_gateway.dart';
+import '../features/transactions/transfer_store.dart';
 import '../shared/widgets/app_states.dart';
 import 'app_theme.dart';
 
 class BankingApp extends StatefulWidget {
-  const BankingApp({required this.session, required this.config, super.key});
+  const BankingApp({
+    required this.session,
+    required this.config,
+    this.accountGateway,
+    this.creationStore,
+    this.transactionGateway,
+    this.transferStore,
+    super.key,
+  });
   final SessionController session;
   final AppConfig config;
+  final AccountGateway? accountGateway;
+  final CreationStore? creationStore;
+  final TransactionGateway? transactionGateway;
+  final TransferStore? transferStore;
   @override
   State<BankingApp> createState() => _BankingAppState();
 }
 
 class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
+  late final AccountGateway accounts;
+  late final CreationStore creationStore;
+  late final TransactionGateway transactions;
+  late final TransferStore transferStore;
   @override
   void initState() {
     super.initState();
+    accounts =
+        widget.accountGateway ??
+        (widget.config.isDemo
+            ? DemoAccountGateway()
+            : HttpAccountGateway(
+                (widget.session.gateway as HttpAuthGateway).client,
+              ));
+    creationStore =
+        widget.creationStore ??
+        (kIsWeb || widget.config.isDemo
+            ? MemoryCreationStore()
+            : SecureCreationStore(
+                '${widget.config.apiBaseUrl}|${widget.config.mode}',
+              ));
+    final auth = widget.session.gateway;
+    transactions =
+        widget.transactionGateway ??
+        (!widget.config.isDemo && auth is HttpAuthGateway
+            ? HttpTransactionGateway(auth.client)
+            : PreviewTransactionGateway());
+    transferStore =
+        widget.transferStore ??
+        (kIsWeb || widget.config.isDemo || auth is! HttpAuthGateway
+            ? MemoryTransferStore()
+            : SecureTransferStore(
+                '${widget.config.apiBaseUrl}|${widget.config.mode}',
+              ));
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -53,7 +104,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
               child: Padding(
                 padding: EdgeInsets.all(8),
                 child: Center(
-                  child: Text('DEMO · Sample profile · No banking services'),
+                  child: Text('DEMO · Sample profile, accounts and activity'),
                 ),
               ),
             ),
@@ -73,7 +124,29 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
           );
         }
         if (session.phase == SessionPhase.signedIn) {
-          return SignedInPage(session, key: const ValueKey('private-session'));
+          if (session.linkingEmail) {
+            return session.screen == AuthScreen.otp
+                ? OtpPage(session, demo: widget.config.isDemo)
+                : EmailContinuePage(session);
+          }
+          if (!session.identity!.profileComplete) {
+            return InformationPage(session);
+          }
+          return AccountsShell(
+            session: session,
+            gateway: accounts,
+            store: creationStore,
+            transactions: transactions,
+            transferStore: transferStore,
+            designPreview: widget.config.isDemo,
+            transfersEnabled:
+                !kIsWeb &&
+                !widget.config.isDemo &&
+                transactions is! PreviewTransactionGateway,
+            key: ValueKey(
+              'private-${session.identity!.userId}-${session.identity!.sessionId}',
+            ),
+          );
         }
         final topKey = ValueKey(
           session.screen == AuthScreen.otp
@@ -91,15 +164,16 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
             pages: [
               MaterialPage(
                 key: const ValueKey('welcome'),
-                child: WelcomePage(session),
+                child: ContinueWelcomePage(session),
               ),
               if (session.screen != AuthScreen.welcome)
                 MaterialPage(
                   key: ValueKey(session.registering ? 'register' : 'login'),
-                  child: CredentialsPage(
-                    session,
-                    register: session.registering,
-                  ),
+                  child:
+                      session.screen == AuthScreen.email ||
+                          session.screen == AuthScreen.otp
+                      ? EmailContinuePage(session)
+                      : CredentialsPage(session, register: session.registering),
                 ),
               if (session.screen == AuthScreen.otp)
                 MaterialPage(

@@ -140,14 +140,14 @@ void main() {
     await tester.pumpWidget(BankingApp(session: session, config: config));
     await tester.pumpAndSettle();
     if (phase == 'restore') {
-      expect(find.text('You’re signed in.'), findsOneWidget);
+      expect(find.byTooltip('Home'), findsOneWidget);
       await session.signOut();
       await tester.pumpAndSettle();
       expect(find.text('You’re signed in.'), findsNothing);
       expect(await vault.readRefreshToken(), null);
     }
     if (phase == 'signedout') {
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.text('Continue with Email'), findsOneWidget);
       await evidence.delete(key: evidenceKey);
     }
     await tester.pumpWidget(const SizedBox.shrink());

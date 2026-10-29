@@ -50,6 +50,12 @@ class MemorySessionVault implements SessionVault {
   }
 
   @override
-  Future<String> installationId() async => _id ??=
-      'preview-${Random.secure().nextInt(1 << 32)}-${DateTime.now().microsecondsSinceEpoch}';
+  Future<String> installationId() async {
+    if (_id != null) return _id!;
+    // Avoid large integer shifts: JavaScript and VM integer representations differ.
+    final random = Random.secure();
+    _id =
+        'browser-${List.generate(24, (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
+    return _id!;
+  }
 }

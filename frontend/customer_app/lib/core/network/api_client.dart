@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
+import 'exact_json.dart';
 
 class ApiFailure implements Exception {
   const ApiFailure(
@@ -22,6 +23,17 @@ class ApiFailure implements Exception {
   String toString() => '$code: $message';
 
   static String messageFor(String code) => switch (code) {
+    'TELEGRAM_CANCELLED' =>
+      'Telegram approval was cancelled. Try again or continue with email.',
+    'TELEGRAM_UNAVAILABLE' =>
+      'Telegram is temporarily unavailable. Try again or continue with email.',
+    'TELEGRAM_REJECTED' =>
+      'Telegram approval could not be verified. Please try again.',
+    'TELEGRAM_FLOW_INVALID' =>
+      'Telegram approval expired or was already used. Please try again.',
+    'FRESH_AUTH_REQUIRED' =>
+      'Continue again before connecting Telegram to your profile.',
+    'IDENTITY_ALREADY_LINKED' => 'This identity is already connected to a profile. Use that profile to continue.',
     'AUTHENTICATION_FAILED' =>
       'Your email or password did not match. Go back to check your details.',
     'OTP_INVALID' =>
@@ -47,6 +59,13 @@ class ApiFailure implements Exception {
     'VALIDATION_FAILED' ||
     'INVALID_REQUEST' => 'Please check the highlighted details.',
     'ACCESS_DENIED' => 'This action is not available for your profile.',
+    'INSUFFICIENT_FUNDS' => 'There are not enough funds in the source account.',
+    'ACCOUNT_INACTIVE' => 'Both accounts must be active to make a transfer.',
+    'CURRENCY_MISMATCH' => 'Both accounts must use the transfer currency.',
+    'INVALID_AMOUNT' => 'Enter a positive amount within the currency precision and supported range.',
+    'RESOURCE_NOT_FOUND' =>
+      'The requested account or transaction is unavailable.',
+    'IDEMPOTENCY_CONFLICT' => 'The saved transfer conflicts with an earlier request. Keep this record and contact support; do not create another transfer to retry it.',
     'AUDIT_UNAVAILABLE' =>
       'The service is temporarily unavailable. Please try again shortly.',
     _ => 'We could not complete this request. Please try again.',
@@ -69,6 +88,9 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     String? accessToken,
+    Map<String, String>? query,
+    int? expectedStatus,
+    String? idempotencyKey,
   }) async {
     if (!path.startsWith('/') ||
         path.startsWith('//') ||
@@ -76,11 +98,19 @@ class ApiClient {
         path.contains('?')) {
       throw ArgumentError('Use an API-relative path');
     }
-    final request = http.Request(method, Uri.parse('${config.apiBaseUrl}$path'))
-      ..followRedirects = false
-      ..headers['Accept'] = 'application/json';
+    final request =
+        http.Request(
+            method,
+            Uri.parse('${config.apiBaseUrl}$path')
+                .replace(queryParameters: query),
+          )
+          ..followRedirects = false
+          ..headers['Accept'] = 'application/json';
     if (accessToken != null) {
       request.headers['Authorization'] = 'Bearer $accessToken';
+    }
+    if (idempotencyKey != null) {
+      request.headers['Idempotency-Key'] = idempotencyKey;
     }
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
@@ -92,7 +122,7 @@ class ApiClient {
       ))().timeout(timeout);
       Map<String, dynamic> payload;
       try {
-        final decoded = jsonDecode(response.body);
+        final decoded = decodeExactJson(response.body);
         if (decoded is! Map<String, dynamic>) throw const FormatException();
         payload = decoded;
       } on FormatException {
@@ -125,6 +155,12 @@ class ApiClient {
         );
       }
       if (payload['success'] != true) {
+        throw const ApiFailure(
+          'INVALID_RESPONSE',
+          'The service could not confirm this request.',
+        );
+      }
+      if (expectedStatus != null && response.statusCode != expectedStatus) {
         throw const ApiFailure(
           'INVALID_RESPONSE',
           'The service could not confirm this request.',

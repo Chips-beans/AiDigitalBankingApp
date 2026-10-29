@@ -10,6 +10,9 @@ public interface QrPaymentService {
      */
     QrGenerateResponse generateQr(User user, QrGenerateRequest request);
 
+    /** Backward-compatible response for the legacy KHQR generation endpoint. */
+    KhqrGenerateResponse generateKhqr(User user, KhqrGenerateRequest request);
+
     /**
      * Decodes and validates a scanned QR code, providing payment preview details before confirming transfer.
      */

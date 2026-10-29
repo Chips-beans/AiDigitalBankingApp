@@ -75,7 +75,7 @@ class FoundationReadinessTests extends PostgresIntegrationTest {
         for (String document : List.of("/v3/api-docs", "/v3/api-docs/foundation")) {
             JsonNode api = body(call("GET", document, null, null, null));
             assertThat(api.path("security").get(0).has("bearerAuth")).isTrue();
-            for (String path : List.of("request-otp", "register", "login", "refresh")) {
+            for (String path : List.of("request-otp", "register", "login", "refresh", "email/request", "email/verify", "telegram/start", "telegram/exchange")) {
                 JsonNode security = operation(api, "/auth/" + path, "post").path("security");
                 assertThat(security.isArray()).isTrue();
                 assertThat(security.size()).isZero();
@@ -101,7 +101,7 @@ class FoundationReadinessTests extends PostgresIntegrationTest {
                 assertThat(required).isTrue();
             }
             if (document.endsWith("foundation")) {
-                assertThat(api.path("paths").size()).isEqualTo(14);
+                assertThat(api.path("paths").size()).isEqualTo(23);
                 assertThat(api.path("paths").has("/api/v1/payments/khqr/generate")).isFalse();
                 assertThat(api.path("paths").has("/api/v1/ai/chat")).isFalse();
                 assertThat(api.path("paths").has("/api/v1/fraud/check")).isFalse();

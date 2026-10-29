@@ -22,7 +22,9 @@ import java.util.Set;
 @Component @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Set<String> PUBLIC_AUTH = Set.of("/api/v1/auth/login", "/api/v1/auth/register",
-            "/api/v1/auth/request-otp", "/api/v1/auth/refresh");
+            "/api/v1/auth/request-otp", "/api/v1/auth/refresh", "/api/v1/auth/email/request",
+            "/api/v1/auth/email/verify", "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange",
+            "/api/v1/auth/telegram/callback");
     private final SessionService sessions;
     private final ObjectMapper json;
 
@@ -43,6 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     throw new com.bank.digital_banking.common.exception.AuthenticationFailedException("TOKEN_INVALID", "A Bearer access token is required");
                 AuthSession session = sessions.authenticate(header.substring(7));
                 var authorities = session.getUser().getRoles().stream()
+                        .filter(r -> session.getUser().isProfileComplete())
                         .map(r -> new SimpleGrantedAuthority(r.getName().name())).toList();
                 var auth = UsernamePasswordAuthenticationToken.authenticated(session.getUser(), null, authorities);
                 auth.setDetails(session.getId());
