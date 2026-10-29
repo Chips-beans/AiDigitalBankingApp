@@ -4,11 +4,46 @@ Updated 29 October 2026, Asia/Phnom_Penh (UTC+07:00).
 
 ## Read this first
 
-The user requested that project terminals and background tasks be closed at the
-end of this session. **The application is intentionally stopped.** Do not assume
-the URLs mentioned in earlier conversations are still serving an application.
+Latest runtime update: the user asked to close the review preview. The dedicated
+Flutter/Chrome demo process tree (launcher PID 6228) was stopped and port 8081 was
+confirmed no longer listening. The stale launcher PID file was removed. Other
+Chrome windows were not targeted. No backend or emulator was started.
 
-The latest feature is implemented unified customer authentication: one welcome
+Latest update: the user asked to close Chrome and correct inconsistent component
+sizes, typography, spacing, and screen overflow against the Kesor Figma file.
+The dedicated Flutter/Chrome demo process tree was stopped. The preview is closed;
+no emulator, backend, tunnel, real email, or financial operation was started.
+
+The consistency pass uses the original bundled Figma SVGs/PNGs and earlier node
+measurements. The live Kesor Bank file was also inspected in the user's Figma
+Windows app with Computer Use: Home is 440×999 and dark login is 440×956. Figma's
+connector currently reports reauthentication required; desktop inspection does
+not repair that connector. No Figma document content was changed.
+
+Welcome, auth forms and the signed-in root now share a 440px content frame and
+20px gutters. Theme changes preserve action font/geometry; welcome actions use
+Google Sans 15/28, 52px minimum height, 16px radius and 16px icon-label spacing.
+The source capsule remains visually 44px high with transparent 48px hit targets.
+Footer links preserve the source's compact visual lines with full hit targets.
+Home card positions match the source at reference size; the scroll viewport ends
+above the floating navigation on smaller screens, and recipient names are bounded
+and ellipsized. Bottom-bar font weight is explicit in both modes. Read
+[HOME_SCREEN.md](../frontend/customer_app/docs/HOME_SCREEN.md) for limitations,
+measurements, and validation details. Existing Analytics/Settings/assistant
+placeholders remain as previously requested; this pass does not implement their
+full designs.
+
+Validation: analyzer clean; **114 tests passed**, including reference geometry,
+long names, desktop centering, theme changes, large text, and continuation target
+size/label checks. Render fixtures cover English/Khmer and light/dark at reference
+and narrow sizes. Logs/screenshots are ignored under
+`frontend/customer_app/.local/qa/`. The prior browser-based functional verification
+remains historical; this pass used widget rendering and desktop Figma inspection.
+The full demo web build and Wasm dry run also succeeded. The final geometry/
+render subset passed after adding narrow-screen scrolled-footer captures. The
+Figma GLASS effect remains a Flutter approximation (see Home notes).
+
+The existing authentication feature is unified customer authentication: one welcome
 screen with **Continue with Telegram** and **Continue with Email**, automatic
 new/returning profile handling, and onboarding. The main remaining acceptance
 step is a successful live login approved by the user with their own Telegram
@@ -17,10 +52,20 @@ account. Do not describe that personal-account check as already completed.
 Read [UNIFIED_AUTH_SETUP.md](UNIFIED_AUTH_SETUP.md) for the full current auth
 contract and [FOUNDATION_F5_HANDOFF.md](FOUNDATION_F5_HANDOFF.md) for the older
 banking foundation. F5's V9 schema, 14-route contract, and test counts are historical;
-the current schema is **V10**, the foundation API has **23 paths**, and the latest
-passing counts are **105 backend tests / 96 Flutter tests**.
+the current schema is **V10**, the foundation API has **23 paths**, and that auth
+handoff recorded **105 backend tests / 96 Flutter tests**. Current Home verification
+is recorded above.
 
 ## Repository and working state
+
+Colors/typography update, 29 October 2026: the Flutter app now imports the current
+Kesor Figma color primitives, Light/Dark tokens, and English/Khmer text styles.
+See [Flutter design system](../frontend/customer_app/docs/DESIGN_SYSTEM.md) for
+source frames, APIs, Material mappings, font provenance, and verification commands.
+This update is limited to Flutter colors/typography; the runtime remains stopped.
+Verification after this import: Flutter analysis clean; 103 tests passed including
+the design-system contract/visual tests; light/dark specimens inspected; development
+web build and Wasm dry run succeeded. Bundled font weights were verified in the build.
 
 - Root: `C:\Users\User\Documents\GitHub\AiDigitalBankingApp`.
 - Backend: `backend/digital-banking` (contains `pom.xml`, `mvnw.cmd`, and `.env`).

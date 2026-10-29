@@ -123,7 +123,7 @@ void main() {
     );
     gateway.historyItems = [posting(record)];
     gateway.committed[record.key] = posting(record);
-    await tap(tester, 'Activity');
+    await tap(tester, 'All transactions');
     await tap(tester, 'Refresh recent activity');
     await tap(tester, 'View transaction details');
     expect(find.text('Transaction details'), findsOneWidget);

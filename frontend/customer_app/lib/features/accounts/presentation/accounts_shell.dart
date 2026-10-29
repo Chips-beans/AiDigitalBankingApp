@@ -1,8 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/kesor_layout.dart';
 import '../../../shared/widgets/app_states.dart';
+import '../../../shared/widgets/kesor_bottom_bar.dart';
+import '../../../app/app_preferences.dart';
+import '../../../app/design_system/design_system.dart';
+import '../../home/home_controller.dart';
+import '../../home/home_gateway.dart';
 import '../../auth/session_controller.dart';
 import '../../profile/profile_page.dart';
 import '../../home/presentation/kesor_home_screen.dart';
@@ -46,17 +53,21 @@ class AccountsShell extends StatefulWidget {
 
 class _AccountsShellState extends State<AccountsShell> {
   late final AccountsController model;
+  late final HomeController home;
   late final TransferController transfers;
   late final HistoryController history;
   late final Listenable changes;
   String? transactionReference;
+  String? transactionReturnPage;
   int tab = 0;
+  bool _homeBalanceVisible = true;
   String? page;
   String type = 'SAVINGS', currency = 'USD';
   @override
   void initState() {
     super.initState();
     model = AccountsController(widget.session, widget.gateway, widget.store);
+    home = HomeController(widget.session, AccountHomeGateway(widget.gateway));
     history = HistoryController(widget.session, model, widget.transactions);
     transfers = TransferController(
       widget.session,
@@ -65,15 +76,18 @@ class _AccountsShellState extends State<AccountsShell> {
       onSuccess: () async {
         await model.refresh();
         await history.refresh();
+        await home.refresh();
       },
     );
-    changes = Listenable.merge([model, transfers, history]);
+    changes = Listenable.merge([model, transfers, history, home]);
     unawaited(transfers.initialize());
     unawaited(model.initialize());
+    if (!widget.designPreview) unawaited(home.refresh());
   }
 
   @override
   void dispose() {
+    home.dispose();
     transfers.dispose();
     history.dispose();
     model.dispose();
@@ -84,31 +98,7 @@ class _AccountsShellState extends State<AccountsShell> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: changes,
     builder: (context, _) {
-      if (page == null && tab == 0) {
-        return KesorHomeScreen(
-          data: widget.designPreview
-              ? KesorHomeData.designPreview
-              : _homeData(),
-          onAccounts: () => setState(() => page = 'accounts'),
-          onTransfer: () => setState(() => page = 'transfer'),
-          onActivity: () => setState(() => tab = 1),
-          onProfile: () => setState(() => tab = 2),
-          onRefresh: model.refresh,
-          pendingTransfer: transfers.saved != null,
-          errorMessage: model.listError?.message ?? model.storageError?.message,
-          onTransaction: (entry) {
-            if (entry.reference == null) {
-              setState(() => tab = 1);
-              return;
-            }
-            setState(() {
-              page = 'transaction';
-              transactionReference = entry.reference;
-            });
-            unawaited(history.openDetail(entry.reference!));
-          },
-        );
-      }
+      if (page == null) return _root(context);
       final title = page == 'open'
           ? 'Open an account'
           : page == 'details'
@@ -119,7 +109,11 @@ class _AccountsShellState extends State<AccountsShell> {
           ? 'Transaction details'
           : page == 'accounts'
           ? 'Your accounts'
-          : ['Home', 'Activity', 'Your profile'][tab];
+          : page == 'history'
+          ? 'Activity'
+          : page == 'profile'
+          ? 'Your profile'
+          : ['Home', 'Analytics', 'Settings', 'AI assistant'][tab];
       return PopScope(
         canPop: page == null && tab == 0,
         onPopInvokedWithResult: (didPop, result) {
@@ -139,6 +133,12 @@ class _AccountsShellState extends State<AccountsShell> {
                 : null,
             title: Text(title),
             actions: [
+              if (page != 'profile')
+                IconButton(
+                  tooltip: 'Profile',
+                  icon: const Icon(Icons.person_outline),
+                  onPressed: () => setState(() => page = 'profile'),
+                ),
               IconButton(
                 tooltip: tab == 2 && page == null
                     ? 'Refresh profile'
@@ -185,14 +185,15 @@ class _AccountsShellState extends State<AccountsShell> {
                                   reference: transactionReference!,
                                 ),
                               ]
-                            : tab == 0
+                            : page != 'history' && page != 'profile'
                             ? _home(context)
-                            : tab == 1
+                            : page == 'history'
                             ? [
                                 HistoryPanel(
                                   history,
                                   onDetail: (reference) {
                                     setState(() {
+                                      transactionReturnPage = 'history';
                                       page = 'transaction';
                                       transactionReference = reference;
                                     });
@@ -208,82 +209,130 @@ class _AccountsShellState extends State<AccountsShell> {
               ),
             ),
           ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: tab,
-            onDestinationSelected: (index) => setState(() {
-              if (!transfers.busy) transfers.edit();
-              history.closeDetail();
-              tab = index;
-              page = null;
-            }),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.account_balance_wallet_outlined),
-                label: 'Home',
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Center(
+                heightFactor: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: KesorBottomBar(
+                    selectedIndex: tab,
+                    onSelected: _selectTab,
+                    onAssistant: () => _selectTab(3),
+                  ),
+                ),
               ),
-              NavigationDestination(
-                icon: Icon(Icons.receipt_long_outlined),
-                label: 'Activity',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.person_outline),
-                label: 'Profile',
-              ),
-            ],
+            ),
           ),
         ),
       );
     },
   );
 
-  KesorHomeData _homeData() {
-    BigInt total(String currency) => model.accounts
-        .where((account) => account.currency == currency)
-        .fold(BigInt.zero, (sum, account) => sum + account.balance.minorUnits);
-    final khr = total('KHR')
-        .toString()
-        .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-    final usdUnits = total('USD');
-    final usd =
-        '${usdUnits ~/ BigInt.from(100)}.${(usdUnits % BigInt.from(100)).toString().padLeft(2, '0')}';
-    final today = DateTime.now();
-    final yesterday = DateTime(today.year, today.month, today.day - 1);
-    final incomplete = model.accountsUpdatedAt == null || model.hasMore;
-    return KesorHomeData(
-      khrBalance: incomplete ? '—' : khr,
-      usdBalance: incomplete ? r'$—' : '\$$usd',
-      transactions: model.activity.map((posting) {
-        final incoming = posting.destination == model.selected?.number;
-        final date = posting.createdAt.toLocal();
-        final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
-        final amount = posting.amount.currency == 'KHR'
-            ? '${posting.amount.decimal} ៛'
-            : '\$${posting.amount.decimal}';
-        return HomeTransaction(
-          name: posting.remark?.isNotEmpty == true
-              ? posting.remark!
-              : posting.direction(model.selected!.number),
-          time:
-              '$hour:${date.minute.toString().padLeft(2, '0')} ${date.hour >= 12 ? 'PM' : 'AM'}',
-          amount: '${incoming ? '+' : '-'}$amount',
-          incoming: incoming,
-          previousDay:
-              date.year != today.year ||
-              date.month != today.month ||
-              date.day != today.day,
-          reference: posting.reference,
-          dateLabel:
-              date.year == today.year &&
-                  date.month == today.month &&
-                  date.day == today.day
-              ? null
-              : date.year == yesterday.year &&
-                    date.month == yesterday.month &&
-                    date.day == yesterday.day
-              ? null
-              : '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-        );
-      }).toList(),
+  void _selectTab(int index) {
+    setState(() {
+      if (!transfers.busy) transfers.edit();
+      history.closeDetail();
+      tab = index;
+      page = null;
+    });
+  }
+
+  Widget _root(BuildContext context) {
+    final prefs = AppPreferences.maybeOf(context);
+    final locale = prefs?.locale ?? const Locale('en');
+    final labels = locale.languageCode == 'km'
+        ? ['ទំព័រដើម', 'ការវិភាគ', 'ការកំណត់', 'ជំនួយការ AI']
+        : ['Home', 'Analytics', 'Settings', 'AI assistant'];
+    return PopScope(
+      canPop: tab == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _selectTab(0);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.of(context).background,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: tab == 0
+                      ? KesorHomeScreen(
+                          showNavigation: false,
+                          balanceVisible: _homeBalanceVisible,
+                          onBalanceVisibilityChanged: (visible) =>
+                              setState(() => _homeBalanceVisible = visible),
+                          data: widget.designPreview
+                              ? KesorHomeData.designPreview
+                              : home.snapshot?.presentation(locale) ??
+                                    const KesorHomeData(
+                                      khrBalance: '—',
+                                      usdBalance: r'$—',
+                                    ),
+                          loading: !widget.designPreview && home.loading,
+                          errorMessage: home.error == null
+                              ? null
+                              : tr(
+                                  context,
+                                  'Home could not refresh. Pull down to retry. Previously loaded values may be out of date.',
+                                  'មិនអាចធ្វើបច្ចុប្បន្នភាពបាន។ អូសចុះក្រោមដើម្បីព្យាយាមម្ដងទៀត។ ទិន្នន័យមុនអាចចាស់។',
+                                ),
+                          onAccounts: () => setState(() => page = 'accounts'),
+                          onTransfer: () => setState(() => page = 'transfer'),
+                          onActivity: () => setState(() => page = 'history'),
+                          onProfile: () => setState(() => page = 'profile'),
+                          onRefresh: widget.designPreview
+                              ? () async {}
+                              : home.refresh,
+                          pendingTransfer: transfers.saved != null,
+                          onTransaction: (entry) async {
+                            if (entry.reference == null) {
+                              setState(() => page = 'history');
+                              return;
+                            }
+                            setState(() {
+                              page = 'transaction';
+                              transactionReference = entry.reference;
+                            });
+                            if (entry.accountNumber != null &&
+                                entry.accountNumber != model.selected?.number) {
+                              final account = home.snapshot?.accounts
+                                  .where((a) => a.number == entry.accountNumber)
+                                  .firstOrNull;
+                              if (account != null) {
+                                await model.select(account);
+                              }
+                            }
+                            if (mounted) {
+                              unawaited(history.openDetail(entry.reference!));
+                            }
+                          },
+                        )
+                      : Center(
+                          child: Text(
+                            labels[tab],
+                            key: ValueKey('placeholder-tab-$tab'),
+                          ),
+                        ),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
+                  child: KesorBottomBar(
+                    selectedIndex: tab,
+                    onSelected: _selectTab,
+                    onAssistant: () => _selectTab(3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -293,8 +342,11 @@ class _AccountsShellState extends State<AccountsShell> {
       return;
     }
     setState(() {
-      if (page == 'transaction') history.closeDetail();
-      if (page == 'details' || page == 'open') {
+      if (page == 'transaction') {
+        history.closeDetail();
+        page = transactionReturnPage;
+        transactionReturnPage = null;
+      } else if (page == 'details' || page == 'open') {
         page = 'accounts';
       } else if (page != null) {
         page = null;
@@ -307,7 +359,7 @@ class _AccountsShellState extends State<AccountsShell> {
   Future<void> _refresh() async {
     if (page == 'transaction' && transactionReference != null) {
       await history.openDetail(transactionReference!);
-    } else if (tab == 1 && page == null) {
+    } else if (page == 'history') {
       await history.refresh();
     } else {
       await model.refresh();

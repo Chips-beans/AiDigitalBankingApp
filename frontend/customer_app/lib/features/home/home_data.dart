@@ -18,11 +18,13 @@ class HomeTransaction {
     this.avatarAsset,
     this.previousDay = false,
     this.reference,
+    this.accountNumber,
     this.dateLabel,
+    this.internal = false,
   });
   final String name, time, amount;
-  final bool incoming, previousDay;
-  final String? avatarAsset, reference, dateLabel;
+  final bool incoming, previousDay, internal;
+  final String? avatarAsset, reference, dateLabel, accountNumber;
 }
 
 @immutable

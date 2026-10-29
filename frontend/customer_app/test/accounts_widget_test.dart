@@ -75,11 +75,13 @@ void main() {
         expect(find.text('Opening balance: USD 0.00'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
-        await tap('Activity');
+        await tap('Home');
+        await tap('All transactions');
         expect(find.text('No activity yet for this account.'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
-        expect(find.text('សមតុល្យ'), findsOneWidget);
+        expect(find.text('Balance'), findsOneWidget);
+        await tap('View accounts');
         await tap('Profile');
         expect(find.text('customer@example.test'), findsOneWidget);
         await tap('Sign out');

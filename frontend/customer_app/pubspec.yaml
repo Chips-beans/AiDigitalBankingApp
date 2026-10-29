@@ -30,6 +30,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -72,18 +74,26 @@ flutter:
           weight: 400
         - asset: assets/fonts/GoogleSans-Medium.ttf
           weight: 500
+        - asset: assets/fonts/GoogleSans-Bold.ttf
+          weight: 700
     - family: Poppins
       fonts:
+        - asset: assets/fonts/Poppins-Light.ttf
+          weight: 300
         - asset: assets/fonts/Poppins-Regular.ttf
           weight: 400
         - asset: assets/fonts/Poppins-Medium.ttf
           weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
     - family: Noto Sans Khmer
       fonts:
         - asset: assets/fonts/NotoSansKhmer-Variable.ttf
           weight: 400
         - asset: assets/fonts/NotoSansKhmer-Variable.ttf
           weight: 500
+        - asset: assets/fonts/NotoSansKhmer-Variable.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -69,6 +69,7 @@ void main() {
     expect(session.identity!.profileComplete, false);
     await complete(tester);
     expect(find.byTooltip('Home'), findsOneWidget);
+    await tap(tester, find.byTooltip('View accounts'));
     await tap(tester, find.byTooltip('Profile'));
     expect(find.text('Dara Sok'), findsOneWidget);
     await tap(tester, find.text('Sign out'));

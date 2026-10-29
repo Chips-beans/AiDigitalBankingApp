@@ -4,7 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../shared/widgets/kesor_layout.dart';
 import '../../../shared/widgets/app_states.dart';
+import '../../../app/app_labels.dart';
+import '../../../app/app_preferences.dart';
+import '../../../shared/widgets/preference_controls.dart';
 import '../session_controller.dart';
 
 class AuthLayout extends StatelessWidget {
@@ -17,9 +21,9 @@ class AuthLayout extends StatelessWidget {
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(KesorLayout.gutter),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -32,6 +36,13 @@ class AuthLayout extends StatelessWidget {
                       icon: const Icon(Icons.arrow_back),
                     ),
                   ),
+                if (AppPreferences.maybeOf(context) != null) ...[
+                  const Align(
+                    alignment: Alignment.centerRight,
+                    child: PreferenceControls(),
+                  ),
+                  const SizedBox(height: 20),
+                ],
                 ...children,
               ],
             ),
@@ -296,16 +307,22 @@ class _OtpPageState extends State<OtpPage> {
         ),
         const SizedBox(height: 24),
         Text(
-          'Check your email',
+          tx(context, 'Check your email'),
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: 12),
         Text(
-          'If eligible, a 6-digit code was sent to ${session.otpEmail}. Check your spam folder too.',
+          tr(
+            context,
+            'If eligible, a 6-digit code was sent to ${session.otpEmail}. Check your spam folder too.',
+            'បើអាចប្រើបាន លេខកូដ ៦ ខ្ទង់ត្រូវបានផ្ញើទៅ ${session.otpEmail}។ សូមពិនិត្យថតសារឥតបានការផងដែរ។',
+          ),
         ),
         const SizedBox(height: 24),
         if (widget.demo)
-          const NoticePanel('Demo mode: use code 123456. No email is sent.'),
+          NoticePanel(
+            tx(context, 'Demo mode: use code 123456. No email is sent.'),
+          ),
         if (session.failure != null)
           NoticePanel(session.failure!.message, error: true),
         if (session.notice != null) NoticePanel(session.notice!),
@@ -322,23 +339,24 @@ class _OtpPageState extends State<OtpPage> {
               FilteringTextInputFormatter.digitsOnly,
               LengthLimitingTextInputFormatter(6),
             ],
-            decoration: const InputDecoration(
-              labelText: 'Email code',
-              hintText: '6 digits',
+            decoration: InputDecoration(
+              labelText: tx(context, 'Email code'),
+              hintText: tx(context, '6 digits'),
             ),
-            validator: (v) => v?.length == 6 ? null : 'Enter the 6-digit code.',
+            validator: (v) =>
+                v?.length == 6 ? null : tx(context, 'Enter the 6-digit code.'),
             onFieldSubmitted: (_) => _verify(),
           ),
         ),
         const SizedBox(height: 12),
         Text(
           session.expirySeconds > 0
-              ? 'Code expires in ${session.expirySeconds ~/ 60}:${(session.expirySeconds % 60).toString().padLeft(2, '0')}'
-              : 'This code has expired. Request a new one.',
+              ? '${tr(context, 'Code expires in', 'លេខកូដផុតកំណត់ក្នុង')} ${session.expirySeconds ~/ 60}:${(session.expirySeconds % 60).toString().padLeft(2, '0')}'
+              : tx(context, 'This code has expired. Request a new one.'),
         ),
         const SizedBox(height: 24),
         BusyButton(
-          label: 'Verify and continue',
+          label: tx(context, 'Verify and continue'),
           busy: session.busy,
           onPressed: session.expirySeconds == 0 ? null : _verify,
         ),
@@ -352,13 +370,13 @@ class _OtpPageState extends State<OtpPage> {
                 },
           child: Text(
             session.resendSeconds > 0
-                ? 'Resend code in ${session.resendSeconds}s'
-                : 'Resend code',
+                ? '${tr(context, 'Resend code in', 'ផ្ញើម្ដងទៀតក្នុង')} ${session.resendSeconds}s'
+                : tx(context, 'Resend code'),
           ),
         ),
         TextButton(
           onPressed: session.busy ? null : session.back,
-          child: const Text('Change your details'),
+          child: Text(tx(context, 'Change your details')),
         ),
       ],
     );

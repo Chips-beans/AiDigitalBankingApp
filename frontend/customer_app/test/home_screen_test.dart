@@ -45,7 +45,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    for (final label in ['View accounts', 'Transfer', 'Activity', 'Profile']) {
+    for (final label in [
+      'View accounts',
+      'Transfer',
+      'Analytics',
+      'Settings',
+    ]) {
       await tester.tap(find.byTooltip(label).first);
       await tester.pumpAndSettle();
     }
@@ -86,7 +91,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.byTooltip('Profile'), findsOneWidget);
+        expect(find.byTooltip('Settings'), findsOneWidget);
       },
     );
   }

@@ -1,0 +1,455 @@
+{
+  "source": {
+    "fileKey": "Mkhqgqnt1SQoq4pn9INLY5",
+    "colorNode": "206:233",
+    "englishNode": "230:208",
+    "khmerNode": "230:302",
+    "importedOn": "2026-10-29"
+  },
+  "primitives": {
+    "Neutral/Light/Background": "#FFFFFF",
+    "Neutral/Dark/Background": "#222222",
+    "Neutral/Light/Surface": "#F8F8FF",
+    "Neutral/Dark/Surface": "#18181B",
+    "Neutral/Light/Disabled": "#ECECF0",
+    "Neutral/Dark/Disabled": "#333333",
+    "Neutral/Light/Accent": "#E9EBEF",
+    "Neutral/Dark/Accent": "#2A2A2E",
+    "Neutral/Light/Border": "#E5E5E5",
+    "Neutral/Dark/Border": "#3A3A3F",
+    "Neutral/Light/DisabledBackground": "#717182",
+    "Neutral/Dark/DisabledBackground": "#8E8E96",
+    "Neutral/Light/Foreground&Base": "#0A0A0B",
+    "Neutral/Dark/Foreground&Base": "#F4F4F5",
+    "Gold/50": "#FCF8EA",
+    "Gold/100": "#F7EDCD",
+    "Gold/200": "#EFDA9B",
+    "Gold/400": "#DDBB59",
+    "Gold/500": "#CDA32F",
+    "Gold/600": "#A48226",
+    "Gold/700": "#7B621C",
+    "Semantic/Success": "#16A34A",
+    "Semantic/SuccessMuted": "#DCFCE7",
+    "Semantic/Warning": "#D97706",
+    "Semantic/WarningMuted": "#FEF3C7",
+    "Semantic/Info": "#0284C7",
+    "Semantic/InfoMuted": "#E0F2FE",
+    "Semantic/Error": "#D4183D",
+    "Semantic/ErrorMuted": "#FEE2E2",
+    "Navy/50": "#F1F5F9",
+    "Navy/100": "#DDE7F1",
+    "Navy/200": "#B7CBE0",
+    "Navy/400": "#42678E",
+    "Navy/500": "#133358",
+    "Navy/600": "#0F2946",
+    "Navy/700": "#0B1F35"
+  },
+  "modes": {
+    "light": {
+      "Neutral/Background": "#FFFFFF",
+      "Neutral/Surface": "#F8F8FF",
+      "Neutral/Disabled": "#ECECF0",
+      "Neutral/Accent": "#E9EBEF",
+      "Neutral/Border": "#E5E5E5",
+      "Neutral/DisabledBackground": "#717182",
+      "Neutral/Foreground&Base": "#0A0A0B",
+      "Primary/50": "#FCF8EA",
+      "Primary/100": "#F7EDCD",
+      "Primary/200": "#EFDA9B",
+      "Primary/400": "#DDBB59",
+      "Primary/500": "#CDA32F",
+      "Primary/600": "#A48226",
+      "Primary/700": "#7B621C",
+      "Semantic/Success": "#16A34A",
+      "Semantic/SuccessMuted": "#DCFCE7",
+      "Semantic/Warning": "#D97706",
+      "Semantic/WarningMuted": "#FEF3C7",
+      "Semantic/Info": "#0284C7",
+      "Semantic/InfoMuted": "#E0F2FE",
+      "Semantic/Error": "#D4183D",
+      "Semantic/ErrorMuted": "#FEE2E2",
+      "Accent/50": "#F1F5F9",
+      "Accent/100": "#DDE7F1",
+      "Accent/200": "#B7CBE0",
+      "Accent/400": "#42678E",
+      "Accent/500": "#133358",
+      "Accent/600": "#0F2946",
+      "Accent/700": "#0B1F35"
+    },
+    "dark": {
+      "Neutral/Background": "#222222",
+      "Neutral/Surface": "#18181B",
+      "Neutral/Disabled": "#333333",
+      "Neutral/Accent": "#2A2A2E",
+      "Neutral/Border": "#3A3A3F",
+      "Neutral/DisabledBackground": "#8E8E96",
+      "Neutral/Foreground&Base": "#F4F4F5",
+      "Primary/50": "#FCF8EA",
+      "Primary/100": "#F7EDCD",
+      "Primary/200": "#EFDA9B",
+      "Primary/400": "#DDBB59",
+      "Primary/500": "#CDA32F",
+      "Primary/600": "#A48226",
+      "Primary/700": "#7B621C",
+      "Semantic/Success": "#16A34A",
+      "Semantic/SuccessMuted": "#DCFCE7",
+      "Semantic/Warning": "#D97706",
+      "Semantic/WarningMuted": "#FEF3C7",
+      "Semantic/Info": "#0284C7",
+      "Semantic/InfoMuted": "#E0F2FE",
+      "Semantic/Error": "#D4183D",
+      "Semantic/ErrorMuted": "#FEE2E2",
+      "Accent/50": "#F1F5F9",
+      "Accent/100": "#DDE7F1",
+      "Accent/200": "#B7CBE0",
+      "Accent/400": "#42678E",
+      "Accent/500": "#133358",
+      "Accent/600": "#0F2946",
+      "Accent/700": "#0B1F35"
+    }
+  },
+  "typography": [
+    {
+      "id": "S:2df84b9f4dff9572c012cf944a285862f257bb47,",
+      "name": "Typography/English/01 Hero — Welcome headline",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Light"
+      },
+      "fontSize": 32,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 44
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:2a98b2fdad9bd8292aa8b160094ca5043f4cc45c,",
+      "name": "Typography/English/02 Title XL — Page title",
+      "fontName": {
+        "family": "Poppins",
+        "style": "SemiBold"
+      },
+      "fontSize": 24,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 36
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:a1089c372928b0c7ed75641e6ec00b71884dc255,",
+      "name": "Typography/English/03 Title L — Section title",
+      "fontName": {
+        "family": "Poppins",
+        "style": "SemiBold"
+      },
+      "fontSize": 20,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 30
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:fee0f04b1ab6763e118c134da2bf6cd4091a0c0d,",
+      "name": "Typography/English/04 Title M — Card title",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Medium"
+      },
+      "fontSize": 18,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 28
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:919684508b7c320e12f5d7360dcea8d7d14b8979,",
+      "name": "Typography/English/05 Body L — Introductory text",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Regular"
+      },
+      "fontSize": 17,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 28
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:2070ed004110633265b89ed9accecd8d1fcb7ab2,",
+      "name": "Typography/English/06 Body — Default reading text",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Regular"
+      },
+      "fontSize": 15,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 24
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:2bb06bcc42dfdc9de06b8d89c05fc5c9dd9b0377,",
+      "name": "Typography/English/07 Button — Action label",
+      "fontName": {
+        "family": "Poppins",
+        "style": "SemiBold"
+      },
+      "fontSize": 14,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 22
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:f2936900a2b4a849613e637d041d3e8c1441a830,",
+      "name": "Typography/English/08 Caption — Supporting detail",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Regular"
+      },
+      "fontSize": 12,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 20
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:7188347fc8a05beac33e47877b9ac67eb33da1a7,",
+      "name": "Typography/English/09 Micro — Compact metadata",
+      "fontName": {
+        "family": "Poppins",
+        "style": "Medium"
+      },
+      "fontSize": 10,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 16
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:6eab96209e33d85bdef40702538ff83b1f3e6b43,",
+      "name": "Typography/Khmer/01 Hero — Welcome headline",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Regular",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 400
+        }
+      },
+      "fontSize": 32,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 56
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:0689a072f28a6c0e3ce4aa70475dd5d7b9fd82bd,",
+      "name": "Typography/Khmer/02 Title XL — Page title",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Bold",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 700
+        }
+      },
+      "fontSize": 24,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 44
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:f45be5d8e80ab591991bdf0e494a7bfff40ffc18,",
+      "name": "Typography/Khmer/03 Title L — Section title",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Bold",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 700
+        }
+      },
+      "fontSize": 20,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 36
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:d061e9e2005fc7d4c2b56ba1c639e998f419945b,",
+      "name": "Typography/Khmer/04 Title M — Card title",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Medium",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 500
+        }
+      },
+      "fontSize": 18,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 32
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:26078985454c39e3ea0656fb34e8b647be1d3ac0,",
+      "name": "Typography/Khmer/05 Body L — Introductory text",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Regular",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 400
+        }
+      },
+      "fontSize": 17,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 30
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:12aa9474be903de4a925cc1a36161d34c55ac40b,",
+      "name": "Typography/Khmer/06 Body — Default reading text",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Regular",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 400
+        }
+      },
+      "fontSize": 15,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 28
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:df669b5df1f90faeaad1ed6efb6c50f17b2a6361,",
+      "name": "Typography/Khmer/07 Button — Action label",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Bold",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 700
+        }
+      },
+      "fontSize": 14,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 26
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:73ff010ec1b02faccbacf492e350396b97e72d71,",
+      "name": "Typography/Khmer/08 Caption — Supporting detail",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Regular",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 400
+        }
+      },
+      "fontSize": 12,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 22
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    },
+    {
+      "id": "S:8536220b14d228ea9b794c0cd1c51c3eda1b83ec,",
+      "name": "Typography/Khmer/09 Micro — Compact metadata",
+      "fontName": {
+        "family": "Google Sans",
+        "style": "Medium",
+        "variationSettings": {
+          "GRAD": 0,
+          "wght": 500
+        }
+      },
+      "fontSize": 10,
+      "lineHeight": {
+        "unit": "PIXELS",
+        "value": 20
+      },
+      "letterSpacing": {
+        "unit": "PIXELS",
+        "value": 0
+      }
+    }
+  ]
+}

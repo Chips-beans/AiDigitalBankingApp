@@ -5,6 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../app/app_theme.dart';
+import '../../../app/app_preferences.dart';
+import '../../../shared/widgets/kesor_layout.dart';
+import '../../../shared/widgets/kesor_bottom_bar.dart';
+import '../../../app/design_system/design_system.dart';
 import '../home_data.dart';
 export '../home_data.dart';
 
@@ -16,6 +21,10 @@ class KesorHomeScreen extends StatefulWidget {
   const KesorHomeScreen({
     required this.data,
     this.showDeviceChrome = false,
+    this.showNavigation = true,
+    this.loading = false,
+    this.balanceVisible,
+    this.onBalanceVisibilityChanged,
     this.onAccounts,
     this.onTransfer,
     this.onActivity,
@@ -28,7 +37,9 @@ class KesorHomeScreen extends StatefulWidget {
   });
 
   final KesorHomeData data;
-  final bool showDeviceChrome, pendingTransfer;
+  final bool? balanceVisible;
+  final ValueChanged<bool>? onBalanceVisibilityChanged;
+  final bool showDeviceChrome, pendingTransfer, showNavigation, loading;
   final VoidCallback? onAccounts, onTransfer, onActivity, onProfile;
   final ValueChanged<HomeTransaction>? onTransaction;
   final Future<void> Function()? onRefresh;
@@ -38,32 +49,41 @@ class KesorHomeScreen extends StatefulWidget {
   State<KesorHomeScreen> createState() => _KesorHomeScreenState();
 }
 
-abstract final class _Palette {
-  static const ink = Color(0xFF191B19);
-  static const navy = Color(0xFF133358);
-  static const gold = Color(0xFFB8944F);
-  static const muted = Color(0xFF8E958E);
-  static const border = Color(0xFFE5E7E3);
-}
+AppColors _homeColors(BuildContext context) =>
+    Theme.of(context).extension<AppColors>() ??
+    AppColors.forBrightness(Theme.of(context).brightness);
+Color _homeAccent(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? AppPalette.navy100
+    : AppPalette.navy500;
 
 TextStyle _text(
+  BuildContext context,
   double size,
   double lineHeight, {
-  Color color = _Palette.ink,
+  Color? color,
   FontWeight weight = FontWeight.w400,
-  String family = 'Google Sans',
+  String? family,
 }) => TextStyle(
-  fontFamily: family,
-  fontFamilyFallback: const ['Noto Sans Khmer'],
+  fontFamily:
+      family ??
+      ((AppPreferences.maybeOf(context)?.isKhmer ?? true)
+          ? AppTypography.khmerFamily
+          : AppTypography.englishFamily),
+  fontFamilyFallback: AppTypography.fallbackFamilies,
   fontSize: size,
   fontWeight: weight,
   height: lineHeight / size,
-  color: color,
+  color: color ?? _homeColors(context).foreground,
   letterSpacing: 0,
 );
 
 class _KesorHomeScreenState extends State<KesorHomeScreen> {
-  bool _balanceVisible = true;
+  bool _localBalanceVisible = true;
+  bool get _balanceVisible => widget.balanceVisible ?? _localBalanceVisible;
+  bool get _dark => Theme.of(context).brightness == Brightness.dark;
+  bool get _khmer => AppPreferences.maybeOf(context)?.isKhmer ?? true;
+  String _tr(String english, String khmer) => _khmer ? khmer : english;
   final _actionsScroll = ScrollController();
   final List<HomeRecipient> _addedRecipients = [];
 
@@ -77,7 +97,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      backgroundColor: Colors.white,
+      backgroundColor: _homeColors(context).background,
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -85,9 +105,20 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: _text(20, 28, weight: FontWeight.w500)),
+              Text(
+                title,
+                style: _text(context, 20, 28, weight: FontWeight.w500),
+              ),
               const SizedBox(height: 12),
-              Text(message, style: _text(14, 22, color: _Palette.muted)),
+              Text(
+                message,
+                style: _text(
+                  context,
+                  14,
+                  22,
+                  color: _homeColors(context).disabledBackground,
+                ),
+              ),
               if (content != null) ...[const SizedBox(height: 20), content],
               const SizedBox(height: 20),
               TextButton(
@@ -103,7 +134,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
 
   void _openRecipients() {
     _showPanel(
-      'បញ្ជីរអ្នកទទួល',
+      _tr('Recipients', 'បញ្ជីរអ្នកទទួល'),
       'Recipients',
       content: Column(
         children: [
@@ -114,7 +145,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                 asset: person.avatarAsset,
                 size: 48,
               ),
-              title: Text(person.name, style: _text(14, 22, family: 'Poppins')),
+              title: Text(
+                person.name,
+                style: _text(context, 14, 22, family: 'Poppins'),
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _recipient(person);
@@ -146,7 +180,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('បន្ថែមអ្នកទទួល', style: _text(20, 28)),
+        title: Text('បន្ថែមអ្នកទទួល', style: _text(context, 20, 28)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -188,7 +222,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       widget.onActivity!();
     } else {
       _showPanel(
-        'ប្រតិបត្តិការថ្មីៗ',
+        _tr('Recent transactions', 'ប្រតិបត្តិការថ្មីៗ'),
         'Recent activity',
         content: _transactionCard(),
       );
@@ -221,41 +255,48 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
         ? 24.0
         : math.max(24.0, media.padding.bottom);
     final screen = AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.white,
-      ),
+      value:
+          (Theme.of(context).brightness == Brightness.dark
+                  ? SystemUiOverlayStyle.light
+                  : SystemUiOverlayStyle.dark)
+              .copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: _homeColors(context).background,
+              ),
       child: Theme(
-        data: ThemeData(
-          useMaterial3: true,
-          brightness: Brightness.light,
-          fontFamily: 'Google Sans',
-          colorScheme: ColorScheme.fromSeed(seedColor: _Palette.navy),
-          scaffoldBackgroundColor: Colors.white,
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(foregroundColor: _Palette.navy),
-          ),
-        ),
+        data: Theme.of(context).extension<AppColors>() == null
+            ? AppTheme.build(
+                Theme.of(context).brightness,
+                locale: Locale(_khmer ? 'km' : 'en'),
+              )
+            : Theme.of(context),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: _homeColors(context).background,
           body: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
+              constraints: const BoxConstraints(
+                maxWidth: KesorLayout.frameWidth,
+              ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final scroll = SingleChildScrollView(
                     key: const PageStorageKey('kesor-home-scroll'),
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      topInset + 10,
-                      20,
-                      bottomInset + 83,
-                    ),
+                    padding: EdgeInsets.fromLTRB(20, topInset + 10, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _header(),
+                        if (widget.loading) ...[
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            key: const ValueKey('home-loading'),
+                            semanticsLabel: _tr(
+                              'Loading Home',
+                              'កំពុងផ្ទុកទំព័រដើម',
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         _balanceCard(),
                         if (widget.errorMessage != null)
@@ -264,9 +305,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                             child: Text(
                               widget.errorMessage!,
                               style: _text(
+                                context,
                                 14,
                                 22,
-                                color: const Color(0xFFB42318),
+                                color: _homeColors(context).error,
                               ),
                             ),
                           ),
@@ -278,7 +320,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                         const SizedBox(height: 29),
                         _sectionHeader(
                           'recipients.svg',
-                          'បញ្ជីរអ្នកទទួល',
+                          _tr('Recipients', 'បញ្ជីរអ្នកទទួល'),
                           _openRecipients,
                         ),
                         const SizedBox(height: 9),
@@ -286,7 +328,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                         const SizedBox(height: 23),
                         _sectionHeader(
                           'transactions.svg',
-                          'ប្រតិបត្តិការថ្មីៗ',
+                          _tr('Recent transactions', 'ប្រតិបត្តិការថ្មីៗ'),
                           _activity,
                         ),
                         const SizedBox(height: 9),
@@ -297,6 +339,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                   return Stack(
                     children: [
                       Positioned.fill(
+                        // Keep scrolling rows above the floating bar on shorter
+                        // devices; the 999px reference ends exactly at y=892.
+                        bottom:
+                            bottomInset + KesorBottomBar.height(context) + 19,
                         child: widget.onRefresh == null
                             ? scroll
                             : RefreshIndicator(
@@ -313,12 +359,13 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                             child: const _PreviewStatusBar(),
                           ),
                         ),
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: bottomInset,
-                        child: _navigation(),
-                      ),
+                      if (widget.showNavigation)
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          bottom: bottomInset,
+                          child: _navigation(),
+                        ),
                       if (widget.showDeviceChrome)
                         Positioned(
                           bottom: 5,
@@ -327,7 +374,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                             width: 134,
                             height: 5,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1C201C),
+                              color: _homeColors(context).foreground,
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),
@@ -397,7 +444,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                 child: const SizedBox(
                   width: 28,
                   height: 44,
-                  child: Center(child: _Svg('inbox.svg', scale: 28 / 24)),
+                  child: Center(child: _Svg('inbox.svg')),
                 ),
               ),
               _Tap(
@@ -411,7 +458,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFCC0001),
+                        color: AppPalette.semanticError,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Center(child: _Svg('khqr-mark.svg')),
@@ -432,21 +479,32 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       2.0,
     );
     return ClipRRect(
+      key: const ValueKey('home-balance-card'),
       borderRadius: BorderRadius.circular(24),
       child: CustomPaint(
-        foregroundPainter: const _BalanceBorder(),
+        foregroundPainter: _BalanceBorder(
+          color: _homeColors(context).primary200,
+        ),
         child: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment(0, 2.6526),
-              colors: [
-                Color(0xB3FFFFFF),
-                Color(0xB3F7F1E8),
-                Color(0xB3F3E7D2),
-                Color(0xB3F0E2C8),
-                Color(0xB3EAD8B8),
-              ],
+              colors: _dark
+                  ? [
+                      _homeColors(context).background,
+                      _homeColors(context).surface,
+                      AppPalette.gold700.withValues(alpha: .16),
+                      AppPalette.gold700.withValues(alpha: .18),
+                      AppPalette.gold600.withValues(alpha: .2),
+                    ]
+                  : [
+                      _homeColors(context).background.withValues(alpha: .7),
+                      AppPalette.gold50.withValues(alpha: .7),
+                      AppPalette.gold100.withValues(alpha: .7),
+                      AppPalette.gold100.withValues(alpha: .7),
+                      AppPalette.gold200.withValues(alpha: .7),
+                    ],
               stops: [0, .33, .59, .79, 1],
             ),
           ),
@@ -474,11 +532,14 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'សមតុល្យ',
+                              _tr('Balance', 'សមតុល្យ'),
                               style: _text(
+                                context,
                                 16,
                                 24,
-                                color: const Color(0xFFCDA12F),
+                                color: _dark
+                                    ? AppPalette.gold400
+                                    : AppPalette.gold700,
                                 weight: FontWeight.w500,
                               ),
                             ),
@@ -487,9 +548,12 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                             label: _balanceVisible
                                 ? 'Hide balance'
                                 : 'Show balance',
-                            onTap: () => setState(
-                              () => _balanceVisible = !_balanceVisible,
-                            ),
+                            onTap: () => setState(() {
+                              _localBalanceVisible = !_balanceVisible;
+                              widget.onBalanceVisibilityChanged?.call(
+                                _localBalanceVisible,
+                              );
+                            }),
                             child: _FigmaGlass(
                               radius: 26,
                               blurRadius: 10,
@@ -497,16 +561,18 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                                 width: 36,
                                 height: 36,
                                 decoration: BoxDecoration(
-                                  color: const Color(0x4DEAEAEA),
+                                  color: _homeColors(context).accent
+                                      .withValues(alpha: .3),
                                   borderRadius: BorderRadius.circular(26),
                                 ),
                                 child: Center(
                                   child: _balanceVisible
                                       ? const _Svg('balance-visibility.svg')
-                                      : const Icon(
+                                      : Icon(
                                           Icons.visibility_outlined,
                                           size: 24,
-                                          color: _Palette.ink,
+                                          color: _homeColors(context)
+                                              .foreground,
                                         ),
                                 ),
                               ),
@@ -537,6 +603,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                                         ? widget.data.khrBalance
                                         : '••••',
                                     style: _text(
+                                      context,
                                       20,
                                       28,
                                       weight: FontWeight.w500,
@@ -546,6 +613,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                                   TextSpan(
                                     text: '៛',
                                     style: _text(
+                                      context,
                                       20,
                                       28,
                                       weight: FontWeight.w500,
@@ -557,8 +625,13 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'ប្រាក់រៀលសរុប',
-                              style: _text(14, 22, color: _Palette.muted),
+                              _tr('Total in riel', 'ប្រាក់រៀលសរុប'),
+                              style: _text(
+                                context,
+                                14,
+                                22,
+                                color: _homeColors(context).disabledBackground,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -566,12 +639,22 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                                   ? widget.data.usdBalance
                                   : r'$••••',
                               key: const ValueKey('home-usd-balance'),
-                              style: _text(20, 28, weight: FontWeight.w500),
+                              style: _text(
+                                context,
+                                20,
+                                28,
+                                weight: FontWeight.w500,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'ប្រាក់ដុល្លារសរុប',
-                              style: _text(14, 22, color: _Palette.muted),
+                              _tr('Total in dollars', 'ប្រាក់ដុល្លារសរុប'),
+                              style: _text(
+                                context,
+                                14,
+                                22,
+                                color: _homeColors(context).disabledBackground,
+                              ),
                             ),
                           ],
                         ),
@@ -612,10 +695,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     final qr = index == 1;
     final transfer = index == 2 || index == 5;
     final label = qr
-        ? 'ស្កេនកូដ QR'
+        ? _tr('Scan QR', 'ស្កេនកូដ QR')
         : index == 5
-        ? 'ផ្ទេរប្រាក់'
-        : 'ទូទាត់ប្រាក់';
+        ? _tr('Transfer', 'ផ្ទេរប្រាក់')
+        : _tr('Payments', 'ទូទាត់ប្រាក់');
     return _Tap(
       label: qr
           ? 'Scan QR'
@@ -626,7 +709,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
           ? widget.onTransfer ??
                 () => _showPanel('ផ្ទេរប្រាក់', 'Internal transfer')
           : () => _showPanel(
-              qr ? 'ស្កេនកូដ QR' : 'ទូទាត់ប្រាក់',
+              qr ? _tr('Scan QR', 'ស្កេនកូដ QR') : 'ទូទាត់ប្រាក់',
               qr ? 'QR scanner' : 'Payments',
             ),
       child: _FigmaGlass(
@@ -670,10 +753,13 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                 label,
                 textAlign: TextAlign.center,
                 style: _text(
+                  context,
                   14,
                   22,
                   weight: FontWeight.w500,
-                  family: qr ? 'Noto Sans Khmer' : 'Google Sans',
+                  family: _khmer
+                      ? AppTypography.khmerFamily
+                      : AppTypography.englishFamily,
                 ),
               ),
             ],
@@ -690,11 +776,17 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       Expanded(
         child: Text(
           title,
-          style: _text(16, 24, color: _Palette.navy, weight: FontWeight.w500),
+          style: _text(
+            context,
+            16,
+            24,
+            color: _homeAccent(context),
+            weight: FontWeight.w500,
+          ),
         ),
       ),
       _Tap(
-        label: title == 'បញ្ជីរអ្នកទទួល'
+        label: title == _tr('Recipients', 'បញ្ជីរអ្នកទទួល')
             ? 'All recipients'
             : 'All transactions',
         onTap: onAll,
@@ -702,7 +794,15 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
           constraints: const BoxConstraints(minHeight: 28),
           child: Row(
             children: [
-              Text('ទាំងអស់', style: _text(14, 22, color: _Palette.muted)),
+              Text(
+                _tr('All', 'ទាំងអស់'),
+                style: _text(
+                  context,
+                  14,
+                  22,
+                  color: _homeColors(context).disabledBackground,
+                ),
+              ),
               const _Svg('chevron.svg'),
             ],
           ),
@@ -718,16 +818,15 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       2.0,
     );
     double recipientWidth(HomeRecipient person) {
-      if (extra == 0) return 65;
       final measure = TextPainter(
         text: TextSpan(
           text: person.name,
-          style: _text(12, 18, family: 'Poppins'),
+          style: _text(context, 12, 18, family: 'Poppins'),
         ),
         textDirection: TextDirection.ltr,
         textScaler: MediaQuery.textScalerOf(context),
       )..layout();
-      final width = math.max(65.0, measure.width + 16);
+      final width = (measure.width + 8).clamp(65.0, 144.0);
       measure.dispose();
       return width;
     }
@@ -746,19 +845,17 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                 const SizedBox(height: 2),
                 SizedBox(
                   height: 18 + extra * 18,
-                  child: OverflowBox(
-                    minWidth: math.max(100, recipientWidth(person)),
-                    maxWidth: math.max(100, recipientWidth(person)),
-                    child: Text(
-                      person.name,
-                      maxLines: 1,
-                      textAlign: TextAlign.center,
-                      style: _text(
-                        12,
-                        18,
-                        color: Colors.black,
-                        family: 'Poppins',
-                      ),
+                  child: Text(
+                    person.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: _text(
+                      context,
+                      12,
+                      18,
+                      color: _homeColors(context).foreground,
+                      family: 'Poppins',
                     ),
                   ),
                 ),
@@ -777,18 +874,23 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFFEEEEEE),
+                  color: _homeColors(context).surface,
                 ),
                 child: const Center(child: _Svg('plus.svg')),
               ),
               const SizedBox(height: 2),
               Text(
-                'បន្ថែម',
+                _tr('Add', 'បន្ថែម'),
                 maxLines: 1,
                 softWrap: false,
-                style: _text(14, 18, color: Colors.black),
+                style: _text(
+                  context,
+                  14,
+                  18,
+                  color: _homeColors(context).foreground,
+                ),
               ),
             ],
           ),
@@ -796,9 +898,11 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       ),
     ];
     return Container(
+      key: const ValueKey('home-recipients-card'),
       constraints: const BoxConstraints(minHeight: 94),
       decoration: BoxDecoration(
-        border: Border.all(color: _Palette.border),
+        color: _homeColors(context).surface,
+        border: Border.all(color: _homeColors(context).border),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(12),
@@ -809,7 +913,12 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: children,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i != 0) const SizedBox(width: 8),
+                  children[i],
+                ],
+              ],
             ),
           ),
         ),
@@ -821,12 +930,17 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     final groups = <String, List<HomeTransaction>>{};
     for (final entry in widget.data.transactions) {
       final label =
-          entry.dateLabel ?? (entry.previousDay ? 'ម្សិលមិញ' : 'ថ្ងៃនេះ');
+          entry.dateLabel ??
+          (entry.previousDay
+              ? _tr('Yesterday', 'ម្សិលមិញ')
+              : _tr('Today', 'ថ្ងៃនេះ'));
       groups.putIfAbsent(label, () => []).add(entry);
     }
     return Container(
+      key: const ValueKey('home-transactions-card'),
       decoration: BoxDecoration(
-        border: Border.all(color: _Palette.border),
+        color: _homeColors(context).surface,
+        border: Border.all(color: _homeColors(context).border),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(12),
@@ -837,19 +951,34 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 18),
               child: Text(
-                'មិនទាន់មានប្រតិបត្តិការ · No activity yet',
-                style: _text(14, 22, color: _Palette.muted),
+                widget.loading
+                    ? _tr('Loading activity…', 'កំពុងផ្ទុកប្រតិបត្តិការ…')
+                    : _tr('No activity yet', 'មិនទាន់មានប្រតិបត្តិការ'),
+                style: _text(
+                  context,
+                  14,
+                  22,
+                  color: _homeColors(context).disabledBackground,
+                ),
               ),
             ),
           for (final group in groups.entries) ...[
             if (group.key != groups.keys.first) const SizedBox(height: 12),
-            Text(group.key, style: _text(14, 22, color: _Palette.muted)),
+            Text(
+              group.key,
+              style: _text(
+                context,
+                14,
+                22,
+                color: _homeColors(context).disabledBackground,
+              ),
+            ),
             const SizedBox(height: 12),
             for (int i = 0; i < group.value.length; i++) ...[
               if (i != 0) const SizedBox(height: 10),
               _transactionRow(
                 group.value[i],
-                first: group.key == 'ថ្ងៃនេះ' && i == 0,
+                first: group.key == _tr('Today', 'ថ្ងៃនេះ') && i == 0,
               ),
             ],
           ],
@@ -875,18 +1004,20 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: _text(
+                  context,
                   14,
                   first ? 24 : 18,
-                  color: const Color(0xFF0A0A0B),
+                  color: _homeColors(context).foreground,
                   family: 'Poppins',
                 ),
               ),
               Text(
                 entry.time,
                 style: _text(
+                  context,
                   12,
                   16,
-                  color: const Color(0xFF717182),
+                  color: _homeColors(context).disabledBackground,
                   family: 'Poppins',
                 ),
               ),
@@ -902,9 +1033,14 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             entry.amount,
             textAlign: TextAlign.right,
             style: _text(
+              context,
               14,
               first ? 28 : 18,
-              color: entry.incoming ? _Palette.navy : const Color(0xFFEF4444),
+              color: entry.internal
+                  ? _homeColors(context).disabledBackground
+                  : entry.incoming
+                  ? _homeAccent(context)
+                  : AppPalette.semanticError,
               family: first ? 'Google Sans' : 'Poppins',
             ),
           ),
@@ -913,96 +1049,20 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     ),
   );
 
-  Widget _navigation() => Row(
-    children: [
-      Expanded(
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0F1EE),
-            borderRadius: BorderRadius.circular(32),
-          ),
-          child: Row(
-            children: [
-              _navItem('nav-home.svg', 'ទំព័រដើម', 'Home', true, () {}),
-              _navItem(
-                'nav-analytics.svg',
-                'ការវិភាគ',
-                'Activity',
-                false,
-                _activity,
-              ),
-              _navItem(
-                'nav-settings.svg',
-                'ការកំណត់',
-                'Profile',
-                false,
-                widget.onProfile ?? () => _showPanel('ការកំណត់', 'Settings'),
-              ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(width: 16),
-      _Tap(
-        label: 'AI assistant',
-        onTap: () => _showPanel('ជំនួយការ AI', 'AI assistant'),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFF9DCE9), Color(0xFFF5F6EA), Color(0xFFDFF4E2)],
-              stops: [0, .5, 1],
-            ),
-          ),
-          child: const Center(child: _Svg('ai-sun.svg')),
-        ),
-      ),
-    ],
-  );
-
-  Widget _navItem(
-    String icon,
-    String text,
-    String label,
-    bool selected,
-    VoidCallback onTap,
-  ) => Expanded(
-    child: _Tap(
-      label: label,
-      selected: selected,
-      onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0x33B8944F) : null,
-          borderRadius: BorderRadius.circular(28),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _Svg(icon),
-            const SizedBox(height: 2),
-            Flexible(
-              child: Text(
-                text,
-                textAlign: TextAlign.center,
-                style: _text(
-                  11,
-                  16,
-                  color: selected ? _Palette.gold : const Color(0xFF222722),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
+  Widget _navigation() => KesorBottomBar(
+    selectedIndex: 0,
+    onSelected: (index) {
+      if (index == 1) _activity();
+      if (index == 2) {
+        if (widget.onProfile != null) {
+          widget.onProfile!();
+        } else {
+          _showPanel(_tr('Settings', 'ការកំណត់'), 'Settings');
+        }
+      }
+    },
+    onAssistant: () =>
+        _showPanel(_tr('AI assistant', 'ជំនួយការ AI'), 'AI assistant'),
   );
 }
 
@@ -1021,30 +1081,28 @@ class _Avatar extends StatelessWidget {
         )
       : CircleAvatar(
           radius: size / 2,
-          backgroundColor: const Color(0xFFF0E9DB),
+          backgroundColor: _homeColors(context).accent,
           child: Text(
             name.characters.first.toUpperCase(),
-            style: _text(size / 3, size / 2, color: _Palette.navy),
+            style: _text(
+              context,
+              size / 3,
+              size / 2,
+              color: _homeAccent(context),
+            ),
           ),
         );
 }
 
 class _Tap extends StatelessWidget {
-  const _Tap({
-    required this.label,
-    required this.onTap,
-    required this.child,
-    this.selected,
-  });
+  const _Tap({required this.label, required this.onTap, required this.child});
   final String label;
   final VoidCallback onTap;
   final Widget child;
-  final bool? selected;
   @override
   Widget build(BuildContext context) => Semantics(
     label: label,
     button: true,
-    selected: selected,
     child: Tooltip(
       message: label,
       excludeFromSemantics: true,
@@ -1062,14 +1120,13 @@ class _Tap extends StatelessWidget {
 
 /// Native SVG dimensions are retained; only the surrounding design slot scales.
 class _Svg extends StatelessWidget {
-  const _Svg(this.name, {this.scale = 1});
+  const _Svg(this.name);
   final String name;
-  final double scale;
   static const _sizes = <String, Size>{
     'kesor-logo.svg': Size(37.3334, 46.6627),
     'khqr-mark.svg': Size(15, 16),
     'rosette.svg': Size(18.675, 18.5323),
-    'inbox.svg': Size(24, 24),
+    'inbox.svg': Size(28, 28),
     'balance-visibility.svg': Size(24, 24),
     'payment-card.svg': Size(24.0175, 18.4708),
     'qr-scan.svg': Size(26, 26),
@@ -1089,14 +1146,25 @@ class _Svg extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = _sizes[name]!;
     return SizedBox(
-      width: size.width * scale,
-      height: size.height * scale,
+      width: size.width,
+      height: size.height,
       child: FittedBox(
         child: SvgPicture.asset(
           'assets/home/$name',
           width: size.width,
           height: size.height,
           excludeFromSemantics: true,
+          colorFilter:
+              Theme.of(context).brightness == Brightness.dark &&
+                  !{
+                    'kesor-logo.svg',
+                    'khqr-mark.svg',
+                    'rosette.svg',
+                    'balance-motif.svg',
+                    'ai-sun.svg',
+                  }.contains(name)
+              ? ColorFilter.mode(_homeAccent(context), BlendMode.srcIn)
+              : null,
         ),
       ),
     );
@@ -1148,7 +1216,8 @@ class _GlassLighting extends CustomPainter {
 }
 
 class _BalanceBorder extends CustomPainter {
-  const _BalanceBorder();
+  const _BalanceBorder({required this.color});
+  final Color color;
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
@@ -1157,16 +1226,13 @@ class _BalanceBorder extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x80B8944F), Color(0xCCE5E7E3)],
-        ).createShader(rect),
+        ..color = color,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _BalanceBorder oldDelegate) => false;
+  bool shouldRepaint(covariant _BalanceBorder oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Keeps the exported SVG intact and translates Figma's progressive layer blur.
@@ -1238,14 +1304,17 @@ class _PreviewStatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
     child: Container(
-      color: Colors.white,
+      color: _homeColors(context).background,
       height: 54,
       child: Stack(
         children: [
           Positioned(
             left: 35.4545,
             top: 16,
-            child: Text('9:41', style: _text(17, 22, weight: FontWeight.w500)),
+            child: Text(
+              '9:41',
+              style: _text(context, 17, 22, weight: FontWeight.w500),
+            ),
           ),
           const Positioned(right: -4, top: 0, child: _Svg('status-levels.svg')),
         ],

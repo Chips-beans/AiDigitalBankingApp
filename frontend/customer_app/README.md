@@ -3,6 +3,11 @@
 Start with the [current project handoff](../../docs/CURRENT_PROJECT_HANDOFF.md) for
 the latest progress, verification limits, next steps, and restart instructions.
 
+The Figma colors and English/Khmer typography are available through the shared
+[design system](docs/DESIGN_SYSTEM.md) and are connected to `AppTheme`. The [Home integration](docs/HOME_SCREEN.md)
+adds login language/theme controls, themed Home, Figma bottom navigation, and
+authenticated balance/activity reads across all owned accounts.
+
 The current welcome screen offers **Continue with Telegram** and **Continue with
 Email**. Email uses a single verification-code flow for both new and returning
 customers. Telegram browser approval needs no additional app OTP. New identities
