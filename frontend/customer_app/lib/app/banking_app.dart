@@ -17,6 +17,10 @@ import '../features/accounts/pair_opening.dart';
 import '../features/accounts/presentation/accounts_shell.dart';
 import '../features/transactions/transaction_gateway.dart';
 import '../features/transactions/transfer_store.dart';
+import '../features/transactions/recipient_favorites.dart';
+import '../features/assistant/assistant_gateway.dart';
+import '../features/assistant/assistant_store.dart';
+import '../core/network/api_client.dart';
 import '../shared/widgets/app_states.dart';
 import 'app_theme.dart';
 
@@ -30,6 +34,9 @@ class BankingApp extends StatefulWidget {
     this.pairOpeningStore,
     this.transactionGateway,
     this.transferStore,
+    this.recipientFavorites,
+    this.assistantGateway,
+    this.assistantStore,
     this.preferences,
     super.key,
   });
@@ -41,6 +48,9 @@ class BankingApp extends StatefulWidget {
   final PairOpeningStore? pairOpeningStore;
   final TransactionGateway? transactionGateway;
   final TransferStore? transferStore;
+  final RecipientFavoritesStore? recipientFavorites;
+  final AssistantGateway? assistantGateway;
+  final AssistantPendingStore? assistantStore;
   final AppPreferences? preferences;
   @override
   State<BankingApp> createState() => _BankingAppState();
@@ -53,6 +63,10 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   late final PairOpeningStore pairOpeningStore;
   late final TransactionGateway transactions;
   late final TransferStore transferStore;
+  late final RecipientFavoritesStore recipientFavorites;
+  late final AssistantGateway assistantGateway;
+  late final AssistantPendingStore assistantStore;
+  ApiClient? assistantClient;
   @override
   void initState() {
     super.initState();
@@ -72,6 +86,30 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 '${widget.config.apiBaseUrl}|${widget.config.mode}',
               ));
     final auth = widget.session.gateway;
+    assistantGateway =
+        widget.assistantGateway ??
+        (!widget.config.isDemo && auth is HttpAuthGateway
+            ? HttpAssistantGateway(
+                assistantClient = ApiClient(
+                  widget.config,
+                  timeout: const Duration(seconds: 35),
+                ),
+              )
+            : UnavailableAssistantGateway());
+    assistantStore =
+        widget.assistantStore ??
+        AssistantPendingStore(
+          namespace: kIsWeb || widget.config.isDemo || auth is! HttpAuthGateway
+              ? null
+              : '${widget.config.apiBaseUrl}|${widget.config.mode}',
+        );
+    recipientFavorites =
+        widget.recipientFavorites ??
+        RecipientFavoritesStore(
+          namespace: kIsWeb || widget.config.isDemo || auth is! HttpAuthGateway
+              ? null
+              : '${widget.config.apiBaseUrl}|${widget.config.mode}',
+        );
     pairOpeningStore =
         widget.pairOpeningStore ??
         PairOpeningStore(
@@ -96,6 +134,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    assistantClient?.close();
     if (widget.preferences == null) preferences.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -218,6 +257,9 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 pairOpeningStore: pairOpeningStore,
                 transactions: transactions,
                 transferStore: transferStore,
+                recipientFavorites: recipientFavorites,
+                assistantGateway: assistantGateway,
+                assistantStore: assistantStore,
                 designPreview: widget.config.isDemo,
                 transfersEnabled:
                     !kIsWeb &&

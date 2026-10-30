@@ -167,6 +167,10 @@ public class FoundationOpenApiConfig {
             describe(api, "/transactions/{referenceNumber}", PathItem.HttpMethod.GET, "Transactions", "Read a transaction by reference",
                     "Customer only. You must own its source or destination account; otherwise returns 404.",
                     "200", false, null, "401", "403", "404");
+            describe(api, "/transactions/search", PathItem.HttpMethod.GET, "Transactions", "Search your transactions",
+                    "Customer only. Cursor pagination, size 1–50 (default 20); filters: currency, accountNumber, month, from/to dates, amount, direction IN/OUT, type, status, reference. "
+                    + "Ownership is always applied. Date ranges are inclusive in Asia/Phnom_Penh and limited to 366 days; default current month. Amount requires USD/KHR; USD cents, KHR whole units. Foreign account matches return an empty list.",
+                    "200",false,null,"400","401","403");
         };
     }
 

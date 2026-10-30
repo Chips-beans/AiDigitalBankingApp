@@ -23,6 +23,23 @@ class ApiFailure implements Exception {
   String toString() => '$code: $message';
 
   static String messageFor(String code) => switch (code) {
+    'AI_UNAVAILABLE' =>
+      'The assistant is unavailable. Your banking services remain available.',
+    'AI_STORAGE' =>
+      'The saved question could not be read or saved. Sending is blocked.',
+    'AI_INVALID_RESPONSE' => 'The assistant response could not be verified.',
+    'AI_SENSITIVE_INPUT' =>
+      'Do not send PINs, OTPs, passwords or authentication tokens.',
+    'AI_RATE_LIMITED' || 'AI_PROVIDER_RATE_LIMITED' =>
+      'Assistant request limit reached. Try again later.',
+    'AI_BUSY' ||
+    'AI_REQUEST_IN_PROGRESS' => 'The assistant is busy. Try again shortly.',
+    'AI_TIMEOUT' =>
+      'The assistant timed out. Check the saved request before retrying.',
+    'AI_REQUEST_INTERRUPTED' =>
+      'This assistant request was interrupted. Retry explicitly to ask again.',
+    'AI_IDEMPOTENCY_CONFLICT' =>
+      'This request key belongs to a different assistant request.',
     'UNSUPPORTED_QR' ||
     'INVALID_QR_CODE' ||
     'INVALID_QR_FORMAT' ||

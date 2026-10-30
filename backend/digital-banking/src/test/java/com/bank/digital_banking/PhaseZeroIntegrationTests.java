@@ -315,15 +315,15 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         assertThat(body(old).path("error").asText()).isEqualTo("OTP_USED");
     }
 
-    @Test void serverIdentityControlsAiRecordsInsteadOfSubmittedUserId() throws Exception {
+    @Test void disabledAiRejectsCallsWithoutWritingSpoofedRecords() throws Exception {
         JsonNode alice = login("alice.demo","scoped-ai");
         Long bob=users.findByUsername("bob.demo").orElseThrow().getId();
         String token=alice.path("accessToken").asText();
         assertThat(call("GET","/ai/insights/user/"+bob,token,null).statusCode()).isEqualTo(404);
         var response=call("POST","/ai/insights/spending",token,Map.of("userId",bob,"targetPeriod","test-"+UUID.randomUUID().toString().substring(0,8),
                 "categorySpends",List.of(Map.of("category","Food","amount",15))));
-        assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
-        assertThat(body(response).path("userId").asLong()).isEqualTo(alice.path("userId").asLong());
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(503);
+        assertThat(body(response).path("error").asText()).isEqualTo("AI_UNAVAILABLE");
     }
 
     @Test void localSeederCannotBeEnabledUnderAProductionProfile() {

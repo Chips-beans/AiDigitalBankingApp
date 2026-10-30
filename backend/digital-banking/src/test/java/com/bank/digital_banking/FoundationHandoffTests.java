@@ -36,7 +36,7 @@ class FoundationHandoffTests {
             }
             var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
             upgraded.migrate(); upgraded.validate();
-            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("14");
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("15");
             try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
                 try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
                     assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
@@ -64,13 +64,15 @@ class FoundationHandoffTests {
             com.bank.digital_banking.module.auth.service.ProfilePhotoService.Photo savedPhoto;
             String durablePinTicket;
             Map<String, Object> transfer;
+            String assistantConversation;
+            JsonNode assistantResult;
 
             try (var app = start(url, smtp.port())) {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(13);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("14");
+                assertThat(flyway.info().applied()).hasSize(14);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("15");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -81,6 +83,10 @@ class FoundationHandoffTests {
                 assertThat(call("POST", "/auth/pin/unlock", null, null, Map.of("ticket", durablePinTicket, "pin", "9999")).statusCode()).isEqualTo(403);
                 String senderAccess = sender.path("accessToken").asText();
                 String receiverAccess = receiver.path("accessToken").asText();
+                assistantConversation=ok("POST","/ai/conversations",senderAccess,"handoff-ai-create",null,201).path("id").asText();
+                assertThat(call("POST","/ai/conversations/"+assistantConversation+"/messages",senderAccess,"handoff-ai-message",Map.of("message","balances","locale","en")).statusCode()).isEqualTo(503);
+                assistantResult=ok("GET","/ai/conversations/"+assistantConversation+"/requests/handoff-ai-message",senderAccess,null,null,200);
+                assertThat(assistantResult.path("status").asText()).isEqualTo("FAILED");
                 var photoImage = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
                 var photoBytes = new java.io.ByteArrayOutputStream();
                 javax.imageio.ImageIO.write(photoImage, "png", photoBytes);
@@ -129,7 +135,7 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(13);
+                assertThat(flyway.info().applied()).hasSize(14);
                 assertThat(flyway.info().pending()).isEmpty();
                 JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
                 assertThat(pinState.path("configured").asBoolean()).isTrue();
@@ -142,6 +148,8 @@ class FoundationHandoffTests {
                 assertThat(renewed.path("sessionId").asText()).isEqualTo(sender.path("sessionId").asText());
                 assertThat(renewed.path("refreshToken").asText()).isNotEqualTo(sender.path("refreshToken").asText());
                 String senderAccess = renewed.path("accessToken").asText();
+                assertThat(ok("POST","/ai/conversations",senderAccess,"handoff-ai-create",null,201).path("id").asText()).isEqualTo(assistantConversation);
+                assertThat(ok("GET","/ai/conversations/"+assistantConversation+"/requests/handoff-ai-message",senderAccess,null,null,200)).isEqualTo(assistantResult);
                 assertThat(ok("GET", "/auth/profile/photo", senderAccess, null, null, 200)
                         .path("imageBase64").asText()).isEqualTo(savedPhoto.imageBase64());
                 String receiverAccess = receiver.path("accessToken").asText();
@@ -186,6 +194,7 @@ class FoundationHandoffTests {
     private ConfigurableApplicationContext start(String url, int smtpPort) {
         return new SpringApplicationBuilder(DigitalBankingApplication.class).run(
                 "--spring.profiles.active=local,test", "--server.port=0",
+                "--app.ai.gemini.enabled=false", "--app.ai.gemini.customer-context-enabled=false",
                 "--spring.datasource.url=" + url, "--spring.datasource.username=postgres",
                 "--spring.datasource.password=postgres", "--spring.datasource.hikari.maximum-pool-size=2",
                 "--spring.datasource.hikari.minimum-idle=0",

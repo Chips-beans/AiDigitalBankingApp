@@ -63,6 +63,18 @@ class AnalyticsController extends ChangeNotifier {
     await refresh();
   }
 
+  Future<void> showPeriod(String value, String selectedCurrency) async {
+    if (!_current ||
+        !{'USD', 'KHR'}.contains(selectedCurrency) ||
+        !RegExp(r'^[0-9]{4}-(0[1-9]|1[0-2])$').hasMatch(value)) {
+      return;
+    }
+    final parts = value.split('-').map(int.parse).toList();
+    month = DateTime.utc(parts[0], parts[1]);
+    currency = selectedCurrency;
+    await refresh();
+  }
+
   Future<void> selectCurrency(String value) async {
     if (!_current || !{'USD', 'KHR'}.contains(value) || value == currency) {
       return;

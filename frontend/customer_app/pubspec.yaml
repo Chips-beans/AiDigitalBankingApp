@@ -72,6 +72,7 @@ flutter:
     - assets/home/
     - assets/analytics/
     - assets/pin/
+    - assets/transfer/
   fonts:
     - family: Google Sans
       fonts:

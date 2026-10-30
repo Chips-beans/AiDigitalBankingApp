@@ -2,7 +2,146 @@
 
 Updated 30 October 2026, Asia/Phnom_Penh (UTC+07:00).
 
-## Latest: customer QR transfers and funded account pairs
+## Current runtime: physical-device testing
+
+At the customer's request, started the current source backend on 30 October 2026
+at 17:18 local time using `mvnw.cmd spring-boot:run`, then restarted at the
+customer's request after they added a Gemini key at 17:21 and enabled both Gemini
+flags at 17:24. Current backend Java PID **16408** (launcher PID **16276**) listens
+on port **8080**. PostgreSQL remains running.
+Normal startup successfully applied **V12, V13, V14 and V15** to the existing
+development database, which is now **V15**. Existing migrations were not edited.
+Foundation OpenAPI returned HTTP 200 with 35 paths; unauthenticated accounts
+returned HTTP 401. Runtime logs are ignored under
+`backend/digital-banking/.local/device-backend-20261030-171838{,.err}.log`; latest
+restart logs use `device-backend-20261030-172430{,.err}.log`. Restart confirmed
+schema V15 up to date and Foundation OpenAPI HTTP 200. The customer configured
+the Gemini key and set `GEMINI_ENABLED` and `GEMINI_CUSTOMER_CONTEXT_ENABLED` to
+true; these were verified without displaying the key. Provider calls are now
+enabled by configuration, but no live provider request was made by the agent.
+The agent did not change private `.env` values. No emulator was started.
+
+The supplied API-mode APK uses `http://127.0.0.1:8080/api/v1` and requires
+Android USB debugging plus `adb reverse tcp:8080 tcp:8080`. No USB Android device
+was detected when checked after startup, so forwarding has not yet been set up.
+The PC Wi-Fi address at this check was `192.168.1.80`; this does not change the
+APK's compiled localhost API URL. Keep this backend running for customer tests.
+
+## Latest: core customer AI assistant
+
+Implemented 30 October 2026. Read [AI_ASSISTANT.md](AI_ASSISTANT.md) before
+changing assistant APIs, provider calls, history, privacy or recovery.
+The Flutter AI Assistant tab now supports verified USD/KHR balance cards,
+transaction search, receipt explanations, monthly cash-flow summaries and
+versioned English/Khmer banking help. Server-owned queries and exact amounts
+produce the cards; Gemini interprets questions and may explain minimal verified
+summaries through validated fact placeholders. It has no banking write capability.
+Category budgets, goals, alerts, voice and payment preparation remain deferred.
+
+Conversations have owner-scoped history, rename/delete, stable message/search
+cursors and 30-day message/result expiry. Durable claims deduplicate creation
+and questions, prevent concurrent turns in one conversation, and recover
+interrupted results without another provider call. The pending question is stored
+separately from the transfer journal in native secure storage. Browser pending
+state is memory-only. PIN/background/logout clear private UI, stop polling and
+suppress late results; unlock/relaunch only read status/history, never resend.
+Compact keyboard/landscape layouts, large text, both languages/themes and
+accessible native controls are implemented using existing Kesor tokens/artwork.
+
+Source schema is now **V15**, adding only assistant conversation/request/message
+and usage-limit tables. Existing migration files and financial rows are preserved.
+There are **35 foundation paths**, including the new authorized transaction-search
+route; assistant routes are included in the advanced AI Swagger group. The
+development database remained V11 during implementation; the later requested
+device-testing startup applied V12–V15 as recorded above.
+
+Gemini defaults to **disabled**, model `gemini-3.8-flash`, with a separate disabled
+customer-context flag. No Gemini key is configured. No private runtime `.env`
+assignments or credentials changed, and no live Gemini call or paid provisioning
+occurred. Before enabling, configure the backend-only key and explicitly review
+the billing-enabled project's customer-data handling/logging; see the AI document.
+Automated tests forcibly disable the real adapter and use synthetic provider
+fixtures or a loopback HTTP server. Legacy chat retains its response shape;
+legacy category insights remain separate and are not verified assistant facts.
+
+Verification: the full backend regression passed **148 tests**, followed by a
+passing 15-test AI/provider rerun after tightening snapshot isolation and request
+fingerprints. Isolated HTTP acceptance verified USD 10/KHR 10,000 transfers,
+sender balances USD 190/KHR 90,000 and recipient USD 210/KHR 110,000. **202 Flutter
+tests passed**, including encrypted recovery, creation/answer response loss,
+explicit retries, history controls, keyboard, navigation and background PIN
+locking/recovery. Flutter analysis is clean. The separate visual fixture renders
+24 controlled-data views across reference/narrow/large-text/landscape/tablet,
+English/Khmer and light/dark variants; representative outputs were inspected.
+Logs/evidence are ignored under backend/Flutter `.local/assistant-*` and Flutter
+`.local/qa/assistant/`. A final 11-check widget/visual rerun passed after native
+status-bar contrast and safe-area adjustments; analysis remained clean. API-mode
+web build, Wasm dry run and normal-entrypoint Android debug build succeeded with
+`APP_ENV=dev` and `API_BASE_URL=http://127.0.0.1:8080/api/v1`.
+
+The final APK is **245,137,734 bytes**, SHA-256
+`b38b67d75cdd0213265966c5bdca7d153ecd1ca907fdf62010271504b06ba687`.
+Its user-facing copy is
+`C:\Users\User\Documents\Codex\2026-10-30\project-kesor-bank-ai-digital-banking\outputs\KesorBank-AI-Assistant-Test.apk`.
+Eight controlled-data Flutter screenshots are beside it as
+`assistant-{en,km}-{light,dark}-{welcome,answer}.png`; these are synthetic UI
+fixtures, not live Gemini answers. `Kesor-AI-Assistant-Notes.md` contains the API,
+configuration and recovery guide. Prior Transfer/QR artifacts remain preserved.
+APK packaging verification passed: no backend `.env` file or unique configured
+secret values were bundled. The common numeric byte pattern was independently
+confirmed in unmodified Dart SDK tables and absent from application source.
+
+Existing dirty transfer-screen work was preserved. Assistant changes are
+uncommitted. No ordinary development backend or emulator was started; PostgreSQL
+was left running. Live Gemini interpretation/Khmer prose, physical-device
+rendering and native iOS acceptance remain pending. These tests do not establish
+production readiness or external settlement.
+
+## Previous: Figma transfer screen
+
+Home → Transfer now uses the native Flutter layout from Kesor Bank Figma frame
+`273:356`, with the navy header, exact exported icons, gold emblem/button, wallet
+selector and rounded form panel. Read
+[TRANSFER_SCREEN.md](../frontend/customer_app/docs/TRANSFER_SCREEN.md) before
+changing the screen. Balances remain live; the receiver field uses wallet
+account numbers instead of the reference's phone-number hint. Continue still
+opens the existing review, and only explicit confirmation sends the transfer.
+The original transfer journal, idempotency, retry and receipt flows are reused.
+
+The favorites controls save account number/currency locally after success, with
+native encrypted storage scoped by API/mode/user. Unknown transfers are
+not bookmarked until a confirmed retry. Selection never submits a payment.
+Account/favorites sheets hide and dismiss on privacy/PIN/logout transitions.
+English/Khmer, both themes, narrow/landscape layouts, 2× text and accessible
+action targets were checked. Large text expands the Continue button.
+
+Verification: **177 Flutter tests passed**, analyzer clean. The separate visual
+fixture passed 12 layout variants and reference geometry checks at 440 × 956;
+representative rendered screenshots were visually inspected against Figma.
+The final targeted rerun passed **12 checks**, including the visual fixture,
+after adjusting the numeric receiver example. API-mode web build and Wasm dry
+run succeeded. The final normal-entrypoint Android debug APK rebuilt successfully
+with `APP_ENV=dev` and `API_BASE_URL=http://127.0.0.1:8080/api/v1`; it is
+**245,057,406 bytes**, SHA-256
+`98d43b4ff512034cfed496652cb7ee54c4eeadc341b55740aea3695fddec679a`.
+It supersedes the prior QR APK at the Flutter build path. A user-facing copy is
+`C:\Users\User\Documents\Codex\2026-10-30\project-kesor-bank-ai-digital-banking\outputs\KesorBank-Transfer-Test.apk`.
+Four screenshots are beside it as `transfer-figma-{en,km}-{light,dark}.png`.
+Packaging verification passed: no backend `.env` or unique configured secret
+values. The common Dart SDK numeric pattern described below was again verified
+as preexisting in SDK tables and absent from application source.
+Logs and screenshots are ignored under Flutter `.local/transfer-*` and
+`.local/qa/transfer/`. No backend code, credentials, database balance or migration
+was changed for this UI work; backend tests were not rerun for this scope.
+Physical-device rendering and live customer acceptance remain pending.
+
+This UI task started from a clean checkout at `4dbdbab`; its changes are
+uncommitted. Preserve them. No ordinary backend or emulator was started.
+Temporary build processes exited; backend ports 8080–8083 remain stopped.
+PostgreSQL was left running, with the source/development schema versions as
+recorded in the QR handoff below.
+
+## Previous: customer QR transfers and funded account pairs
 
 Implemented 30 October 2026. Read [QR_CUSTOMER_FLOW.md](QR_CUSTOMER_FLOW.md)
 before changing account opening, QR payments, or their recovery/lifecycle code.

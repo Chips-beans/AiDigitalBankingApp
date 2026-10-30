@@ -8,5 +8,6 @@ public record FinancialChatRequest(
         Long userId,
 
         @NotBlank(message = "Prompt message cannot be empty")
+        @jakarta.validation.constraints.Size(max=2000)
         String message
 ) {}

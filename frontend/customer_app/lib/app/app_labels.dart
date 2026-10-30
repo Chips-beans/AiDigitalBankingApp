@@ -9,6 +9,52 @@ String tx(BuildContext context, String english) =>
     : english;
 
 const _khmer = <String, String>{
+  'Transfer': 'ផ្ទេរប្រាក់',
+  'Back': 'ត្រឡប់ក្រោយ',
+  'Kesor Transfer': 'ការផ្ទេរប្រាក់ កេសរ',
+  'Fast, secure wallet transfers': 'ផ្ទេរប្រាក់រហ័ស និងមានសុវត្ថិភាព',
+  'Select your account': 'ជ្រើសរើសគណនីរបស់អ្នក',
+  'US Dollar Wallet': 'កាបូបប្រាក់ដុល្លារ',
+  'Khmer Riel Wallet': 'កាបូបប្រាក់រៀល',
+  'Receiver account number': 'លេខគណនីអ្នកទទួល',
+  'Enter the receiver’s Kesor account number.':
+      'បញ្ចូលលេខគណនី Kesor របស់អ្នកទទួល។',
+  'Transfer currency follows your selected wallet.':
+      'រូបិយប័ណ្ណផ្ទេរតាមកាបូបប្រាក់ដែលអ្នកជ្រើសរើស។',
+  'Add a note...': 'បន្ថែមកំណត់សម្គាល់...',
+  'Remark (optional)': 'កំណត់សម្គាល់ (មិនបាច់ក៏បាន)',
+  'Save to Favorites': 'រក្សាទុកក្នុងបញ្ជីពេញចិត្ត',
+  'Quick access for future transfers': 'ងាយស្រួលសម្រាប់ការផ្ទេរប្រាក់លើកក្រោយ',
+  'Continue to review': 'បន្តទៅពិនិត្យ',
+  'Saved recipients': 'អ្នកទទួលដែលបានរក្សាទុក',
+  'No saved recipients for this wallet yet.':
+      'មិនទាន់មានអ្នកទទួលដែលបានរក្សាទុកសម្រាប់កាបូបនេះទេ។',
+  'Remove saved recipient': 'លុបអ្នកទទួលដែលបានរក្សាទុក',
+  'Save recipient': 'រក្សាទុកអ្នកទទួល',
+  'Close': 'បិទ',
+  'Retry saved recipients': 'សាកល្បងផ្ទុកអ្នកទទួលម្ដងទៀត',
+  'Saved recipients could not be loaded. You can still enter an account number.':
+      'មិនអាចផ្ទុកអ្នកទទួលដែលបានរក្សាទុកបានទេ។ អ្នកនៅតែអាចបញ្ចូលលេខគណនីបាន។',
+  'Transfer confirmed. The recipient could not be saved.':
+      'បានបញ្ជាក់ការផ្ទេរប្រាក់។ មិនអាចរក្សាទុកអ្នកទទួលបានទេ។',
+  'Enter 10–20 digits.': 'បញ្ចូលលេខពី ១០ ដល់ ២០ ខ្ទង់។',
+  'Enter an amount.': 'បញ្ចូលចំនួនប្រាក់។',
+  'Remark must be 255 characters or fewer.':
+      'កំណត់សម្គាល់មិនត្រូវលើសពី ២៥៥ តួអក្សរទេ។',
+  'Choose an active source account.': 'ជ្រើសរើសគណនីដើមដែលសកម្ម។',
+  'Enter a different destination account number with 10–20 digits.':
+      'បញ្ចូលលេខគណនីអ្នកទទួលផ្សេងពីគណនីដើម ដែលមានពី ១០ ដល់ ២០ ខ្ទង់។',
+  'Enter an amount with at most two decimal places.':
+      'បញ្ចូលចំនួនប្រាក់ដែលមានខ្ទង់ទសភាគមិនលើសពីពីរខ្ទង់។',
+  'Enter a whole KHR amount.': 'បញ្ចូលចំនួនប្រាក់រៀលជាលេខគត់។',
+  'Enter an amount within the supported range.':
+      'បញ្ចូលចំនួនប្រាក់ក្នុងដែនកំណត់ដែលអនុញ្ញាត។',
+  'Amount must be greater than zero.': 'ចំនួនប្រាក់ត្រូវតែធំជាងសូន្យ។',
+  'The amount exceeds the last known available balance. Refresh your account.': 'ចំនួនប្រាក់លើសពីសមតុល្យដែលអាចប្រើបាន។ សូមធ្វើបច្ចុប្បន្នភាពគណនីរបស់អ្នក។',
+  'Retry transfer secure setup': 'ព្យាយាមផ្ទៀងផ្ទាត់សុវត្ថិភាពការផ្ទេរម្ដងទៀត',
+  'Open an account from Home before making a transfer.':
+      'សូមបើកគណនីពីទំព័រដើម មុនពេលផ្ទេរប្រាក់។',
+  'Sending transfers is available in the native app with the real API. This preview does not send payments.': 'ការផ្ញើប្រាក់មានក្នុងកម្មវិធីដែលភ្ជាប់ API ពិតប្រាកដ។ ការមើលសាកល្បងនេះមិនផ្ញើប្រាក់ទេ។',
   'Open accounts': 'បើកគណនី',
   'Account opening is unavailable. Try again later.':
       'មិនអាចបើកគណនីបានទេ។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',

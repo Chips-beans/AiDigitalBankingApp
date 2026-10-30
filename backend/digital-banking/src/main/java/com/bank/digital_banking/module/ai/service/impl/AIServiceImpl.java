@@ -22,10 +22,13 @@ public class AIServiceImpl implements AIService {
 
     private final GeminiAdapter geminiAdapter;
     private final UserAIInsightRepository insightRepository;
+    private final com.bank.digital_banking.module.ai.assistant.AssistantLegacyService legacy;
+    private final com.bank.digital_banking.module.ai.assistant.AssistantStore assistantStore;
 
     @Override
-    @Transactional
     public SpendingInsightResponse generateSpendingInsight(SpendingInsightRequest request) {
+        if(request.targetPeriod()==null || request.targetPeriod().length()>20 || request.categorySpends()!=null && request.categorySpends().size()>50)
+            throw com.bank.digital_banking.module.ai.assistant.AssistantSupport.invalid();
         return insightRepository.findByUserIdAndTargetPeriodAndInsightType(
                         request.userId(), request.targetPeriod(), InsightType.SPENDING_ANALYSIS)
                 .map(existing -> new SpendingInsightResponse(
@@ -35,16 +38,23 @@ public class AIServiceImpl implements AIService {
                         existing.getGeneratedContent(),
                         existing.getCreatedAt()))
                 .orElseGet(() -> {
+                    assistantStore.charge(request.userId());
                     String systemPrompt = "You are an official digital banking financial advisor AI. " +
                             "Analyze the user's spending trends and give 2 concise, professional financial tips. " +
                             "Do not ask for confidential account information.";
 
                     StringBuilder userPrompt = new StringBuilder("Target Period: ").append(request.targetPeriod()).append("\nCategory Breakdown:\n");
                     if (request.categorySpends() != null) {
-                        request.categorySpends().forEach(cs -> userPrompt.append("- ").append(cs.category()).append(": $").append(cs.amount()).append("\n"));
+                        request.categorySpends().forEach(cs -> {
+                            com.bank.digital_banking.module.ai.assistant.AssistantPrivacy.rejectSecrets(cs.category());
+                            userPrompt.append("- ").append(cs.category()).append(": $").append(cs.amount()).append("\n");
+                        });
                     }
 
-                    String aiAnalysis = geminiAdapter.generateCompletion(systemPrompt, userPrompt.toString());
+                    if(userPrompt.length()>8000) throw com.bank.digital_banking.module.ai.assistant.AssistantSupport.invalid();
+                    String sanitized=com.bank.digital_banking.module.ai.assistant.AssistantPrivacy.prepare(
+                            com.bank.digital_banking.module.auth.entity.User.builder().id(request.userId()).build(),userPrompt.toString(),List.of()).text();
+                    String aiAnalysis = geminiAdapter.generateCompletion(systemPrompt, sanitized);
 
                     UserAIInsight insight = UserAIInsight.builder()
                             .userId(request.userId())
@@ -67,11 +77,7 @@ public class AIServiceImpl implements AIService {
 
     @Override
     public FinancialChatResponse askFinancialAssistant(FinancialChatRequest request) {
-        String systemPrompt = "You are a customer assistant for a digital banking mobile application. " +
-                "Answer customer inquiries concisely and safely. Never ask for PINs, OTPs, or passwords.";
-
-        String reply = geminiAdapter.generateCompletion(systemPrompt, request.message());
-        return new FinancialChatResponse(reply, LocalDateTime.now().toString());
+        return legacy.chat(request);
     }
 
     // =========================================================================

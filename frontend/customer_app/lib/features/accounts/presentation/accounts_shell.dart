@@ -31,7 +31,13 @@ import '../../transactions/transaction_gateway.dart';
 import '../../transactions/transfer_store.dart';
 import '../../transactions/transfer_controller.dart';
 import '../../transactions/history_controller.dart';
-import '../../transactions/presentation/transfer_panel.dart';
+import '../../transactions/presentation/kesor_transfer_screen.dart';
+import '../../transactions/recipient_favorites.dart';
+import '../../assistant/assistant_controller.dart';
+import '../../assistant/assistant_gateway.dart';
+import '../../assistant/assistant_store.dart';
+import '../../assistant/assistant_models.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 import '../../transactions/presentation/history_panel.dart';
 
 String displayDate(DateTime value) {
@@ -51,6 +57,9 @@ class AccountsShell extends StatefulWidget {
     this.designPreview = false,
     this.analyticsGateway,
     this.pairOpeningStore,
+    this.recipientFavorites,
+    this.assistantGateway,
+    this.assistantStore,
     super.key,
   });
   final SessionController session;
@@ -62,6 +71,9 @@ class AccountsShell extends StatefulWidget {
   final bool designPreview;
   final AnalyticsGateway? analyticsGateway;
   final PairOpeningStore? pairOpeningStore;
+  final RecipientFavoritesStore? recipientFavorites;
+  final AssistantGateway? assistantGateway;
+  final AssistantPendingStore? assistantStore;
   @override
   State<AccountsShell> createState() => _AccountsShellState();
 }
@@ -72,6 +84,8 @@ class _AccountsShellState extends State<AccountsShell> {
   AnalyticsController? analytics;
   late final TransferController transfers;
   late final HistoryController history;
+  late final RecipientFavoritesStore recipientFavorites;
+  late final AssistantController assistant;
   PairOpeningController? pairs;
   QrGateway? qrGateway;
   late final Listenable changes;
@@ -84,6 +98,12 @@ class _AccountsShellState extends State<AccountsShell> {
   void initState() {
     super.initState();
     model = AccountsController(widget.session, widget.gateway, widget.store);
+    assistant = AssistantController(
+      widget.session,
+      widget.assistantGateway ?? UnavailableAssistantGateway(),
+      widget.assistantStore ?? AssistantPendingStore(),
+    );
+    recipientFavorites = widget.recipientFavorites ?? RecipientFavoritesStore();
     home = HomeController(widget.session, AccountHomeGateway(widget.gateway));
     final analyticsGateway = widget.analyticsGateway;
     if (analyticsGateway != null) {
@@ -138,6 +158,7 @@ class _AccountsShellState extends State<AccountsShell> {
 
   @override
   void dispose() {
+    assistant.dispose();
     pairs?.dispose();
     home.dispose();
     analytics?.dispose();
@@ -152,6 +173,21 @@ class _AccountsShellState extends State<AccountsShell> {
     listenable: changes,
     builder: (context, _) {
       if (page == null) return _root(context);
+      if (page == 'transfer') {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: KesorTransferScreen(
+            controller: transfers,
+            accounts: model,
+            enabled: widget.transfersEnabled,
+            onBack: _back,
+            favorites: recipientFavorites,
+          ),
+        );
+      }
       final title = page == 'receiveQr'
           ? 'My QR'
           : page == 'scanQr'
@@ -271,14 +307,6 @@ class _AccountsShellState extends State<AccountsShell> {
                             ? _opening(context)
                             : page == 'details'
                             ? _details(context)
-                            : page == 'transfer'
-                            ? [
-                                TransferPanel(
-                                  controller: transfers,
-                                  accounts: model,
-                                  enabled: widget.transfersEnabled,
-                                ),
-                              ]
                             : page == 'transaction'
                             ? [
                                 TransactionDetailPanel(
@@ -340,6 +368,53 @@ class _AccountsShellState extends State<AccountsShell> {
       page = null;
     });
     if (index == 1) unawaited(analytics?.ensureLoaded());
+    assistant.setVisible(index == 3);
+  }
+
+  Future<void> _assistantAction(AiAction action) async {
+    if (!assistant.current || !mounted) return;
+    assistant.setVisible(false);
+    if (action.type == 'ANALYTICS') {
+      final controller = analytics;
+      if (controller != null) {
+        setState(() {
+          tab = 1;
+          page = null;
+        });
+        await controller.showPeriod(action.month!, action.currency!);
+      }
+      return;
+    }
+    if (action.type == 'ACCOUNT' || action.type == 'TRANSACTION') {
+      // Re-read through existing authorized services before exposing details.
+      final number = action.accountNumber!;
+      final account = await widget.session.authorizedRead(
+        (token) => widget.gateway.detail(token, number),
+      );
+      if (!mounted || !assistant.current) return;
+      await model.select(account);
+      if (!mounted || !assistant.current) return;
+      if (action.type == 'ACCOUNT') {
+        setState(() => page = 'details');
+      } else {
+        setState(() {
+          page = 'transaction';
+          transactionReturnPage = null;
+          transactionReference = action.value;
+        });
+        await history.openDetail(action.value!);
+      }
+      return;
+    }
+    final target = action.type == 'ACCOUNTS' ? 'ACCOUNTS' : action.value;
+    final destination = switch (target) {
+      'ACCOUNTS' => 'accounts',
+      'TRANSFER' => 'transfer',
+      'MY_QR' => 'receiveQr',
+      'SCAN_QR' => 'scanQr',
+      _ => null,
+    };
+    if (destination != null) setState(() => page = destination);
   }
 
   Widget _root(BuildContext context) {
@@ -417,6 +492,28 @@ class _AccountsShellState extends State<AccountsShell> {
                         )
                       : tab == 1 && analytics != null
                       ? AnalyticsScreen(controller: analytics!)
+                      : tab == 3
+                      ? AssistantScreen(
+                          controller: assistant,
+                          keyboardVisible:
+                              MediaQuery.viewInsetsOf(context).bottom > 0,
+                          onAction: (action) async {
+                            try {
+                              await _assistantAction(action);
+                            } catch (_) {
+                              if (mounted && assistant.current) {
+                                assistant.navigationFailure();
+                              }
+                            }
+                          },
+                          bottomClearance:
+                              KesorBottomBar.height(context) +
+                              math.max(
+                                24,
+                                MediaQuery.paddingOf(context).bottom,
+                              ) +
+                              16,
+                        )
                       : Center(
                           child: Text(
                             labels[tab],
@@ -424,16 +521,17 @@ class _AccountsShellState extends State<AccountsShell> {
                           ),
                         ),
                 ),
-                Positioned(
-                  left: 20,
-                  right: 20,
-                  bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
-                  child: KesorBottomBar(
-                    selectedIndex: tab,
-                    onSelected: _selectTab,
-                    onAssistant: () => _selectTab(3),
+                if (!(tab == 3 && MediaQuery.viewInsetsOf(context).bottom > 0))
+                  Positioned(
+                    left: 20,
+                    right: 20,
+                    bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
+                    child: KesorBottomBar(
+                      selectedIndex: tab,
+                      onSelected: _selectTab,
+                      onAssistant: () => _selectTab(3),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

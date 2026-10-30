@@ -46,7 +46,9 @@ void main() {
 
   tearDown(() => session.dispose());
   Future<void> tap(WidgetTester tester, String label) async {
-    final finder = find.text(label).evaluate().isNotEmpty
+    final finder = label == 'Back'
+        ? find.byKey(const ValueKey('transfer-back'))
+        : find.text(label).evaluate().isNotEmpty
         ? find.text(label).first
         : find.byTooltip(label).first;
     await tester.ensureVisible(finder);
@@ -82,7 +84,7 @@ void main() {
         await mount(tester);
         await tap(tester, 'Transfer');
         await fill(tester);
-        await tap(tester, 'Review transfer');
+        await tap(tester, 'Continue to review');
         expect(gateway.requests, isEmpty);
         expect(find.text(funded(2).number), findsOneWidget);
         await tap(tester, 'Confirm and send');
@@ -100,13 +102,15 @@ void main() {
       gateway.loseResponse = true;
       await tap(tester, 'Transfer');
       await fill(tester);
-      await tap(tester, 'Review transfer');
+      await tap(tester, 'Continue to review');
       await tap(tester, 'Confirm and send');
       expect(find.text('Transfer outcome unknown'), findsOneWidget);
       final key = gateway.requests.single.key;
       await tap(tester, 'Retry this exact transfer');
       expect(gateway.requests.last.key, key);
       expect(gateway.committed.length, 1);
+      await tap(tester, 'Back');
+      await tap(tester, 'View accounts');
       await tap(tester, 'Profile');
       await tap(tester, 'Sign out');
       expect(find.text(funded(2).number), findsNothing);
@@ -144,7 +148,7 @@ void main() {
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
       await fill(tester);
-      await tap(tester, 'Review transfer');
+      await tap(tester, 'Continue to review');
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
       await tester.pumpWidget(const SizedBox.shrink());

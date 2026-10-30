@@ -10,6 +10,10 @@ import org.springframework.context.annotation.Configuration;
 public class AIProperties {
     private String apiUrl = "https://generativelanguage.googleapis.com/v1beta";
     private String apiKey;
-    private String model = "gemini-1.5-flash";
-    private boolean enabled = true;
+    private String model = "gemini-3.8-flash";
+    private boolean enabled = false;
+    // Operator assertion: billing/data handling reviewed before customer context is enabled.
+    private boolean customerContextEnabled = false;
+    private int minuteLimit = 10;
+    private int dailyLimit = 100;
 }
