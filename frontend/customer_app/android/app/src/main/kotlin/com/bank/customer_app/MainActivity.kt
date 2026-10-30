@@ -1,27 +1,49 @@
 package com.bank.customer_app
 
+import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private var telegram: TelegramLoginBridge? = null
+    private val kesor get() = application as KesorApplication
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        val bridge = TelegramLoginBridge(this)
-        telegram = bridge
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.bank.customer_app/telegram_login")
-            .setMethodCallHandler(bridge)
+    override fun provideFlutterEngine(context: Context): FlutterEngine = kesor.flutterEngine
+
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Android can recreate this Activity on return (including with the
+        // developer "Don't keep activities" setting enabled). Reuse the same
+        // engine/bridge, and deliver the callback from the initial Intent too.
+        kesor.telegram.handleIntent(intent)
+        kesor.imagePicker.activity = this
     }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        telegram?.handleIntent(intent)
+        kesor.telegram.handleIntent(intent)
     }
+
+    override fun onResume() {
+        super.onResume()
+        kesor.imagePicker.activity = this
+        kesor.share.activity = this
+    }
+
     override fun onDestroy() {
-        telegram?.dispose()
-        telegram = null
+        if (kesor.imagePicker.activity === this) kesor.imagePicker.activity = null
+        if (kesor.share.activity === this) kesor.share.activity = null
         super.onDestroy()
+    }
+
+    @Deprecated("Activity result API is not used by the retained-engine bridges")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        // A recreated Activity still receives the picker result; the bridge owns the pending call.
+        if (!kesor.imagePicker.onActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data)
+        }
     }
 }

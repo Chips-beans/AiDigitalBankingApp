@@ -10,6 +10,7 @@ import 'package:customer_app/features/accounts/creation_store.dart';
 import 'package:customer_app/features/auth/session_controller.dart';
 import 'package:customer_app/features/home/home_controller.dart';
 import 'package:customer_app/features/home/home_gateway.dart';
+import 'package:customer_app/shared/money.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -155,6 +156,59 @@ void main() {
     expect(ui.recipients.map((r) => r.name), ['9000000001', '9000000002']);
   });
 
+  test('recent activity shows Kesor Bank and profile names, never remarks', () {
+    final usd = BankAccount.fromJson(accountJson(1));
+    RecentPosting post(
+      String reference, {
+      String? source,
+      String? sourceName,
+      String? destinationName,
+      bool bank = false,
+      String type = 'TRANSFER',
+      String? remark,
+    }) => RecentPosting(
+      reference: reference,
+      source: source,
+      destination: source == usd.number ? '9000000009' : usd.number,
+      amount: Money.parse('12.00', 'USD'),
+      fee: Money.parse('0', 'USD'),
+      type: type,
+      status: 'SUCCESS',
+      createdAt: DateTime.utc(2026, 10, 29, 3),
+      remark: remark,
+      sourceName: sourceName,
+      destinationName: destinationName,
+      bankSource: bank,
+    );
+    final ui = HomeSnapshot(
+      [usd],
+      [
+        post(
+          'OPENING',
+          sourceName: 'Kesor Bank',
+          bank: true,
+          type: 'DEPOSIT',
+          remark: 'Test opening credit — non-production funds',
+        ),
+        post(
+          'OUT',
+          source: usd.number,
+          sourceName: 'Me',
+          destinationName: 'Seng Sovanreach',
+          remark: 'Lunch',
+        ),
+      ],
+    ).presentation(const Locale('en'), now: DateTime.utc(2026, 10, 29, 12));
+    expect(ui.transactions[0].name, 'Kesor Bank');
+    expect(ui.transactions[0].bank, isTrue);
+    expect(ui.transactions[0].counterpartyNumber, isNull);
+    expect(ui.transactions[1].name, 'Seng Sovanreach');
+    expect(ui.transactions[1].counterpartyNumber, '9000000009');
+    expect(ui.transactions.map((t) => t.name), isNot(contains('Lunch')));
+    expect(ui.recipients.single.name, 'Seng Sovanreach');
+    expect(ui.recipients.single.accountNumber, '9000000009');
+  });
+
   test('failed history rejects an incomplete Home snapshot; no sample-data fallback', () async {
     final client = ApiClient(
       config,
@@ -229,7 +283,7 @@ void main() {
   });
 
   testWidgets(
-    'API mode renders authenticated Home data and other tabs are label-only placeholders',
+    'API mode renders authenticated Home, Analytics and functional Settings',
     (tester) async {
       final session = await signedIn();
       addTearDown(session.dispose);
@@ -292,11 +346,22 @@ void main() {
           expect(find.textContaining('DEMO'), findsNothing);
         } else {
           expect(
-            tester
-                .widget<Text>(find.byKey(ValueKey('placeholder-tab-$i')))
-                .data,
-            'Settings',
+            find.byKey(const ValueKey('settings-profile')),
+            findsOneWidget,
           );
+          expect(
+            find.byKey(const ValueKey('settings-language')),
+            findsOneWidget,
+          );
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('settings-language')),
+          );
+          await tester.tap(find.byKey(const ValueKey('settings-language')));
+          await tester.pumpAndSettle();
+          expect(find.text('English'), findsOneWidget);
+          expect(find.text('ខ្មែរ'), findsOneWidget);
+          await tester.tap(find.byTooltip('Back'));
+          await tester.pumpAndSettle();
         }
         expect(find.byKey(const ValueKey('home-usd-balance')), findsNothing);
       }

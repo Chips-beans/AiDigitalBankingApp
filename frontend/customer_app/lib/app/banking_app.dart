@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,6 +17,7 @@ import '../features/analytics/analytics_gateway.dart';
 import '../features/accounts/creation_store.dart';
 import '../features/accounts/pair_opening.dart';
 import '../features/accounts/presentation/accounts_shell.dart';
+import '../features/home/presentation/locked_home_page.dart';
 import '../features/transactions/transaction_gateway.dart';
 import '../features/transactions/transfer_store.dart';
 import '../features/transactions/recipient_favorites.dart';
@@ -67,9 +70,30 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   late final AssistantGateway assistantGateway;
   late final AssistantPendingStore assistantStore;
   ApiClient? assistantClient;
+  Timer? _idleTimer;
+
+  /// The customer tapped a feature on the masked Home, so show the PIN pad.
+  bool _pinRequested = false;
+  SessionPhase? _lastPhase;
+  void _phaseChanged() {
+    final phase = widget.session.phase;
+    if (phase != _lastPhase) {
+      _lastPhase = phase;
+      // Every new lock starts on the masked Home again.
+      if (phase != SessionPhase.pinLocked && _pinRequested) {
+        setState(() => _pinRequested = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    widget.session.addListener(_phaseChanged);
+    _idleTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => widget.session.checkIdle(),
+    );
     preferences = widget.preferences ?? AppPreferences();
     accounts =
         widget.accountGateway ??
@@ -134,6 +158,8 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _idleTimer?.cancel();
+    widget.session.removeListener(_phaseChanged);
     assistantClient?.close();
     if (widget.preferences == null) preferences.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -143,12 +169,15 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final session = widget.session;
+    // The privacy cover still hides balances in the app switcher; the PIN is only
+    // required again after [SessionController.idleLimit] away (user decision).
     if (state == AppLifecycleState.inactive) session.coverPrivateContent();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (!session.trustedImageSelection) session.lockApp();
+      if (!session.trustedImageSelection) session.markBackground();
     }
     if (state == AppLifecycleState.resumed) {
+      session.markForeground();
       session.uncoverPrivateContent();
       session.expirePendingIfNeeded();
       if (session.phase == SessionPhase.signedIn &&
@@ -200,9 +229,14 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 builder: (context, _) => Stack(
                   fit: StackFit.expand,
                   children: [
-                    ExcludeSemantics(
-                      excluding: widget.session.privacyCovered,
-                      child: child!,
+                    // Any touch counts as activity for the 3-minute idle lock.
+                    Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (_) => widget.session.noteActivity(),
+                      child: ExcludeSemantics(
+                        excluding: widget.session.privacyCovered,
+                        child: child!,
+                      ),
                     ),
                     if (widget.session.privacyCovered)
                       const Positioned.fill(
@@ -230,7 +264,24 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
               );
             }
             if (session.phase == SessionPhase.pinLocked) {
-              return AppPinPage(session);
+              // A configured PIN that only needs entering starts on the masked Home;
+              // creating, confirming or recovering a PIN goes straight to the pad.
+              final enterOnly =
+                  (session.pinStage == PinStage.unlock ||
+                      session.pinStage == PinStage.checking) &&
+                  session.pinChallenge?.recoveryRequired != true &&
+                  !session.pinResetting;
+              if (enterOnly && !_pinRequested) {
+                return LockedHomePage(
+                  onUnlock: () => setState(() => _pinRequested = true),
+                );
+              }
+              return AppPinPage(
+                session,
+                onCancel: enterOnly
+                    ? () => setState(() => _pinRequested = false)
+                    : null,
+              );
             }
             if (session.phase == SessionPhase.signedIn) {
               if (session.linkingEmail) {

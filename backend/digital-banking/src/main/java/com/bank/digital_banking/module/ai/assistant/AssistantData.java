@@ -149,8 +149,9 @@ public class AssistantData {
         var p=new HashMap<String,Object>(); p.put("user",user.getId());
         p.put("from",from.atStartOfDay(ZONE).toOffsetDateTime()); p.put("to",to.plusDays(1).atStartOfDay(ZONE).toOffsetDateTime());
         var sql=new StringBuilder(SELECT).append(" AND t.created_at>=:from AND t.created_at<:to");
-        if(f.currency()!=null) { sql.append(" AND t.currency=:currency"); p.put("currency",f.currency()); }
-        if(f.amount()!=null) { sql.append(" AND t.amount=:amount"); p.put("amount",new BigDecimal(f.amount())); }
+        // Converted transfers match on either the debited or the credited side.
+        if(f.currency()!=null) { sql.append(" AND (t.currency=:currency OR t.credit_currency=:currency)"); p.put("currency",f.currency()); }
+        if(f.amount()!=null) { sql.append(" AND (t.amount=:amount OR t.credit_amount=:amount)"); p.put("amount",new BigDecimal(f.amount())); }
         if(f.accountNumber()!=null) { sql.append(" AND (s.account_number=:account OR d.account_number=:account)"); p.put("account",f.accountNumber()); }
         if(f.direction()!=null) sql.append(" AND ").append(f.direction().equals("OUT")?"s.user_id=:user":"d.user_id=:user");
         for(var pair:List.of(new String[]{"type",f.type(),"transaction_type"},new String[]{"status",f.status(),"status"},new String[]{"reference",f.reference(),"reference_number"})) {
@@ -171,9 +172,12 @@ public class AssistantData {
         return jdbc.query(SELECT+" AND t.reference_number=:reference",Map.of("user",user.getId(),"reference",reference),(rs,row)->mapPosting(rs)).stream().findFirst().orElseThrow(AssistantSupport::missing);
     }
     private Posting mapPosting(java.sql.ResultSet rs) throws java.sql.SQLException {
-        String currency=rs.getString("currency");
+        // An incoming converted transfer is shown in what this customer received.
+        boolean credited="IN".equals(rs.getString("direction")) && rs.getString("credit_currency")!=null;
+        String currency=credited?rs.getString("credit_currency"):rs.getString("currency");
+        BigDecimal amount=credited?rs.getBigDecimal("credit_amount"):rs.getBigDecimal("amount");
         return new Posting(rs.getLong("id"),rs.getString("reference_number"),rs.getString("src"),rs.getString("dst"),rs.getString("owned"),
-                rs.getBigDecimal("amount").setScale(currency.equals("USD")?2:0,RoundingMode.UNNECESSARY).toPlainString(),
+                amount.setScale(currency.equals("USD")?2:0,RoundingMode.UNNECESSARY).toPlainString(),
                 rs.getBigDecimal("fee").setScale(currency.equals("USD")?2:0,RoundingMode.UNNECESSARY).toPlainString(),currency,
                 rs.getString("transaction_type"),rs.getString("status"),rs.getString("direction"),"TEST_OPENING_CREDIT".equals(rs.getString("operation")),rs.getObject("created_at",OffsetDateTime.class));
     }

@@ -1,7 +1,9 @@
 # Native Android Telegram login
 
-Implemented 29 October 2026. Physical-device acceptance is deferred at the user's
-request: prepare the build now and test the phone later.
+Implemented 29 October 2026; return routing and activity recreation corrected
+30 October 2026. The customer personally completed live native Telegram login on
+a Samsung SM-X216B and confirmed reaching Create Profile/PIN/Home. The current
+APK, checks and running backend are recorded in `CURRENT_PROJECT_HANDOFF.md`.
 
 ## Registration
 
@@ -18,6 +20,49 @@ be registered separately when the app stops using the current debug certificate.
 
 ## Implementation
 
+### Android return routing correction — 30 October 2026
+
+The original `singleTop` activity with an empty task affinity could create a
+second Flutter activity when Telegram returned while another activity was on top.
+That activity had no pending native login result, so it showed the banking UI
+without completing the original sign-in. `MainActivity` now uses `singleTask`
+with the normal application task affinity. Both native Telegram and browser
+authorization launch with `FLAG_ACTIVITY_NEW_TASK`, keeping the external UI in
+its own task. The HTTPS callback resumes the existing banking activity through
+`onNewIntent`; its existing bridge supplies the code to the waiting Flutter call.
+The App Link filter now matches the exact `/tglogin` path used by the verifier.
+Nonce, PKCE, one-use exchange and PIN requirements are preserved.
+
+The provider's native response does not have to echo OAuth `state` (its official
+Android SDK sends no state). Native callbacks now reject any supplied conflicting
+state, while allowing it to be omitted for an already active local attempt. The
+exchange uses the original in-memory flow ID/private secret, never callback-supplied
+flow credentials; the backend's mandatory S256 PKCE verifier binds the code to
+that attempt. Exact HTTPS origin/path, duplicate-parameter and fragment rejection,
+nonce/signature/issuer/audience/expiry checks and one-use claims remain enforced.
+This follows the PKCE CSRF protection described in
+[RFC 9700 sections 2.1 and 4.7.1](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.7.1).
+The browser popup/approval-receipt flow retains its separate state requirements.
+The native handoff also accepts Telegram-owned HTTPS `t.me`/`telegram.me` URLs
+from the fixed provider endpoint, alongside `tg:` URLs. Browser fallback now uses
+AndroidX Browser Custom Tabs 1.9.0, matching the official SDK's fallback mechanism.
+
+Physical debugging also found Android's `always_finish_activities` setting enabled
+on the connected Samsung device. The old activity-owned Flutter engine and native
+bridge were destroyed while Telegram was open. `KesorApplication` now owns one
+lazy, process-scoped Flutter engine and bridge, using application context rather
+than retaining an activity. A recreated `MainActivity` reattaches to that engine
+and forwards its initial intent as well as `onNewIntent`. This preserves only the
+already initiated in-memory login across activity recreation. Existing Dart
+background privacy/PIN locking still applies. Debug bridge events contain no
+URLs, authorization codes, state values, identities or tokens.
+
+This follows Android's documented
+[task and launch-mode behavior](https://developer.android.com/guide/components/activities/tasks-and-back-stack).
+The engine lifetime follows Flutter's documented
+[cached engine approach](https://docs.flutter.dev/add-to-app/android/add-flutter-screen).
+Process termination still discards an unfinished login and requires fresh approval.
+
 The Android bridge uses Telegram's native authorization protocol, documented by
 the official SDK source, with server-generated state, nonce, and S256 PKCE. It
 requests Telegram's `/crossapp` authorization URL and opens the Telegram app. If
@@ -28,9 +73,10 @@ There is no embedded WebView or popup/opener dependency on Android.
 The published SDK currently has no state/nonce configuration hook. Rather than
 weakening the existing backend verifier, the bridge implements the protocol and
 keeps the verifier and token exchange on the backend. No GitHub package-download
-credential or extra Flutter dependency was introduced. Provider compatibility of
-the native request's state/nonce must still be confirmed by live acceptance; a
-missing or incorrect nonce fails closed.
+credential or extra Flutter dependency was introduced. Live acceptance on
+30 October confirmed that the native callback omits state, while the backend's
+unchanged nonce and PKCE checks pass the successful code exchange. A missing or
+incorrect ID-token nonce still fails closed.
 
 New endpoints under `/api/v1`:
 
@@ -40,7 +86,8 @@ New endpoints under `/api/v1`:
 | POST | `/auth/telegram/native/link/start` | Authenticated, recent customer session; link Telegram |
 | POST | `/auth/telegram/native/exchange` | Private flow secret and returned authorization code; one attempt |
 
-The callback must match the registered HTTPS host/path and the active local state.
+The callback must match the registered HTTPS host/path and an active local attempt;
+any returned state must match that attempt.
 Unsolicited, duplicate-parameter, and unrelated callbacks cannot install a session.
 The backend verifies Telegram's RS256 signature, issuer, audience, nonce, issued-at,
 expiry, and subject before reusing the existing customer/session/onboarding logic.
@@ -51,8 +98,9 @@ Failure or an uncertain response requires a fresh user-initiated approval. No
 automatic retry of the code/token exchange occurs. A late session received after
 local cancellation is revoked where possible instead of being installed.
 
-Flow state stays in memory on Android. Killing/recreating the activity or process
-during approval discards the local attempt; begin a new login. An unsolicited cold
+Flow state stays in memory on Android. Activity recreation reuses the in-process
+engine and pending bridge; killing the process during approval discards the local
+attempt, requiring a new login. An unsolicited cold
 start callback never signs the user in. Existing completed native sessions still
 restore through secure refresh-token storage. No email/app OTP is added.
 
@@ -83,12 +131,13 @@ This build is for USB testing. Its local HTTP setting is explicit development
 configuration; production's HTTPS guard remains enforced. It includes the normal
 API entrypoint, not a demo or integration-test entrypoint.
 
-## Physical-device test later
+## Physical-device checks
 
 1. Connect the Android phone over USB, enable USB debugging, accept the computer
    authorization, and check `adb devices -l`. Have Telegram installed and signed in.
 2. Keep PostgreSQL running. Start `./mvnw.cmd spring-boot:run` from
-   `backend/digital-banking`. This applies V11 normally; preserve the existing data.
+   `backend/digital-banking`. This applies pending migrations normally; preserve
+   existing data. Current development/source schema is V15 per the handoff.
 3. Run `adb reverse tcp:8080 tcp:8080` so the phone can use this APK's localhost API.
    This forwarding is needed again after reconnect/restart. No temporary callback
    tunnel is required: Telegram's registered domain returns directly to Android.
@@ -103,12 +152,13 @@ API entrypoint, not a demo or integration-test entrypoint.
    linking, cancellation, missing Telegram/browser fallback, expiry, and recovery
    after app termination/network interruption. Confirm refresh restoration/logout.
 
-No physical-device approval, provider code exchange, or successful native live
-login is claimed by automated fixture tests or an APK build. iOS is not implemented.
+Automated fixtures and APK builds alone do not establish personal-account
+acceptance. The separate customer-operated 30 October device test completed live
+approval and code exchange successfully. iOS is not implemented.
 For use away from a USB-connected computer, configure a reachable HTTPS backend
 and rebuild; hosted staging is a separate deployment step.
 
-## References
+## Original implementation verification — 29 October 2026
 
 Final verification: Flutter analysis clean; 120 Flutter tests passed; 110 backend
 tests passed with zero failures/errors/skips, including isolated V10-to-V11

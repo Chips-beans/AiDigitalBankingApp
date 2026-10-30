@@ -464,6 +464,7 @@ class DemoAuthGateway
       sessionId: previous.sessionId,
       firstName: firstName,
       lastName: lastName,
+      telegramLinked: previous.telegramLinked,
     );
     _access[access] = identity;
     if (identity.email != null) _profiles[identity.email!] = identity;

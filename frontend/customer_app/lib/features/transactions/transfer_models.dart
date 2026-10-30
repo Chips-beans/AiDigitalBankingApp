@@ -17,6 +17,7 @@ class TransferDraft {
     this.remark, {
     this.qrString,
     this.destinationName,
+    this.qrFixed = false,
   });
   factory TransferDraft.validate(
     BankAccount source,
@@ -88,6 +89,9 @@ class TransferDraft {
   final Money amount;
   final String? remark;
   final String? qrString, destinationName;
+
+  /// A fixed-amount QR request: the server debits the exact equivalent itself.
+  final bool qrFixed;
   bool get isQr => qrString != null;
   Map<String, dynamic> get payload => {
     'sourceAccountNumber': source,
@@ -99,10 +103,27 @@ class TransferDraft {
   Map<String, dynamic> get qrPayload => {
     'sourceAccountNumber': source,
     'qrString': qrString,
-    'amount': amount.decimal,
+    if (!qrFixed) 'amount': amount.decimal,
     'currency': amount.currency,
     'remark': remark,
   };
+}
+
+/// Values carried into the transfer screen from Home recipients or a QR scan.
+class TransferPrefill {
+  const TransferPrefill(
+    this.destination, {
+    this.name,
+    this.qrString,
+    this.fixedAmount,
+    this.qrRemark,
+  });
+  final String destination;
+  final String? name, qrString, qrRemark;
+
+  /// The QR's fixed amount in the receiving currency, if any.
+  final Money? fixedAmount;
+  bool get isQr => qrString != null;
 }
 
 class SavedTransfer {
@@ -162,6 +183,14 @@ class SavedTransfer {
           (outcome != 'rejected' && rejection != null)) {
         throw invalidTransfer;
       }
+      // Manual (version 1) transfers may carry the server-verified receiver name too.
+      if (data['version'] == 1 &&
+          destinationName != null &&
+          (destinationName is! String ||
+              destinationName.isEmpty ||
+              destinationName.length > 120)) {
+        throw invalidTransfer;
+      }
       return SavedTransfer(
         key: key,
         draft: TransferDraft(
@@ -170,9 +199,8 @@ class SavedTransfer {
           money,
           remark as String?,
           qrString: data['version'] == 2 ? qrString as String : null,
-          destinationName: data['version'] == 2
-              ? destinationName as String
-              : null,
+          destinationName: destinationName as String?,
+          qrFixed: data['version'] == 2 && data['qrFixed'] == true,
         ),
         createdAt: dateField(data, 'createdAt'),
         outcome: outcome,
@@ -198,6 +226,8 @@ class SavedTransfer {
     'INVALID_QR_DATA',
     'AMOUNT_MISMATCH',
     'PAYMENT_ALREADY_COMPLETED',
+    'AMOUNT_TOO_SMALL',
+    'CONVERSION_NOT_EXACT',
   };
   final String key, outcome;
   final TransferDraft draft;
@@ -218,8 +248,10 @@ class SavedTransfer {
     if (draft.isQr) ...{
       'kind': 'qr',
       'qrString': draft.qrString,
-      'destinationName': draft.destinationName,
+      'qrFixed': draft.qrFixed,
     },
+    // Persisted for every kind, so the stored record matches the in-memory draft.
+    if (draft.destinationName != null) 'destinationName': draft.destinationName,
     'key': key,
     'source': draft.source,
     'destination': draft.destination,

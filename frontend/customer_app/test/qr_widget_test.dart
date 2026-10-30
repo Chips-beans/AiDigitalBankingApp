@@ -401,6 +401,46 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     pairs.dispose();
   });
+  testWidgets('My QR lists wallets, requests an amount and closes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(440, 1400); // mockup width, room for the sheet
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var closed = false;
+    await tester.pumpWidget(
+      harness(
+        ReceiveQrPanel(
+          session: session,
+          gateway: gateway,
+          accounts: accounts,
+          onClose: () => closed = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Kesor Bank QR Code'), findsOneWidget);
+    expect(find.text('USD Wallet'), findsOneWidget);
+    expect(find.text('KHR Wallet'), findsOneWidget);
+    expect(find.text('100 0000 001'), findsOneWidget, reason: 'grouped like the mockup');
+    expect(find.text('Optional'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('qr-enter-amount')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('qr-request-amount')), '0');
+    await tester.tap(find.byKey(const ValueKey('qr-request-create')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('positive amount'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('qr-request-amount')), '12.50');
+    await tester.tap(find.byKey(const ValueKey('qr-request-create')));
+    await tester.pumpAndSettle();
+    expect(find.text('USD 12.50'), findsOneWidget, reason: 'the requested amount replaces Optional');
+    expect(find.text('Waiting for payment'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('qr-close')));
+    expect(closed, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
   testWidgets(
     'receive removes an account QR when refresh makes its account inactive',
     (tester) async {

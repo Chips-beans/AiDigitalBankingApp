@@ -570,7 +570,13 @@ class _InformationPageState extends State<InformationPage> {
           style: text.body.copyWith(color: colors.disabledBackground),
         ),
         const SizedBox(height: 24),
-        ProfilePhotoCard(session),
+        ListenableBuilder(
+          listenable: Listenable.merge([first, last]),
+          builder: (context, _) => ProfilePhotoCard(
+            session,
+            displayName: first.text.trim().isEmpty ? last.text : first.text,
+          ),
+        ),
         const SizedBox(height: 24),
         if (session.failure != null)
           NoticePanel(

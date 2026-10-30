@@ -264,8 +264,18 @@ void main() {
   );
 
   testWidgets(
-    'inactive conceals private UI and pause requires unlock on return',
+    'inactive conceals private UI; only 3 minutes away or idle requires the PIN',
     (tester) async {
+      // User decision (31 Oct 2026): one PIN per use; re-ask after 3 minutes.
+      var now = DateTime.utc(2026, 10, 31, 9);
+      session.dispose();
+      session = SessionController(
+        auth,
+        vault,
+        pinGateway: pins,
+        clock: () => now,
+      );
+      await tester.runAsync(session.initialize);
       void background() {
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive,
@@ -299,14 +309,27 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump();
       expect(session.privacyCovered, isTrue);
+      // A short trip away keeps the session.
       background();
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pumpAndSettle();
+      now = now.add(const Duration(minutes: 2));
       resume();
       await tester.pumpAndSettle();
+      expect(session.phase, SessionPhase.signedIn);
+      expect(session.privacyCovered, isFalse);
+      // Idle for 3 minutes locks.
+      now = now.add(SessionController.idleLimit);
+      session.checkIdle();
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pumpAndSettle();
       expect(session.phase, SessionPhase.pinLocked);
+      // The lock starts on the masked Home; a feature tap shows the PIN pad.
+      expect(find.byKey(const ValueKey('locked-home')), findsOneWidget);
+      expect(find.text('Enter PIN'), findsNothing);
+      await tester.tap(find.byTooltip('Settings'));
+      await tester.pumpAndSettle();
       expect(find.text('Enter PIN'), findsOneWidget);
-      expect(find.byTooltip('Home'), findsNothing);
       final field = find.byKey(const ValueKey('pin-input'));
       await tester.enterText(field, '04');
       background();

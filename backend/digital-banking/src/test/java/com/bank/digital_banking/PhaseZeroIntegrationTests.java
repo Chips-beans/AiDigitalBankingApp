@@ -64,7 +64,7 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         assertThat(call("GET", "/accounts/me", forged, null).statusCode()).isEqualTo(401);
     }
 
-    @Test void signupUsesRealSmtpAndReturnsServerIdentityWithEmptyAccounts() throws Exception {
+    @Test void signupUsesRealSmtpAndReturnsServerIdentityWithZeroBalanceWallets() throws Exception {
         String name = "new." + UUID.randomUUID().toString().substring(0,8);
         String email = name + "@example.test";
         requestOtp(email.toUpperCase(Locale.ROOT), "SIGNUP");
@@ -84,7 +84,12 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
         assertThat(me.body()).doesNotContain("password", "otpCode", "refreshToken");
         var list = call("GET", "/accounts/me", access, null);
         assertThat(list.statusCode()).isEqualTo(200);
-        assertThat(body(list).path("data").size()).isZero();
+        // V16: signup provisions one USD and one KHR wallet; test funding is off here, so both start at zero.
+        var wallets = body(list).path("data");
+        assertThat(wallets.size()).isEqualTo(2);
+        assertThat(List.of(wallets.get(0).path("currency").asText(), wallets.get(1).path("currency").asText()))
+                .containsExactlyInAnyOrder("USD", "KHR");
+        for (var wallet : wallets) assertThat(wallet.path("balance").decimalValue()).isZero();
         OtpVerification stored = latest(email,"SIGNUP");
         assertThat(stored.getOtpCode()).startsWith("$2").isNotEqualTo(SMTP.code(email));
         assertThat(stored.isVerified()).isTrue();

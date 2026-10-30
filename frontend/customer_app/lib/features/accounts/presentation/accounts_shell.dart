@@ -23,6 +23,9 @@ import '../../analytics/presentation/analytics_screen.dart';
 import '../../home/home_gateway.dart';
 import '../../auth/session_controller.dart';
 import '../../profile/profile_page.dart';
+import '../../settings/settings_screen.dart';
+import '../../settings/settings_detail_screen.dart';
+import '../../settings/settings_platform.dart';
 import '../../home/presentation/kesor_home_screen.dart';
 import '../account_gateway.dart';
 import '../accounts_controller.dart';
@@ -30,6 +33,8 @@ import '../creation_store.dart';
 import '../../transactions/transaction_gateway.dart';
 import '../../transactions/transfer_store.dart';
 import '../../transactions/transfer_controller.dart';
+import '../../transactions/transfer_models.dart';
+import '../../transactions/transfer_support.dart';
 import '../../transactions/history_controller.dart';
 import '../../transactions/presentation/kesor_transfer_screen.dart';
 import '../../transactions/recipient_favorites.dart';
@@ -88,6 +93,10 @@ class _AccountsShellState extends State<AccountsShell> {
   late final AssistantController assistant;
   PairOpeningController? pairs;
   QrGateway? qrGateway;
+  RecipientDirectory? recipients;
+
+  /// Receiver handed to the transfer screen by Home or a QR scan.
+  TransferPrefill? transferPrefill;
   late final Listenable changes;
   String? transactionReference;
   String? transactionReturnPage;
@@ -110,15 +119,25 @@ class _AccountsShellState extends State<AccountsShell> {
       analytics = AnalyticsController(widget.session, analyticsGateway);
     }
     history = HistoryController(widget.session, model, widget.transactions);
+    final api = widget.gateway;
+    // The real API resolves receivers, quotes conversions and requires a PIN per transfer.
+    final support = api is HttpAccountGateway
+        ? HttpTransferSupportGateway(api.client)
+        : null;
+    if (support != null) {
+      recipients = RecipientDirectory(widget.session, support);
+    }
     transfers = TransferController(
       widget.session,
       widget.transactions,
       widget.transferStore,
+      support: support,
       onSuccess: () async {
         await model.refresh();
         await history.refresh();
         await home.refresh();
         await analytics?.invalidate();
+        await _activityAlert();
       },
     );
     final gateway = widget.gateway;
@@ -137,6 +156,7 @@ class _AccountsShellState extends State<AccountsShell> {
           await home.refresh();
           await history.refresh();
           await analytics?.invalidate();
+          await _activityAlert();
         },
       );
     }
@@ -173,6 +193,15 @@ class _AccountsShellState extends State<AccountsShell> {
     listenable: changes,
     builder: (context, _) {
       if (page == null) return _root(context);
+      if (page!.startsWith('settings:')) {
+        return SettingsDetailScreen(
+          key: ValueKey(page),
+          page: page!.substring(9),
+          session: widget.session,
+          onBack: _back,
+          onAssistant: () => _selectTab(3),
+        );
+      }
       if (page == 'transfer') {
         return PopScope(
           canPop: false,
@@ -180,11 +209,36 @@ class _AccountsShellState extends State<AccountsShell> {
             if (!didPop) _back();
           },
           child: KesorTransferScreen(
+            key: ValueKey(transferPrefill),
             controller: transfers,
             accounts: model,
             enabled: widget.transfersEnabled,
             onBack: _back,
             favorites: recipientFavorites,
+            prefill: transferPrefill,
+            directory: recipients,
+          ),
+        );
+      }
+      if (page == 'receiveQr' && qrGateway != null) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: ReceiveQrScreen(
+            panel: ReceiveQrPanel(
+              session: widget.session,
+              gateway: qrGateway!,
+              accounts: model,
+              onClose: _back,
+              onPaid: () async {
+                await model.refresh();
+                await home.refresh();
+                await history.refresh();
+                await analytics?.invalidate();
+              },
+            ),
           ),
         );
       }
@@ -294,6 +348,18 @@ class _AccountsShellState extends State<AccountsShell> {
                                     accounts: model,
                                     transfers: transfers,
                                     enabled: widget.transfersEnabled,
+                                    // A verified scan continues in the normal transfer screen.
+                                    onScanned: (preview) => _openTransfer(
+                                      TransferPrefill(
+                                        preview.destination,
+                                        name: preview.name,
+                                        qrString: preview.payload,
+                                        fixedAmount: preview.dynamic
+                                            ? preview.amount
+                                            : null,
+                                        qrRemark: preview.remark,
+                                      ),
+                                    ),
                                   )
                                 else
                                   NoticePanel(
@@ -360,6 +426,17 @@ class _AccountsShellState extends State<AccountsShell> {
     },
   );
 
+  /// A pending transfer keeps priority: its safety record must be resolved first.
+  void _openTransfer(TransferPrefill? prefill) {
+    setState(() {
+      if (transfers.saved == null && !transfers.busy) {
+        transfers.edit();
+        transferPrefill = prefill;
+      }
+      page = 'transfer';
+    });
+  }
+
   void _selectTab(int index) {
     setState(() {
       if (!transfers.busy) transfers.edit();
@@ -369,6 +446,19 @@ class _AccountsShellState extends State<AccountsShell> {
     });
     if (index == 1) unawaited(analytics?.ensureLoaded());
     assistant.setVisible(index == 3);
+  }
+
+  Future<void> _activityAlert() async {
+    if (!mounted ||
+        AppPreferences.maybeOf(context)?.activityAlerts != true ||
+        widget.session.phase != SessionPhase.signedIn) {
+      return;
+    }
+    try {
+      await SettingsPlatform().activityAlert();
+    } catch (_) {
+      /* Alerts cannot alter a confirmed banking result. */
+    }
   }
 
   Future<void> _assistantAction(AiAction action) async {
@@ -458,7 +548,10 @@ class _AccountsShellState extends State<AccountsShell> {
                                   'មិនអាចធ្វើបច្ចុប្បន្នភាពបាន។ អូសចុះក្រោមដើម្បីព្យាយាមម្ដងទៀត។ ទិន្នន័យមុនអាចចាស់។',
                                 ),
                           onAccounts: () => setState(() => page = 'accounts'),
-                          onTransfer: () => setState(() => page = 'transfer'),
+                          onTransfer: () => _openTransfer(null),
+                          onRecipient: (number, name) =>
+                              _openTransfer(TransferPrefill(number, name: name)),
+                          directory: recipients,
                           onMyQr: () => setState(() => page = 'receiveQr'),
                           onScanQr: () => setState(() => page = 'scanQr'),
                           onActivity: () => setState(() => page = 'history'),
@@ -513,6 +606,12 @@ class _AccountsShellState extends State<AccountsShell> {
                                 MediaQuery.paddingOf(context).bottom,
                               ) +
                               16,
+                        )
+                      : tab == 2
+                      ? SettingsScreen(
+                          session: widget.session,
+                          onOpen: (target) =>
+                              setState(() => page = 'settings:$target'),
                         )
                       : Center(
                           child: Text(

@@ -1,6 +1,232 @@
 # Current project handoff — Kesor Bank
 
-Updated 30 October 2026, Asia/Phnom_Penh (UTC+07:00).
+Updated 31 October 2026, Asia/Phnom_Penh (UTC+07:00).
+
+## Start here: consolidated current state
+
+Read [NEXT_SESSION_BRIEF.md](NEXT_SESSION_BRIEF.md) first for the project summary,
+exact unresolved backend tests, pending acceptance checks, startup commands and
+latest APK. It supersedes conflicting statements in historical sections below.
+
+Rechecked for the summary on 31 October: backend **8080 / PID 19572**, PostgreSQL
+**running**, Samsung **R9TXB0G1VKT connected** and USB reverse **8080 → 8080** active.
+Latest verified development schema is **V16**. **219 Flutter tests** and **27 focused
+backend tests** passed; the full backend suite has **11 baseline failures** still
+to investigate. Settings is implemented and the user accepted its appearance and
+page navigation. Telegram Android return is personally verified. A successful
+live Gemini/Khmer answer is still unverified; the key/flags were configured in a
+previous runtime session. Biometrics remain intentionally disabled.
+
+The following sections are chronological implementation records. Old claims of
+V15, no phone, stopped runtimes, no configured Gemini key, Settings placeholders
+or a completely green backend suite describe earlier snapshots, not current state.
+
+## Latest: Figma Settings and functional account preferences
+
+Implemented the user's Settings frame `320:308` from
+https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=320-308.
+Read `frontend/customer_app/docs/SETTINGS_SCREEN.md` before editing. The root
+matches the reference's spacing, Poppins metrics, rows/cards, original local SVG
+icons and shared bottom bar. Profile/name/photo are dynamic; a missing photo
+uses the first name character. English/Khmer, light/dark, large text and narrow
+layouts are supported. Biometric sign-in remains disabled with no tap action.
+
+Working pages include profile names/photo/contact linking, current-PIN-verified
+PIN change, device alert management/test alerts, English/Khmer selection,
+System/Light/Dark appearance, banking FAQ/assistant navigation/support email,
+demo Terms/Privacy readers and confirmed sign-out. Support is the user's supplied
+`reachsteav2@gmail.com`. The user explicitly requested demo legal data; these
+notices are visibly labeled demo rather than presented as production agreements.
+
+New protected APIs: `PUT /auth/profile/details` edits completed profiles without
+rerunning onboarding/opening wallets; `POST /auth/pin/change` verifies the current
+PIN against the persistent shared five-attempt counter, replaces its existing
+peppered BCrypt hash and revokes other sessions. The fifth mismatch closes all
+customer PIN locks. Current session tokens/ticket remain valid on success. The
+client never automatically replays either mutation; lock/sign-out invalidates
+pending responses and disposes private input controllers. No migration or private
+environment change was added for Settings.
+
+Notification preferences are device-local and off by default. The native Android
+bridge supports OS notification settings, permission/channel checks and private
+generic alerts after verified transfer/account-opening callbacks. No account
+values are included. This is local activity notification support, not background
+push delivery. Mail support opens a composer; a copy-address fallback is provided.
+No email, live payment or personal PIN change was submitted by the agent.
+
+Verification: **219 full Flutter tests passed**, analysis is clean, web/Wasm and
+normal-entrypoint Android debug builds succeeded. **27 focused backend tests
+passed** (ContinuationAuthTests and FoundationReadinessTests). **44 Settings
+views** rendered without overflow, including every page and English/Khmer,
+light/dark, 2× text, small phone, landscape and tablet variants. Reference geometry
+assertions passed; representative renders were visually compared with Figma.
+
+The broader backend suite is not green. An unchanged isolated archive of HEAD
+`60f8137` reproduced **11 existing failing cases** (10 assertion failures, 1 error)
+out of 152 baseline tests: wallet/pair/QR fixture expectations, V15 versus existing
+V16 migration expectations and related account/audit assertions. The first
+Settings full run added one outdated API path-count failure; its expectation was
+updated for the two new routes and the four contract tests then passed. Do not
+claim full backend regression passed or undo the existing V16 wallet work.
+Baseline evidence is under this chat's `work/settings-backend-baseline/`.
+
+The final APK was installed with `adb install -r` on Samsung `R9TXB0G1VKT`, keeping
+app data. It is **245,222,373 bytes**, SHA-256
+`9b24c6975e1589db8d70812682662a690aef81514988284a0e69b1ee23daf0c7`.
+The 12 Settings SVGs are packaged; no `.env` files are packaged. User-facing APK,
+representative PNGs and `Settings-Implementation-Notes.md` are in
+`C:\Users\User\Documents\Codex\2026-10-30\kesor-bank-now-has-the-main\outputs`.
+
+Backend restarted successfully on **8080**, Java **PID 19572**, launcher **33884**.
+Existing development schema was already **V16** and validated successfully.
+Read-only live OpenAPI confirms both new routes. Private runtime logs are in
+ignored `backend/digital-banking/.local/settings-backend-20261031{,.err}.log`;
+launcher script beside them constrains memory. Private environment assignments
+were not inspected or modified.
+USB reverse `tcp:8080 tcp:8080` is active; the installed app launched successfully.
+Gradle's build daemon was stopped. The user privately unlocked the installed app
+and confirmed: **"Settings looks correct and pages open"**. This verifies physical
+visual/navigation acceptance, not a personal PIN change or live alert delivery.
+Android notification permission was still off at the read-only device check;
+the Notifications page explains how to enable it. No permission was changed by
+the agent. Notification/PIN operations are covered by automated tests, while
+personal PIN-change and alert-permission acceptance remain separate.
+Previous profile-photo, Telegram-return and transfer work remains preserved.
+
+## Latest: complete Figma transfer flow and bottom bar
+
+Updated from the user's [Transfer Flow section 307:340](https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=307-340).
+Entry `273:356`, review `308:269` and confirmed success `308:740` now use native
+Flutter layouts with the reference typography, spacing, account/details cards,
+payment actions and gold-seal receipt. New files are `transfer_flow_design.dart`,
+`transfer_review_screen.dart` and `transfer_success_screen.dart` under transaction
+presentation. Read `frontend/customer_app/docs/TRANSFER_SCREEN.md` before editing.
+The static seal is a direct transparent 2× Figma export to preserve its blur;
+screen screenshots are not used as UI. Reference geometry assertions passed.
+
+Entry/review actions stay reachable above the keyboard and match the form's
+440px maximum width on tablets. Success buttons dismiss the resolved journal
+through the existing controller before Home/another-transfer navigation. Unknown/
+rejected results keep the existing recovery UI; explicit confirmation, exact
+amounts, idempotency, PIN and secure-journal logic remain unchanged. Manual
+recipient names are unavailable from the existing API, so real account numbers
+occupy that slot; dates/reference values come from confirmed receipt data.
+
+The shared bottom bar matches Figma `90:644`/`73:1328`, including 320 × 64 capsule,
+linked active/inactive icons, 11/16 Google Sans labels and the separate 64px
+assistant action with the correct original 24px chat icon. The user's subsequent
+correction removed gold backgrounds behind account/receiver glyphs in dark mode;
+original Figma paths/bounds remain, with a monochrome theme tint for contrast.
+KHR now shows a Cambodia flag. USD uses a borderless flag rather than the padded
+raster badge. Flags are shared across entry/review/success, with sources/licenses
+in `assets/transfer/FLAG_SOURCES.md`. No temporary asset URL is used at runtime.
+
+**213 full Flutter tests passed**, followed by a passing **14-check** transfer/
+visual rerun after the icon/flag correction. Analysis is clean. The two visual
+fixtures rendered **56 views** (14 entry, 42 review/success/navigation), including
+English/Khmer, light/dark, both currencies, narrow, 2× text, landscape and tablet.
+Representative renders were inspected against Figma. The device's 130% text and
+300 font-weight adjustment are respected; no accessibility settings were changed.
+
+The final normal-entrypoint API-mode Android debug APK built successfully with
+`APP_ENV=dev` and `API_BASE_URL=http://127.0.0.1:8080/api/v1` and was installed on
+the connected Samsung with `adb install -r`, preserving app data. It is
+**245,171,929 bytes**, SHA-256
+`970080bd1cbd8952612d79db2b20b981312b1f6e0bc6ba41acf7adc6c913a719`.
+The user-facing copy is
+`C:\Users\User\Documents\Codex\2026-10-30\kesor-bank-now-has-the-main\outputs\KesorBank-Transfer-Flow-Test.apk`.
+Entry/review/success/KHR/dark-entry/bottom-bar fixture PNGs and
+`Transfer-Flow-Notes.md` are beside it. APK checks confirmed the seal/flags are
+packaged and no private environment files are included.
+
+The backend remains running on port 8080 (last checked Java PID 8288), PostgreSQL
+is running, and USB reverse forwarding remains active for Samsung serial
+`R9TXB0G1VKT`. Gradle's build daemon was stopped. No backend code, `.env`, migration
+or financial operation was changed/submitted for this UI work. Previous avatar
+and Telegram fixes remain preserved. All current changes are uncommitted.
+The customer requested icon/flag corrections during device review; the final
+corrected APK is installed, while their final visual acceptance remains pending.
+
+## Latest: Telegram Android login return fixed and personally verified
+
+Corrected 30 October 2026 and tested on the customer's connected Samsung SM-X216B.
+The customer personally approved Telegram login and confirmed reaching Create
+Profile/PIN/Home. A subsequent read-only device observation also showed an
+authenticated banking screen. This establishes successful live native Telegram
+code exchange through the existing backend verifier; it is separate from the
+still-pending Gemini acceptance.
+
+Three issues were addressed: `singleTop` plus empty task affinity could open a
+second activity; the device's enabled `always_finish_activities` developer option
+destroyed the activity-owned Flutter session during approval; and Telegram's
+native callback omitted `state`, which the old native validator rejected.
+`MainActivity` now uses `singleTask` with normal affinity and an exact App Link;
+Telegram/browser opens in its own task. `KesorApplication` lazily retains the
+Flutter engine and application-context bridge in the process. Recreated activities
+forward initial intents as well as `onNewIntent`. No device setting was changed.
+Native callbacks allow absent state for a locally initiated server-PKCE-bound
+flow, reject conflicting supplied state and preserve exact URI/parameter checks.
+The backend's private flow secret, S256 PKCE, nonce, signature/issuer/audience/
+expiry and one-use exchange checks are unchanged. The provider's valid native
+links can use `tg:` or Telegram-owned HTTPS; fallback uses AndroidX Custom Tabs
+1.9.0. Browser popup authentication is unchanged. See `docs/NATIVE_TELEGRAM_SETUP.md`.
+
+**27 focused Flutter checks passed**, including native callback negatives,
+background return to onboarding, returning-profile PIN enforcement, cancellation,
+uncertain exchange and existing onboarding/PIN regressions. Analysis is clean.
+Normal API-mode Android debug build succeeded; the final APK was installed with
+`adb install -r`, preserving application data. Its size is **245,140,390 bytes**,
+SHA-256 `c4acc8f61f0c2edd16e09c5dbb76d85dbe44b9ee041f4ce09080822b9843f76c`.
+The user-facing copy is
+`C:\Users\User\Documents\Codex\2026-10-30\kesor-bank-now-has-the-main\outputs\KesorBank-Telegram-Return-Test.apk`.
+No private environment files are packaged. Debug bridge events contain only stage
+labels and booleans, never URLs, codes, state values, identities or tokens.
+
+**Current runtime:** backend was started for the requested phone test; Java PID
+**8288**, Maven PID **10624**, launcher PID **27716**, port **8080**. OpenAPI
+returned HTTP 200. Ignored logs are
+`backend/digital-banking/.local/telegram-return-backend-20261030-153017{,.err}.log`
+(the filename timestamp is UTC). PostgreSQL remains running. Samsung device serial
+`R9TXB0G1VKT` is connected and authorized, `adb reverse tcp:8080 tcp:8080` is active,
+and `app937652339-login.tg.dev` is verified against the APK's signing certificate.
+Leave backend/forwarding running for the customer's testing. Gradle daemon stopped.
+No backend source, private `.env`, migration or financial operation was changed
+or submitted by the agent. Prior profile-avatar changes remain preserved;
+all current changes are uncommitted. Process termination still discards unfinished
+Telegram approval and requires a fresh login; activity recreation is now supported.
+
+## Latest: Create Profile avatar correction
+
+Implemented 30 October 2026. Create Profile now shows a gold/navy default avatar
+using the first grapheme of the entered first name, with last-name fallback while
+first name is empty. It updates while typing, uppercases Latin initials and keeps
+Khmer combining characters together. An empty name retains the neutral icon.
+Selected JPG/PNG bytes preview immediately during the existing authenticated
+upload, with localized uploading feedback. Success switches to the saved,
+server-normalized image; failure restores the last saved photo or name initial.
+Cancellation/oversized files do not upload. Preview bytes are memory-only and
+clear on privacy cover, PIN lock, logout or session replacement; late picker and
+upload responses cannot restore them. No backend/API/schema changes were needed.
+See `frontend/customer_app/docs/EMAIL_AUTH_SCREENS.md` for the updated behavior.
+
+Verification: **32 focused checks passed** (22 photo/onboarding checks plus nine
+PIN checks and the email-auth visual fixture). The eight new photo widget tests
+cover name editing, Khmer, pending-upload image rendering, confirmation, failure,
+cancellation, oversized selection and logout races. Flutter analysis is clean.
+The visual fixture rendered 24 views across both languages/themes, narrow,
+large-text, landscape and tablet sizes; representative profile views were inspected.
+The normal-entrypoint API-mode Android debug build succeeded with `APP_ENV=dev`
+and `API_BASE_URL=http://127.0.0.1:8080/api/v1`. APK size is **245,140,501 bytes**,
+SHA-256 `0033972e155f137ee71d09aefed1ffed6695c4d7e9b307a6764bf4f5ec467a70`.
+No private environment files are packaged. The user-facing APK is
+`C:\Users\User\Documents\Codex\2026-10-30\kesor-bank-now-has-the-main\outputs\KesorBank-Profile-Image-Test.apk`;
+four `create-profile-{light,dark}-{en,km}.png` fixture screenshots are beside it.
+The build daemon was stopped afterward. Changes remain uncommitted.
+
+**Latest runtime observation:** port 8080 was closed and ADB listed no devices
+when this continuation began, superseding the earlier running-backend record
+below. No backend or emulator was started and no private `.env`, customer data
+or financial rows were changed. Physical picker/device acceptance remains pending.
 
 ## Current runtime: physical-device testing
 

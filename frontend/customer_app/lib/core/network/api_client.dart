@@ -129,6 +129,7 @@ class ApiClient {
     Map<String, String>? query,
     int? expectedStatus,
     String? idempotencyKey,
+    String? pinProof,
     List<int>? photoBytes,
   }) async {
     if (!path.startsWith('/') ||
@@ -160,6 +161,7 @@ class ApiClient {
     if (idempotencyKey != null) {
       request.headers['Idempotency-Key'] = idempotencyKey;
     }
+    if (pinProof != null) request.headers['X-Pin-Proof'] = pinProof;
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
       (request as http.Request).body = jsonEncode(body);

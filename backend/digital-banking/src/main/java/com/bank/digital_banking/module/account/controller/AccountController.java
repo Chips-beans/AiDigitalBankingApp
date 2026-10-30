@@ -23,10 +23,25 @@ public class AccountController {
     private final AccountService accountService;
     private final com.bank.digital_banking.module.account.service.AccountPairService pairs;
     private final com.bank.digital_banking.module.account.service.OpeningFundingPolicy openingPolicy;
+    private final com.bank.digital_banking.module.account.service.RecipientLookupService recipients;
 
     @GetMapping("/opening-policy")
     public ResponseEntity<ApiResponse<com.bank.digital_banking.module.account.dto.AccountPairDtos.Policy>> openingPolicy() {
         return ResponseEntity.ok(ApiResponse.success(openingPolicy.response(), "Account opening policy"));
+    }
+
+    @GetMapping("/lookup")
+    public ResponseEntity<ApiResponse<com.bank.digital_banking.module.account.service.RecipientLookupService.Recipient>> lookup(
+            @AuthenticationPrincipal User user, @RequestParam String number) {
+        return ResponseEntity.ok(ApiResponse.success(recipients.lookup(user, number), "Recipient found"));
+    }
+
+    @GetMapping("/lookup/photo")
+    public ResponseEntity<ApiResponse<com.bank.digital_banking.module.auth.service.ProfilePhotoService.Photo>> lookupPhoto(
+            @AuthenticationPrincipal User user, @RequestParam String number) {
+        return ResponseEntity.ok()
+                .cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(ApiResponse.success(recipients.photo(user, number), "Recipient photo"));
     }
 
     @PostMapping("/pairs")

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import '../../../core/network/api_client.dart';
 import 'auth_gateway.dart';
+import 'settings_gateway.dart';
 
 class PinChallenge {
   const PinChallenge({
@@ -72,9 +73,24 @@ abstract interface class AppPinGateway {
   Future<void> discard(String ticket);
 }
 
-class HttpAppPinGateway implements AppPinGateway {
+class HttpAppPinGateway implements AppPinGateway, PinChangeGateway {
   HttpAppPinGateway(this.client);
   final ApiClient client;
+  @override
+  Future<void> change(
+    String access,
+    String current,
+    String pin,
+    String confirm,
+  ) async {
+    await client.request(
+      'POST',
+      '/auth/pin/change',
+      accessToken: access,
+      body: {'currentPin': current, 'pin': pin, 'confirmPin': confirm},
+    );
+  }
+
   Map<String, dynamic> data(Map<String, dynamic> response) {
     if (response['data'] is! Map<String, dynamic>) {
       throw const ApiFailure(
@@ -139,13 +155,48 @@ class HttpAppPinGateway implements AppPinGateway {
 }
 
 /// Explicit demo only. Real deployments always use the server-enforced gateway.
-class DemoAppPinGateway implements AppPinGateway {
+class DemoAppPinGateway implements AppPinGateway, PinChangeGateway {
   DemoAppPinGateway(this.auth);
   final AuthGateway auth;
   final Map<String, (SessionIdentity, TokenPair?)> tickets = {};
   final Map<int, String> _pins = {};
   final Map<int, int> _attempts = {};
   final Set<String> _fresh = {};
+  @override
+  Future<void> change(
+    String access,
+    String current,
+    String pin,
+    String confirm,
+  ) async {
+    final user = await auth.me(access);
+    final id = user.userId;
+    if ((_attempts[id] ?? 0) >= 5) {
+      throw const ApiFailure(
+        'PIN_RECOVERY_REQUIRED',
+        'Verify your identity to reset your PIN.',
+      );
+    }
+    if (pin != confirm || !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
+      throw const ApiFailure(
+        'PIN_CONFIRMATION_MISMATCH',
+        'Enter the same four digits twice.',
+      );
+    }
+    if (_pins[id] != current) {
+      _attempts[id] = (_attempts[id] ?? 0) + 1;
+      throw ApiFailure(
+        _attempts[id] == 5 ? 'PIN_RECOVERY_REQUIRED' : 'PIN_INVALID',
+        'The current PIN did not match.',
+      );
+    }
+    if (current == pin) {
+      throw const ApiFailure('PIN_UNCHANGED', 'Choose a different PIN.');
+    }
+    _pins[id] = pin;
+    _attempts[id] = 0;
+  }
+
   PinChallenge challenge(String ticket) {
     final user = tickets[ticket]?.$1;
     if (user == null) {

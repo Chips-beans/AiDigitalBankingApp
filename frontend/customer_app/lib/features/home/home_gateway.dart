@@ -42,9 +42,10 @@ class AccountHomeGateway implements HomeGateway {
             throw invalidAccountData;
           }
           final existing = postings[posting.reference];
+          // Compare the debit: each own account sees its own side of a conversion.
           if (existing != null &&
-              (existing.amount.minorUnits != posting.amount.minorUnits ||
-                  existing.amount.currency != posting.amount.currency ||
+              (existing.debit.minorUnits != posting.debit.minorUnits ||
+                  existing.debit.currency != posting.debit.currency ||
                   existing.source != posting.source ||
                   existing.destination != posting.destination ||
                   existing.status != posting.status)) {
@@ -92,20 +93,30 @@ class HomeSnapshot {
         : !numbers.contains(p.source) && numbers.contains(p.destination)
         ? p.source
         : null;
-    final recipients = <String>{};
+    // Most recent first; the name comes from the server's transaction record.
+    final recipients = <String, String?>{};
     for (final p in postings) {
       final number = counterpart(p);
       if (p.type == 'TRANSFER' && p.status == 'SUCCESS' && number != null) {
-        recipients.add(number);
+        recipients.putIfAbsent(
+          number,
+          () => number == p.source ? p.sourceName : p.destinationName,
+        );
       }
     }
     return KesorHomeData(
       khrBalance: khr,
       usdBalance:
           '\$${usd ~/ BigInt.from(100)}.${(usd % BigInt.from(100)).toString().padLeft(2, '0')}',
-      recipients: recipients
+      recipients: recipients.entries
           .take(3)
-          .map((number) => HomeRecipient(number))
+          .map(
+            (e) => HomeRecipient(
+              e.value ?? e.key,
+              accountNumber: e.key,
+              knownName: e.value,
+            ),
+          )
           .toList(),
       transactions: postings.map((p) {
         final date = p.createdAt.toLocal();
@@ -117,15 +128,18 @@ class HomeSnapshot {
         final amount = p.amount.currency == 'KHR'
             ? '${p.amount.decimal} ៛'
             : '\$${p.amount.decimal}';
-        final description = p.remark?.trim().isNotEmpty == true
-            ? p.remark!.trim()
+        // The other party's profile name; remarks and account numbers are not titles.
+        final other = counterpart(p);
+        final bank = p.bankSource || (p.source == null && p.type == 'DEPOSIT');
+        final description = bank
+            ? 'Kesor Bank'
             : internal
             ? label('Between your accounts', 'ផ្ទេររវាងគណនីរបស់អ្នក')
-            : p.type == 'DEPOSIT'
-            ? label('Deposit', 'ដាក់ប្រាក់')
             : p.type == 'WITHDRAWAL'
             ? label('Withdrawal', 'ដកប្រាក់')
-            : counterpart(p) ?? label('Transfer', 'ផ្ទេរប្រាក់');
+            : (other == p.source ? p.sourceName : p.destinationName) ??
+                  other ??
+                  label('Transfer', 'ផ្ទេរប្រាក់');
         final status = switch (p.status) {
           'SUCCESS' => '',
           'FAILED' => label(' · Failed', ' · បរាជ័យ'),
@@ -144,6 +158,8 @@ class HomeSnapshot {
                   : '-'}$amount',
           incoming: incoming,
           internal: internal,
+          bank: bank,
+          counterpartyNumber: bank || internal ? null : other,
           reference: p.reference,
           accountNumber: numbers.contains(p.source) ? p.source : p.destination,
           previousDay: day != today,

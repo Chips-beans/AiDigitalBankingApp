@@ -25,21 +25,41 @@ public class FinancialCommandService {
     private final ObjectMapper json;
     private final FinancialPostingService posting;
     private final TransactionLockPolicy locks;
+    private final com.bank.digital_banking.module.auth.service.AppPinService pins;
+    @org.springframework.beans.factory.annotation.Value("${app.transfer.pin-proof-required:true}")
+    private boolean pinProofRequired;
+
+    /** The session-bound one-time proof from {@code POST /auth/pin/transfer-proof}. */
+    public record PinProof(java.util.UUID sessionId, String proof) {}
 
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public TransactionResponseDto execute(User actor, TransactionType operation, String key, String source,
                                           String destination, BigDecimal amount, String currency, String remark) {
-        return executeNamed(actor, operation, operation.name(), key, source, destination, amount, currency, remark);
+        return executeNamed(actor, operation, operation.name(), key, source, destination, amount, currency, remark, null);
     }
 
+    /** Customer transfer: a new (not replayed) request must consume a transfer PIN proof. */
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public TransactionResponseDto executeTransfer(User actor, String key, String source, String destination,
+                                                  BigDecimal amount, String currency, String remark, PinProof proof) {
+        return executeNamed(actor, TransactionType.TRANSFER, TransactionType.TRANSFER.name(), key, source, destination,
+                amount, currency, remark, proof == null ? new PinProof(null, null) : proof);
+    }
+
+    /** The QR service has already consumed the PIN proof under its own request claim. */
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public TransactionResponseDto executeQr(User actor, String key, String source, String destination,
                                              BigDecimal amount, String currency, String remark) {
-        return executeNamed(actor, TransactionType.TRANSFER, "QR_TRANSFER", key, source, destination, amount, currency, remark);
+        return executeNamed(actor, TransactionType.TRANSFER, "QR_TRANSFER", key, source, destination, amount, currency, remark, null);
+    }
+
+    /** Called by request handlers after their idempotent replay check and before any posting. */
+    public void requirePinProof(User actor, PinProof proof) {
+        if (pinProofRequired) pins.consumeTransferProof(actor, proof == null ? null : proof.sessionId(), proof == null ? null : proof.proof());
     }
 
     private TransactionResponseDto executeNamed(User actor, TransactionType operation, String namespace, String key,
-            String source, String destination, BigDecimal amount, String currency, String remark) {
+            String source, String destination, BigDecimal amount, String currency, String remark, PinProof proof) {
         if (actor == null || actor.getId() == null) throw new AccessDeniedException("An authenticated actor is required");
         if (operation != TransactionType.TRANSFER && operation != TransactionType.DEPOSIT)
             throw new IllegalArgumentException("Unsupported financial operation");
@@ -71,6 +91,7 @@ public class FinancialCommandService {
             throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "This key was already used with a different request");
         if (claim.get("transaction_id") != null)
             return json.readValue((String) claim.get("response_json"), TransactionResponseDto.class);
+        if (proof != null) requirePinProof(actor, proof);
         var result = posting.post(actor, operation, source, destination, amount, currency, remark);
         var response = TransactionResponseDto.fromEntity(result);
         jdbc.update("UPDATE idempotency_records SET transaction_id = ?, response_json = ? WHERE id = ?",

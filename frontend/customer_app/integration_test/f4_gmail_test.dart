@@ -25,9 +25,9 @@ class LostTransferResponse implements TransactionGateway {
   bool dropNext = false;
   final List<SavedTransfer> posts = [];
   @override
-  Future<RecentPosting> transfer(String token, SavedTransfer intent) async {
+  Future<RecentPosting> transfer(String token, SavedTransfer intent, {String? pinProof}) async {
     posts.add(intent);
-    final receipt = await real.transfer(token, intent);
+    final receipt = await real.transfer(token, intent, pinProof: pinProof);
     if (dropNext) {
       dropNext = false;
       throw const ApiFailure('TIMEOUT', 'Response deliberately lost for QA.');

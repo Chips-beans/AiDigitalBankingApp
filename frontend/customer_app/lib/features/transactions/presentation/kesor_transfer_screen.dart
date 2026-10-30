@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/app_labels.dart';
 import '../../../app/app_preferences.dart';
 import '../../../app/design_system/design_system.dart';
+import '../../../core/network/api_client.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/kesor_layout.dart';
 import '../../accounts/account_gateway.dart';
@@ -15,7 +17,12 @@ import '../../auth/session_controller.dart';
 import '../recipient_favorites.dart';
 import '../transfer_controller.dart';
 import '../transfer_models.dart';
+import '../transfer_support.dart';
+import 'recipient_widgets.dart';
 import 'transfer_panel.dart';
+import 'transfer_review_screen.dart';
+import 'transfer_success_screen.dart';
+import 'transfer_flow_design.dart';
 
 /// Native Flutter implementation of Kesor Figma frame 273:356 (440 × 956).
 /// System chrome is only reproduced by the visual fixture, never over native bars.
@@ -27,11 +34,19 @@ class KesorTransferScreen extends StatefulWidget {
     required this.onBack,
     required this.favorites,
     this.showDeviceChrome = false,
+    this.prefill,
+    this.directory,
     super.key,
   });
   final TransferController controller;
   final AccountsController accounts;
   final RecipientFavoritesStore favorites;
+
+  /// Receiver from a Home recipient or a QR scan.
+  final TransferPrefill? prefill;
+
+  /// Resolves receivers' names and photos; null in offline previews.
+  final RecipientDirectory? directory;
   final bool enabled, showDeviceChrome;
   final VoidCallback onBack;
   @override
@@ -51,6 +66,14 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
   String? favoriteError;
   List<FavoriteRecipient> savedRecipients = [];
   final attempted = <String>{}, bookmarked = <String>{};
+
+  /// The active QR request, if this transfer came from a scan.
+  TransferPrefill? qr;
+  Recipient? recipient;
+  Uint8List? recipientPhoto;
+  bool lookingUp = false;
+  String? lookupMessage, entryError, _lookedUp;
+  Timer? _lookupTimer;
   TransferController get model => widget.controller;
   bool get current =>
       mounted &&
@@ -70,13 +93,96 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
     changes = Listenable.merge([model, widget.accounts]);
     model.addListener(_transferChanged);
     model.session.addListener(_sessionChanged);
+    destination.addListener(_destinationChanged);
+    widget.accounts.addListener(_syncFixedAmount);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (current) _loadFavorites();
+      if (!current) return;
+      _loadFavorites();
+      final prefill = widget.prefill;
+      if (prefill != null && model.saved == null && model.review == null) {
+        setState(() {
+          qr = prefill.isQr ? prefill : null;
+          if (prefill.qrRemark != null) remark.text = prefill.qrRemark!;
+        });
+        destination.text = prefill.destination;
+        _syncFixedAmount();
+      }
     });
+  }
+
+  /// Fixed QR amounts are paid with the exact equivalent from the selected wallet.
+  void _syncFixedAmount() {
+    final fixed = qr?.fixedAmount, account = selected;
+    if (!mounted || fixed == null || account == null) return;
+    final debit = exactDebitFor(fixed, account.currency);
+    final text = debit?.decimal ?? '';
+    if (amount.text != text) amount.text = text;
+    final message = debit == null
+        ? tx(
+            context,
+            'This fixed amount cannot be paid exactly from this wallet. Choose your ${fixed.currency} wallet.',
+          )
+        : null;
+    if (entryError != message) setState(() => entryError = message);
+  }
+
+  void _destinationChanged() {
+    final number = destination.text.trim();
+    if (number == _lookedUp) return;
+    _lookupTimer?.cancel();
+    _lookedUp = number;
+    setState(() {
+      recipient = null;
+      recipientPhoto = null;
+      lookupMessage = null;
+      lookingUp = false;
+    });
+    final directory = widget.directory;
+    if (directory == null || !RegExp(r'^[0-9]{10,20}$').hasMatch(number)) {
+      return;
+    }
+    _lookupTimer = Timer(
+      const Duration(milliseconds: 350),
+      () => _lookup(directory, number),
+    );
+  }
+
+  Future<void> _lookup(RecipientDirectory directory, String number) async {
+    if (!current || destination.text.trim() != number) return;
+    setState(() => lookingUp = true);
+    try {
+      final found = await directory.lookup(number);
+      if (!current || destination.text.trim() != number) return;
+      setState(() {
+        recipient = found;
+        lookingUp = false;
+        lookupMessage = found == null
+            ? tx(context, 'No active Kesor account uses this number.')
+            : found.accountNumber == selected?.number
+            ? tx(context, 'This is your selected wallet. Choose another receiver.')
+            : null;
+      });
+      if (found?.hasPhoto == true) {
+        final photo = await directory.photo(number);
+        if (current && destination.text.trim() == number) {
+          setState(() => recipientPhoto = photo);
+        }
+      }
+    } on ApiFailure catch (e) {
+      if (current && destination.text.trim() == number) {
+        setState(() {
+          lookingUp = false;
+          lookupMessage = tx(context, e.message);
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    _lookupTimer?.cancel();
+    destination.removeListener(_destinationChanged);
+    widget.accounts.removeListener(_syncFixedAmount);
     model.removeListener(_transferChanged);
     model.session.removeListener(_sessionChanged);
     destination.dispose();
@@ -163,6 +269,27 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
       ? '\$${account.balance.formatted.substring(4)} USD'
       : account.balance.formatted;
 
+  String _sourceWallet(TransferDraft draft) => tx(
+    context,
+    draft.amount.currency == 'USD' ? 'US Dollar Wallet' : 'Khmer Riel Wallet',
+  );
+
+  Future<void> _finish({required bool home}) async {
+    if (!current || model.busy) return;
+    await model.dismiss();
+    if (!current || model.saved != null) return;
+    setState(() {
+      qr = null;
+      entryError = null;
+      destination.clear();
+      amount.clear();
+      remark.clear();
+      saveFavorite = false;
+      favoriteError = null;
+    });
+    if (home) widget.onBack();
+  }
+
   Future<void> _chooseAccount() async {
     if (!current || model.busy) return;
     await showModalBottomSheet<void>(
@@ -226,9 +353,8 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
     if (!current || model.busy) return;
     await _loadFavorites();
     if (!mounted || !current || favoriteError != null) return;
-    var list = savedRecipients
-        .where((r) => selected == null || r.currency == selected!.currency)
-        .toList();
+    // Any wallet can pay any saved recipient; other currencies convert at the fixed rate.
+    var list = savedRecipients.toList();
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -260,12 +386,21 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     ),
                   for (final recipient in list)
                     ListTile(
-                      title: Text(recipient.number),
-                      subtitle: Text(recipient.currency),
+                      key: ValueKey('saved-recipient-${recipient.number}'),
+                      leading: RecipientAvatar(
+                        directory: widget.directory,
+                        number: recipient.number,
+                      ),
+                      title: RecipientName(
+                        directory: widget.directory,
+                        number: recipient.number,
+                      ),
+                      subtitle: Text('${recipient.number} · ${recipient.currency}'),
                       onTap: () {
                         if (!current || model.busy) return;
-                        destination.text = recipient.number;
                         model.edit();
+                        setState(() => qr = null);
+                        destination.text = recipient.number;
                         Navigator.pop(sheetContext);
                       },
                       trailing: IconButton(
@@ -317,7 +452,26 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
       return;
     }
     if (!form.currentState!.validate()) return;
-    if (!model.prepare(selected!, destination.text, amount.text, remark.text)) {
+    var amountText = amount.text;
+    final fixed = qr?.fixedAmount;
+    if (fixed != null) {
+      final debit = exactDebitFor(fixed, selected!.currency);
+      if (debit == null) {
+        _syncFixedAmount();
+        errorFocus.requestFocus();
+        return;
+      }
+      amountText = debit.decimal;
+    }
+    if (!model.prepare(
+      selected!,
+      destination.text,
+      amountText,
+      remark.text,
+      qrString: qr?.qrString,
+      destinationName: recipient?.name ?? qr?.name,
+      qrFixed: fixed != null,
+    )) {
       errorFocus.requestFocus();
     } else {
       FocusScope.of(context).unfocus();
@@ -348,7 +502,9 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
           tx(context, model.error!.message),
           error: true,
           focusNode: errorFocus,
-        ),
+        )
+      else if (entry && entryError != null)
+        NoticePanel(entryError!, error: true, focusNode: errorFocus),
       if (widget.accounts.detailError != null ||
           widget.accounts.listError != null) ...[
         NoticePanel(
@@ -474,6 +630,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                 semanticLabel: tx(context, 'Receiver account number'),
                 hint: '1000000002',
                 enabled: !model.busy,
+                readOnly: qr != null,
                 keyboard: TextInputType.number,
                 action: TextInputAction.next,
                 prefix: Padding(
@@ -512,7 +669,14 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     : tx(context, 'Enter 10–20 digits.'),
               ),
               const SizedBox(height: 8),
-              _hint('Enter the receiver’s Kesor account number.'),
+              if (recipient != null || lookingUp || lookupMessage != null)
+                _recipientCard()
+              else
+                _hint(
+                  qr != null
+                      ? 'Receiver from the scanned QR code.'
+                      : 'Enter the receiver’s Kesor account number.',
+                ),
               const SizedBox(height: 8.75),
               _label('Amount'),
               const SizedBox(height: 8),
@@ -524,6 +688,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     '${tx(context, 'Amount')} (${account?.currency ?? 'USD'})',
                 hint: account?.currency == 'KHR' ? '0' : '25.00',
                 enabled: !model.busy,
+                readOnly: qr?.fixedAmount != null,
                 keyboard: TextInputType.numberWithOptions(
                   decimal: account?.currency != 'KHR',
                 ),
@@ -534,29 +699,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ExcludeSemantics(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: SizedBox(
-                            width: 26,
-                            height: 18,
-                            child: account?.currency == 'KHR'
-                                ? ColoredBox(
-                                    color: colors.accent,
-                                    child: Center(
-                                      child: Text(
-                                        '៛',
-                                        style: _type(context, 12, 18),
-                                      ),
-                                    ),
-                                  )
-                                : Image.asset(
-                                    'assets/transfer/flag-us.png',
-                                    fit: BoxFit.cover,
-                                  ),
-                          ),
-                        ),
-                      ),
+                      TransferCurrencyFlag(account?.currency ?? 'USD'),
                       const SizedBox(width: 12),
                       Text(
                         account?.currency ?? 'USD',
@@ -570,7 +713,15 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     : null,
               ),
               const SizedBox(height: 8),
-              _hint('Transfer currency follows your selected wallet.'),
+              _hint(
+                qr?.fixedAmount != null
+                    ? 'Fixed QR request: ${qr!.fixedAmount!.formatted}. Paying from another currency uses 1 USD = 4,000 KHR.'
+                    : recipient != null &&
+                          account != null &&
+                          recipient!.currency != account.currency
+                    ? 'You send ${account.currency}; the receiver gets ${recipient!.currency} at 1 USD = 4,000 KHR.'
+                    : 'Transfer currency follows your selected wallet.',
+              ),
               const SizedBox(height: 8.75),
               _label('Remark'),
               const SizedBox(height: 8),
@@ -691,6 +842,69 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
           : AppPalette.navy500,
     ),
   );
+  /// The server-verified receiver for the entered number.
+  Widget _recipientCard() {
+    final colors = AppColors.of(context);
+    final found = recipient;
+    return Container(
+      key: const ValueKey('transfer-recipient'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: lookupMessage != null ? colors.error : colors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (lookingUp)
+            const SizedBox(
+              width: 36,
+              height: 36,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (found != null)
+            RecipientAvatar.fromBytes(found.name, recipientPhoto, size: 36)
+          else
+            Icon(Icons.error_outline, color: colors.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lookingUp
+                      ? tx(context, 'Checking receiver…')
+                      : found?.name ?? lookupMessage ?? '',
+                  style: _type(context, 14, 22, weight: FontWeight.w500),
+                ),
+                if (found != null)
+                  Text(
+                    '${found.accountNumber} · ${found.currency}',
+                    style: _type(
+                      context,
+                      12,
+                      18,
+                      color: colors.foreground.withValues(alpha: .55),
+                    ),
+                  ),
+                if (found != null && lookupMessage != null)
+                  Text(
+                    lookupMessage!,
+                    style: _type(context, 12, 18, color: colors.error),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _hint(String value) => Text(
     tx(context, value),
     style: _type(
@@ -700,20 +914,22 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
       color: AppColors.of(context).foreground.withValues(alpha: .45),
     ),
   );
-  Widget _fieldIcon(String asset, Size box) => Container(
+  Widget _fieldIcon(String asset, Size box) => SizedBox(
     width: box.width,
     height: box.height,
-    decoration: Theme.of(context).brightness == Brightness.dark
-        ? BoxDecoration(
-            color: AppPalette.gold100,
-            borderRadius: BorderRadius.circular(4),
-          )
-        : null,
-    child: Center(child: TransferAsset(asset)),
+    child: Center(
+      child: TransferAsset(
+        asset,
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppPalette.navy100
+            : null,
+      ),
+    ),
   );
   Widget _footer() => Padding(
     padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
     child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         ConstrainedBox(
           constraints: const BoxConstraints(
@@ -769,7 +985,71 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
   );
 
   @override
-  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: changes,
+    builder: (context, _) {
+      final saved = model.saved;
+      if (saved?.outcome == 'success') {
+        return KesorTransferSuccessScreen(
+          saved: saved!,
+          walletName: _sourceWallet(saved.draft),
+          completedAt: model.receipt?.createdAt,
+          showDeviceChrome: widget.showDeviceChrome,
+          messages: Column(
+            children: [
+              _messages(),
+              if (model.refreshError != null)
+                NoticePanel(
+                  tx(context, model.refreshError!.message),
+                  error: true,
+                ),
+              if (model.receipt == null && !bookmarked.contains(saved.key))
+                TextButton.icon(
+                  onPressed: favoriteBusy ? null : () => _bookmark(saved),
+                  icon: const Icon(Icons.bookmark_add_outlined),
+                  label: Text(tx(context, 'Save recipient')),
+                ),
+            ],
+          ),
+          onHome: model.busy || model.storageError != null
+              ? null
+              : () => _finish(home: true),
+          onAnother: model.busy || model.storageError != null
+              ? null
+              : () => _finish(home: false),
+        );
+      }
+      final review = model.review;
+      if (review != null && saved == null) {
+        return KesorTransferReviewScreen(
+          draft: review,
+          walletName: _sourceWallet(review),
+          saveFavorite: saveFavorite,
+          showDeviceChrome: widget.showDeviceChrome,
+          busy: model.busy,
+          quote: model.quote,
+          messages: _messages(),
+          onEdit: model.busy ? null : model.edit,
+          onConfirm:
+              !widget.enabled ||
+                  !model.ready ||
+                  model.busy ||
+                  model.quoting ||
+                  model.storageError != null
+              ? null
+              : () => confirmWithPin(context, model),
+        );
+      }
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(widget.showDeviceChrome ? 38 : 0),
+        child: _buildEntry(context),
+      );
+    },
+  );
+
+  Widget _buildEntry(
+    BuildContext context,
+  ) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.light.copyWith(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: AppColors.of(context).background,
@@ -780,6 +1060,25 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
     ),
     child: Scaffold(
       backgroundColor: AppPalette.navy500,
+      bottomNavigationBar: entry
+          ? Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Center(
+                heightFactor: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: KesorLayout.frameWidth,
+                  ),
+                  child: ColoredBox(
+                    color: AppColors.of(context).background,
+                    child: _footer(),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
@@ -792,7 +1091,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     : MediaQuery.paddingOf(context).top;
                 final extra = math.max(
                   0.0,
-                  constraints.maxHeight - top - 234 - 510 - 98,
+                  constraints.maxHeight - top - 234 - 510,
                 );
                 final body = SingleChildScrollView(
                   key: const ValueKey('transfer-scroll'),
@@ -938,7 +1237,6 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                                 children: [
                                   _fields(),
                                   SizedBox(height: extra),
-                                  _footer(),
                                 ],
                               )
                             : Padding(
@@ -985,12 +1283,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                     ],
                   ),
                 );
-                return widget.showDeviceChrome
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(38),
-                        child: body,
-                      )
-                    : body;
+                return body;
               },
             ),
           ),
@@ -1018,8 +1311,9 @@ TextStyle _type(
 
 /// Intrinsic export bounds are retained, including the exact shared album icon.
 class TransferAsset extends StatelessWidget {
-  const TransferAsset(this.name, {super.key});
+  const TransferAsset(this.name, {this.color, super.key});
   final String name;
+  final Color? color;
   static const sizes = <String, Size>{
     'back.svg': Size(44, 44),
     'card.svg': Size(20.4475, 15.7542),
@@ -1039,6 +1333,9 @@ class TransferAsset extends StatelessWidget {
         name == 'favorites.svg'
             ? 'assets/home/recipients.svg'
             : 'assets/transfer/$name',
+        colorFilter: color == null
+            ? null
+            : ColorFilter.mode(color!, BlendMode.srcIn),
       ),
     ),
   );
@@ -1058,12 +1355,13 @@ class _TransferInput extends StatefulWidget {
     this.leftPadding = 0,
     this.rightPadding = 0,
     this.validator,
+    this.readOnly = false,
     super.key,
   });
   final TextEditingController controller;
   final Key fieldKey;
   final String semanticLabel, hint;
-  final bool enabled;
+  final bool enabled, readOnly;
   final TextInputType keyboard;
   final TextInputAction action;
   final Widget? prefix, suffix;
@@ -1116,6 +1414,7 @@ class _TransferInputState extends State<_TransferInput> {
                   keyboardType: widget.keyboard,
                   textInputAction: widget.action,
                   enabled: widget.enabled,
+                  readOnly: widget.readOnly,
                   validator: widget.validator,
                   decoration: InputDecoration(
                     isDense: true,

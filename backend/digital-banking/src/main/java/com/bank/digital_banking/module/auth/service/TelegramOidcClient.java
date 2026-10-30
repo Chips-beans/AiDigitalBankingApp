@@ -43,7 +43,7 @@ public class TelegramOidcClient {
             return verifyToken(json.readTree(response.body()).path("id_token").asText(), nonce, keys());
         } catch (ApiException ex) { throw ex; }
         catch (InterruptedException ex) { Thread.currentThread().interrupt(); throw unavailable(); }
-        catch (Exception ex) { throw unavailable(); }
+        catch (Exception ex) { throw unavailable(ex); }
     }
 
     public Identity authenticateCode(String code, String verifier, String nonce) {
@@ -64,13 +64,13 @@ public class TelegramOidcClient {
         catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw unavailable();
-        } catch (Exception ex) { throw unavailable(); }
+        } catch (Exception ex) { throw unavailable(ex); }
     }
     private synchronized JsonNode keys() throws Exception {
         if (cachedKeys != null && keysUntil.isAfter(Instant.now())) return cachedKeys;
         HttpResponse<String> response = http.send(HttpRequest.newBuilder(URI.create("https://oauth.telegram.org/.well-known/jwks.json"))
                 .timeout(Duration.ofSeconds(5)).GET().build(), HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) throw unavailable();
+        if (response.statusCode() != 200) throw unavailable(new IllegalStateException("JWKS HTTP " + response.statusCode()));
         cachedKeys = json.readTree(response.body());
         keysUntil = Instant.now().plusSeconds(300);
         return cachedKeys;
@@ -108,6 +108,12 @@ public class TelegramOidcClient {
     }
     private String name(String value) { return value == null ? null : value.strip().substring(0, Math.min(value.strip().length(), 50)); }
     public static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
+    /** Logs only the failure type (never codes, tokens or bodies) so provider outages are diagnosable. */
+    private ApiException unavailable(Exception cause) {
+        org.slf4j.LoggerFactory.getLogger(getClass()).warn("Telegram verification unavailable: {}", cause.getClass().getSimpleName()
+                + (cause instanceof IllegalStateException ? " (" + cause.getMessage() + ")" : ""));
+        return unavailable();
+    }
     private ApiException unavailable() {
         return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "TELEGRAM_UNAVAILABLE", "Telegram is unavailable; try again or continue with email");
     }

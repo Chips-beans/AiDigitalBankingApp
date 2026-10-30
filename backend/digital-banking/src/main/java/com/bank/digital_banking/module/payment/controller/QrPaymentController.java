@@ -54,8 +54,13 @@ public class QrPaymentController {
             @AuthenticationPrincipal User user,
             @Parameter(required = true, description = "Required immutable request key; replay with the identical QR payment body")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Parameter(description = "One-time proof from POST /auth/pin/transfer-proof; not needed to replay a completed key")
+            @RequestHeader(value = "X-Pin-Proof", required = false) String pinProof,
+            org.springframework.security.core.Authentication authentication,
             @Valid @RequestBody QrTransferRequest request) {
-        QrTransferResponse response = qrPaymentService.processQrTransfer(user, idempotencyKey, request);
+        QrTransferResponse response = qrPaymentService.processQrTransfer(user, idempotencyKey, request,
+                new com.bank.digital_banking.module.transaction.service.FinancialCommandService.PinProof(
+                        authentication.getDetails() instanceof java.util.UUID session ? session : null, pinProof));
         return ResponseEntity.ok(ApiResponse.success(response, "Transfer by QR completed successfully"));
     }
 

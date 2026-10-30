@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 
 import '../../core/network/api_client.dart';
 
-/// Only a matching callback for an active, locally initiated login can supply a code.
+/// Only an exact callback for a locally initiated, server-PKCE-bound native flow
+/// can supply a code. Telegram's native SDK does not require returned state;
+/// reject a conflicting state when supplied. The backend still verifies PKCE,
+/// the private flow secret, one-use consumption and the ID token's nonce.
 String nativeTelegramCode(String callback, String redirectUri, String flowId) {
   final uri = Uri.tryParse(callback);
   final expected = Uri.tryParse(redirectUri);
@@ -17,7 +20,8 @@ String nativeTelegramCode(String callback, String redirectUri, String flowId) {
       uri.userInfo.isNotEmpty ||
       uri.hasFragment ||
       uri.queryParametersAll.values.any((values) => values.length != 1) ||
-      uri.queryParameters['state'] != flowId) {
+      (uri.queryParameters.containsKey('state') &&
+          uri.queryParameters['state'] != flowId)) {
     throw const ApiFailure(
       'TELEGRAM_REJECTED',
       'Telegram returned an invalid login response.',

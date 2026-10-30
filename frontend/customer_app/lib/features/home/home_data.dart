@@ -3,9 +3,15 @@ import 'package:flutter/foundation.dart';
 /// Presentation values only. The Home screen has no network dependencies.
 @immutable
 class HomeRecipient {
-  const HomeRecipient(this.name, {this.avatarAsset});
+  const HomeRecipient(this.name, {this.avatarAsset, this.accountNumber, this.knownName});
   final String name;
   final String? avatarAsset;
+
+  /// Set for real counterparties; tapping opens a transfer pre-filled with it.
+  final String? accountNumber;
+
+  /// The server-reported profile name, when the history included one.
+  final String? knownName;
 }
 
 @immutable
@@ -21,10 +27,17 @@ class HomeTransaction {
     this.accountNumber,
     this.dateLabel,
     this.internal = false,
+    this.bank = false,
+    this.counterpartyNumber,
   });
   final String name, time, amount;
-  final bool incoming, previousDay, internal;
+
+  /// [bank]: posted by Kesor Bank itself (opening credit or deposit).
+  final bool incoming, previousDay, internal, bank;
   final String? avatarAsset, reference, dateLabel, accountNumber;
+
+  /// The other customer's account, used to show their profile photo.
+  final String? counterpartyNumber;
 }
 
 @immutable

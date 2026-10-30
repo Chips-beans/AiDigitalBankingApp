@@ -1,6 +1,8 @@
 package com.bank.digital_banking;
 
 import com.bank.digital_banking.module.account.service.OpeningFundingPolicy;
+import com.bank.digital_banking.module.auth.entity.User;
+import com.bank.digital_banking.module.auth.repository.UserRepository;
 import com.bank.digital_banking.module.payment.qr.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.*;
@@ -22,13 +24,16 @@ class AccountPairQrTests extends PostgresIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired QrCodeEngine engine;
+    @Autowired UserRepository users;
     private final HttpClient client = HttpClient.newHttpClient();
     String alice, bob;
 
+    // Fresh customers without wallets, so pair opening provisions and funds both accounts and the shared
+    // seeded fixtures (alice.demo 9000000001 etc.) are never mutated by these tests.
     @BeforeEach void loginCustomers() throws Exception {
         jdbc.update("DELETE FROM otp_rate_limits");
         jdbc.update("DELETE FROM login_attempt_limits");
-        alice = login("alice.demo"); bob = login("bob.demo");
+        alice = login(customer("pair.alice")); bob = login(customer("pair.bob"));
     }
     @Test void fundedPairsReplayConflictAndPreserveExistingAccounts() throws Exception {
         String key = UUID.randomUUID().toString();
@@ -40,8 +45,14 @@ class AccountPairQrTests extends PostgresIntegrationTest {
         assertThat(data.path("accounts").size()).isEqualTo(2);
         assertThat(data.path("accounts").get(0).path("balance").decimalValue()).isEqualByComparingTo("200.00");
         assertThat(data.path("accounts").get(1).path("balance").decimalValue()).isEqualByComparingTo("100000");
+        assertThat(data.path("accounts").get(0).path("currency").asText()).isEqualTo("USD");
+        assertThat(data.path("accounts").get(1).path("currency").asText()).isEqualTo("KHR");
         assertThat(data(call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "SAVINGS")))).isEqualTo(data);
         assertThat(call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "CHECKING")).statusCode()).isEqualTo(409);
+        var again = data(call("POST", "/accounts/pairs", alice, UUID.randomUUID().toString(), Map.of("accountType", "SAVINGS"))).path("accounts");
+        assertThat(again.get(0).path("accountNumber")).isEqualTo(data.path("accounts").get(0).path("accountNumber"));
+        assertThat(again.get(1).path("accountNumber")).isEqualTo(data.path("accounts").get(1).path("accountNumber"));
+        assertThat(data(call("GET", "/accounts/me", alice, null, null)).size()).isEqualTo(2);
         assertThat(call("POST", "/accounts/pairs", alice, null, Map.of("accountType", "SAVINGS")).statusCode()).isEqualTo(400);
         for (var account : data.path("accounts")) {
             assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions t JOIN accounts a ON a.id=t.destination_account_id WHERE a.account_number=? AND t.operation='TEST_OPENING_CREDIT'", Integer.class, account.path("accountNumber").asText())).isEqualTo(1);
@@ -146,8 +157,11 @@ class AccountPairQrTests extends PostgresIntegrationTest {
         var payload = Map.of("sourceAccountNumber", sender.get(0).path("accountNumber").asText(), "qrString", fixed, "amount", "11", "currency", "USD");
         assertThat(call("POST", "/payments/qr/transfer", bob, "mismatch", payload).statusCode()).isEqualTo(400);
         assertThat(call("POST", "/payments/qr/transfer", bob, null, payload).statusCode()).isEqualTo(400);
-        payload = Map.of("sourceAccountNumber", sender.get(1).path("accountNumber").asText(), "qrString", fixed, "amount", "10", "currency", "KHR");
-        assertThat(call("POST", "/payments/qr/transfer", bob, "currency", payload).statusCode()).isEqualTo(400);
+        // A KHR wallet may now pay a USD request (converted), but the stated currency must be the paying wallet's.
+        payload = Map.of("sourceAccountNumber", sender.get(1).path("accountNumber").asText(), "qrString", fixed, "amount", "10", "currency", "USD");
+        var mismatch = call("POST", "/payments/qr/transfer", bob, "currency", payload);
+        assertThat(mismatch.statusCode()).isEqualTo(400);
+        assertThat(mismatch.body()).contains("CURRENCY_MISMATCH");
     }
 
     @Test void concurrentSameKeyQrRequestsReturnOneReceiptAndManualKeysAreSeparate() throws Exception {
@@ -167,6 +181,32 @@ class AccountPairQrTests extends PostgresIntegrationTest {
             assertThat(jdbc.queryForObject("SELECT balance FROM accounts WHERE account_number=?", java.math.BigDecimal.class, destination)).isEqualByComparingTo("220.00");
         }
         assertThat(call("POST", "/payments/qr/transfer", bob, key, Map.of("sourceAccountNumber", source, "qrString", qr, "amount", "11.00", "currency", "USD")).statusCode()).isEqualTo(409);
+    }
+    @Test void signupWalletsAreFundedOnceAndPairOpeningReturnsThem() throws Exception {
+        String name = "pair.signup." + UUID.randomUUID().toString().substring(0, 8), email = name + "@example.test";
+        call("POST", "/auth/request-otp", null, null, Map.of("email", email, "purpose", "SIGNUP"));
+        var signup = call("POST", "/auth/register", null, null, Map.of("username", name, "email", email, "password", PASSWORD,
+                "otpCode", SMTP.code(email), "deviceFingerprint", name, "deviceName", "QA"));
+        assertThat(signup.statusCode()).as(signup.body()).isEqualTo(201);
+        String token = data(signup).path("accessToken").asText();
+        var wallets = data(call("GET", "/accounts/me", token, null, null));
+        assertThat(wallets.size()).isEqualTo(2);
+        var opened = data(call("POST", "/accounts/pairs", token, UUID.randomUUID().toString(), Map.of("accountType", "SAVINGS")));
+        assertThat(opened.path("testFundingApplied").asBoolean()).isTrue();
+        assertThat(opened.path("accounts").get(0).path("balance").decimalValue()).isEqualByComparingTo("200.00");
+        assertThat(opened.path("accounts").get(1).path("balance").decimalValue()).isEqualByComparingTo("100000");
+        for (var account : opened.path("accounts")) {
+            assertThat(wallets.toString()).contains(account.path("accountNumber").asText());
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions t JOIN accounts a ON a.id=t.destination_account_id WHERE a.account_number=? AND t.operation='TEST_OPENING_CREDIT'", Integer.class, account.path("accountNumber").asText())).isEqualTo(1);
+        }
+        assertThat(data(call("GET", "/accounts/me", token, null, null)).size()).isEqualTo(2);
+    }
+    String customer(String prefix) {
+        var template = users.findByUsername("alice.demo").orElseThrow();
+        String name = prefix + "." + UUID.randomUUID().toString().substring(0, 8);
+        users.save(User.builder().username(name).email(name + "@example.test").password(template.getPassword())
+                .roles(new HashSet<>(template.getRoles())).enabled(true).profileComplete(true).build());
+        return name;
     }
     JsonNode pair(String token) throws Exception { return data(call("POST", "/accounts/pairs", token, UUID.randomUUID().toString(), Map.of("accountType", "SAVINGS"))).path("accounts"); }
     String generate(String token, String account, String currency, String amount) throws Exception {

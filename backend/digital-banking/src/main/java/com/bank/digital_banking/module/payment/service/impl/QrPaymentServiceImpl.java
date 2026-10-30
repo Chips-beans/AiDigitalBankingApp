@@ -35,6 +35,7 @@ public class QrPaymentServiceImpl implements QrPaymentService {
     private final ObjectMapper json;
     private final TransactionLockPolicy locks;
     private final jakarta.persistence.EntityManager entities;
+    private final com.bank.digital_banking.module.transaction.service.ExchangeRates rates;
 
     @Override @Transactional
     public QrGenerateResponse generateQr(User user, QrGenerateRequest request) {
@@ -123,7 +124,8 @@ public class QrPaymentServiceImpl implements QrPaymentService {
     }
 
     @Override @Transactional
-    public QrTransferResponse processQrTransfer(User user, String key, QrTransferRequest request) {
+    public QrTransferResponse processQrTransfer(User user, String key, QrTransferRequest request,
+                                                FinancialCommandService.PinProof proof) {
         if (key == null || !key.matches("[A-Za-z0-9._:-]{1,128}"))
             throw bad("IDEMPOTENCY_KEY_REQUIRED", "Provide an Idempotency-Key");
         if (request.qrString() == null || request.qrString().length() > 4096)
@@ -138,19 +140,24 @@ public class QrPaymentServiceImpl implements QrPaymentService {
             throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "QR payment key belongs to a different request");
         if (claim.get("response_json") != null)
             return json.readValue((String) claim.get("response_json"), QrTransferResponse.class);
+        commands.requirePinProof(user, proof);
         var qr = engine.parse(request.qrString());
         var payment = registered(qr, true);
         var source = owner(user, request.sourceAccountNumber());
         var destination = destination(qr.getAccountNumber(), qr.getCurrency());
         active(source);
-        String currency = request.currency() == null ? qr.getCurrency() : CurrencyUtils.currency(request.currency());
-        if (!currency.equals(qr.getCurrency()) || !currency.equals(source.getCurrency()))
-            throw bad("CURRENCY_MISMATCH", "Source, destination and QR currencies must match");
+        // The request currency is the paying account's currency; a different QR currency is
+        // converted at the fixed rate. A fixed request is paid with the exact equivalent debit.
+        String currency = request.currency() == null ? source.getCurrency() : CurrencyUtils.currency(request.currency());
+        if (!currency.equals(source.getCurrency()))
+            throw bad("CURRENCY_MISMATCH", "The payment currency must match the source account");
         if (source.getAccountNumber().equals(destination.getAccountNumber()))
             throw bad("INVALID_REQUEST", "Choose a different destination account");
-        BigDecimal amount = CurrencyUtils.amount(qr.isDynamic() ? qr.getAmount() : request.amount(), currency, false);
-        if (qr.isDynamic() && request.amount() != null && request.amount().compareTo(amount) != 0)
+        if (qr.isDynamic() && request.amount() != null && request.amount().compareTo(qr.getAmount()) != 0)
             throw bad("AMOUNT_MISMATCH", "Amount does not match the fixed request");
+        BigDecimal amount = qr.isDynamic()
+                ? rates.forCredit(qr.getAmount(), currency, qr.getCurrency()).debitAmount()
+                : CurrencyUtils.amount(request.amount(), currency, false);
         if (qr.isDynamic() && payment.getStatus() == PaymentStatus.SUCCESS)
             throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_ALREADY_COMPLETED", "This request has already been paid");
         String remark = request.remark() == null ? qr.getRemark() : request.remark();

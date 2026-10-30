@@ -8,6 +8,29 @@ import '../../../shared/widgets/copyable_value.dart';
 import '../../accounts/accounts_controller.dart';
 import '../transfer_controller.dart';
 import '../transfer_models.dart';
+import 'transfer_pin_prompt.dart';
+
+/// Asks for the PIN (when the server requires one), then confirms the reviewed draft.
+Future<void> confirmWithPin(BuildContext context, TransferController model) async {
+  if (!model.requiresPin) return model.confirm();
+  final pin = await askTransferPin(
+    context,
+    name: model.session.identity?.displayName ?? '',
+    photo: model.session.profilePhoto?.bytes,
+  );
+  if (pin != null) await model.confirm(pin: pin);
+}
+
+/// Retries the exact saved transfer; a not-yet-processed retry needs a fresh PIN proof.
+Future<void> retryWithPin(BuildContext context, TransferController model) async {
+  if (!model.requiresPin) return model.retry();
+  final pin = await askTransferPin(
+    context,
+    name: model.session.identity?.displayName ?? '',
+    photo: model.session.profilePhoto?.bytes,
+  );
+  if (pin != null) await model.retry(pin: pin);
+}
 
 class TransferPanel extends StatefulWidget {
   const TransferPanel({
@@ -139,7 +162,7 @@ class _TransferPanelState extends State<TransferPanel> {
               busy: model.busy,
               onPressed:
                   widget.enabled && model.ready && model.storageError == null
-                  ? model.retry
+                  ? () => retryWithPin(context, model)
                   : null,
             ),
           ] else ...[
@@ -190,7 +213,7 @@ class _TransferPanelState extends State<TransferPanel> {
             busy: model.busy,
             onPressed:
                 widget.enabled && model.ready && model.storageError == null
-                ? model.confirm
+                ? () => confirmWithPin(context, model)
                 : null,
           ),
           TextButton(

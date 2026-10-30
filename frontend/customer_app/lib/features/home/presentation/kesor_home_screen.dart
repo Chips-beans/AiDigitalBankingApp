@@ -10,6 +10,8 @@ import '../../../app/app_preferences.dart';
 import '../../../shared/widgets/kesor_layout.dart';
 import '../../../shared/widgets/kesor_bottom_bar.dart';
 import '../../../app/design_system/design_system.dart';
+import '../../transactions/presentation/recipient_widgets.dart';
+import '../../transactions/transfer_support.dart';
 import '../home_data.dart';
 export '../home_data.dart';
 
@@ -35,10 +37,16 @@ class KesorHomeScreen extends StatefulWidget {
     this.onRefresh,
     this.errorMessage,
     this.pendingTransfer = false,
+    this.onRecipient,
+    this.directory,
     super.key,
   });
 
   final KesorHomeData data;
+
+  /// Opens a transfer to this account number (with the known name, if any).
+  final void Function(String number, String? name)? onRecipient;
+  final RecipientDirectory? directory;
   final bool? balanceVisible;
   final ValueChanged<bool>? onBalanceVisibilityChanged;
   final bool showDeviceChrome, pendingTransfer, showNavigation, loading;
@@ -143,11 +151,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
         children: [
           for (final person in [...widget.data.recipients, ..._addedRecipients])
             ListTile(
-              leading: _Avatar(
-                person.name,
-                asset: person.avatarAsset,
-                size: 48,
-              ),
+              leading: _personAvatar(person, 48),
               title: Text(
                 person.name,
                 style: _text(context, 14, 22, family: 'Poppins'),
@@ -170,8 +174,21 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     );
   }
 
+  /// Real counterparties show their profile photo (or initial); previews keep assets.
+  Widget _personAvatar(HomeRecipient person, double size) =>
+      person.accountNumber != null && widget.directory != null
+      ? RecipientAvatar(
+          number: person.accountNumber!,
+          directory: widget.directory,
+          size: size,
+        )
+      : _Avatar(person.name, asset: person.avatarAsset, size: size);
+
   void _recipient(HomeRecipient person) {
-    if (widget.onTransfer != null) {
+    final number = person.accountNumber;
+    if (number != null && widget.onRecipient != null) {
+      widget.onRecipient!(number, person.knownName);
+    } else if (widget.onTransfer != null) {
       widget.onTransfer!();
     } else {
       _showPanel(person.name, 'អ្នកទទួល · Recipient');
@@ -699,9 +716,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
   Widget _quickAction(int index, double width, double height) {
     final qr = index == 1;
     final transfer = index == 2 || index == 5;
+    // The third button opens transfers, so it is labelled Transfer like the sixth.
     final label = qr
         ? _tr('Scan QR', 'ស្កេនកូដ QR')
-        : index == 5
+        : transfer
         ? _tr('Transfer', 'ផ្ទេរប្រាក់')
         : _tr('Payments', 'ទូទាត់ប្រាក់');
     return _Tap(
@@ -848,7 +866,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _Avatar(person.name, asset: person.avatarAsset, size: 48),
+                _personAvatar(person, 48),
                 const SizedBox(height: 2),
                 SizedBox(
                   height: 18 + extra * 18,
@@ -994,12 +1012,43 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
     );
   }
 
+  /// Kesor Bank's mark for bank postings, the other customer's photo, or an initial.
+  Widget _transactionAvatar(HomeTransaction entry) {
+    if (entry.bank) {
+      return Container(
+        key: const ValueKey('home-transaction-bank'),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: AppPalette.gold500.withValues(alpha: .4)),
+        ),
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 20,
+          height: 25,
+          child: FittedBox(child: _Svg('kesor-logo.svg')),
+        ),
+      );
+    }
+    final number = entry.counterpartyNumber;
+    if (number != null && widget.directory != null) {
+      return RecipientAvatar(
+        number: number,
+        directory: widget.directory,
+        size: 36,
+      );
+    }
+    return _Avatar(entry.name, asset: entry.avatarAsset, size: 36);
+  }
+
   Widget _transactionRow(HomeTransaction entry, {bool first = false}) => _Tap(
     label: '${entry.name}, ${entry.amount}, ${entry.time}',
     onTap: () => _transaction(entry),
     child: Row(
       children: [
-        _Avatar(entry.name, asset: entry.avatarAsset, size: 36),
+        _transactionAvatar(entry),
         const SizedBox(width: 8),
         Expanded(
           child: Column(

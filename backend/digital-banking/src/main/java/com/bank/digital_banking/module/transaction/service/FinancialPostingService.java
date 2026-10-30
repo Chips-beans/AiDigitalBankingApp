@@ -29,6 +29,7 @@ public class FinancialPostingService {
     private final AuditTrail audit;
     private final EntityManager entities;
     private final TransactionLockPolicy locks;
+    private final ExchangeRates rates;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Transaction post(User actor, TransactionType type, String sourceNumber, String destinationNumber,
@@ -64,18 +65,27 @@ public class FinancialPostingService {
         for (Account account : locked.values()) {
             if (account.getStatus() != AccountStatus.ACTIVE)
                 throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_INACTIVE", "Account is not active");
-            if (!account.getCurrency().equals(currency))
-                throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENCY_MISMATCH", "Account currency does not match the request");
         }
+        // The request currency is the debited currency. Only customer transfers may credit
+        // another currency, converted at the fixed rate; deposits must match exactly.
+        Account debited = source != null ? source : destination;
+        if (!debited.getCurrency().equals(currency)
+                || (type != TransactionType.TRANSFER && !destination.getCurrency().equals(currency)))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENCY_MISMATCH", "Account currency does not match the request");
+        var quote = rates.forDebit(amount, currency, destination.getCurrency());
         if (source != null) {
             if (source.getBalance().compareTo(amount) < 0) throw new InsufficientBalanceException("Insufficient funds");
             source.setBalance(source.getBalance().subtract(amount));
         }
-        destination.setBalance(CurrencyUtils.amount(destination.getBalance().add(amount), currency, true));
+        destination.setBalance(CurrencyUtils.amount(destination.getBalance().add(quote.creditAmount()),
+                destination.getCurrency(), true));
         Transaction transaction = transactions.saveAndFlush(Transaction.builder()
                 .referenceNumber("TXN-" + UUID.randomUUID().toString().replace("-", ""))
                 .sourceAccount(source).destinationAccount(destination).amount(amount).fee(BigDecimal.ZERO)
                 .currency(currency).transactionType(type).status(TransactionStatus.SUCCESS).remark(remark)
+                .creditAmount(quote.converted() ? quote.creditAmount() : null)
+                .creditCurrency(quote.converted() ? quote.creditCurrency() : null)
+                .exchangeRate(quote.converted() ? quote.rate() : null)
                 .initiatedByUserId(actor.getId()).operation(type.name()).correlationId(AuditTrail.correlation()).build());
         audit.posting(actor, type.name(), transaction.getReferenceNumber(), transaction.getCorrelationId());
         return transaction;

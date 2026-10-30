@@ -39,12 +39,18 @@ bundled Google Sans as the available stand-in for the source SF Pro clock font.
 ## Persistent profile photo
 
 The user explicitly requested real backend persistence, not a local preview.
-The OS file selector accepts JPG/PNG. Upload returns a server-confirmed image
-before the avatar changes. No optimistic unsaved preview is represented as saved.
+The OS file selector accepts JPG/PNG. Without a photo, the avatar uses the first
+grapheme of the entered first name (or last name while first name is empty),
+updating as the customer types. Latin initials are uppercased; Khmer combining
+characters stay together. Before a name is entered, the neutral person icon stays.
+Selected image bytes display immediately while the authenticated upload runs,
+with localized uploading feedback. On success, the server-confirmed normalized
+image replaces the preview. An unsaved preview is never stored as a saved photo.
 Profile also displays the saved avatar and permits replacement after onboarding.
 Cancelled selection sends no request. Read failures can be retried; failed
 replacement retains the previously confirmed image. Session changes clear cached
-photos and suppress late responses. Mutations are not replayed automatically.
+photos and suppress late responses. Local previews also clear on privacy cover,
+PIN lock, logout or session replacement. Mutations are not replayed automatically.
 
 Authenticated endpoints (same response envelope as other authentication routes):
 

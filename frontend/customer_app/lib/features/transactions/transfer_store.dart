@@ -90,15 +90,19 @@ class SecureTransferStore implements TransferStore {
       });
 }
 
+/// Round-trips records through JSON exactly like [SecureTransferStore], so tests see
+/// the same persisted shape the device does.
 class MemoryTransferStore implements TransferStore {
   final Map<int, SavedTransfer> _saved = {};
+  static SavedTransfer _persisted(SavedTransfer record) =>
+      SavedTransfer.fromJson(jsonDecode(jsonEncode(record.toJson())));
   @override
   Future<SavedTransfer?> read(int user) async => _saved[user];
   @override
   Future<void> claim(int user, SavedTransfer record) async {
     if (_saved[user] != null) throw pendingTransfer;
     if (!record.unresolved) throw invalidTransfer;
-    _saved[user] = record;
+    _saved[user] = _persisted(record);
   }
 
   @override
@@ -114,7 +118,7 @@ class MemoryTransferStore implements TransferStore {
         saved.draft.destinationName != record.draft.destinationName) {
       throw invalidTransfer;
     }
-    _saved[user] = record;
+    _saved[user] = _persisted(record);
   }
 
   @override

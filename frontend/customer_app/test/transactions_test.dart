@@ -58,7 +58,7 @@ class FakeTransactions implements TransactionGateway {
   Future<PostingPage> Function(String, int)? onHistory;
   Future<RecentPosting> Function(String, String)? onDetail;
   @override
-  Future<RecentPosting> transfer(String token, SavedTransfer operation) async {
+  Future<RecentPosting> transfer(String token, SavedTransfer operation, {String? pinProof}) async {
     requests.add(operation);
     await gate?.future;
     if (failure != null) throw failure!;

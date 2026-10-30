@@ -50,6 +50,12 @@ void main() {
     for (final variant in [
       (name: 'reference-en', size: const Size(440, 956), scale: 1.0, km: false),
       (name: 'reference-km', size: const Size(440, 956), scale: 1.0, km: true),
+      (
+        name: 'reference-khr',
+        size: const Size(440, 956),
+        scale: 1.0,
+        km: false,
+      ),
       (name: 'small-en', size: const Size(375, 667), scale: 1.0, km: false),
       (name: 'large-text-km', size: const Size(320, 667), scale: 2.0, km: true),
       (name: 'landscape-en', size: const Size(812, 375), scale: 2.0, km: false),
@@ -69,6 +75,9 @@ void main() {
           MemoryCreationStore(),
         );
         await accounts.initialize();
+        if (variant.name == 'reference-khr') {
+          await accounts.select(accounts.accounts.last);
+        }
         final transfers = TransferController(
           session,
           FakeTransactions(),

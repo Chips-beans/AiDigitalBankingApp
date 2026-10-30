@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../core/network/api_client.dart';
@@ -6,17 +8,29 @@ import '../auth/session_controller.dart';
 import 'transaction_gateway.dart';
 import 'transfer_models.dart';
 import 'transfer_store.dart';
+import 'transfer_support.dart';
 
 class TransferController extends ChangeNotifier {
-  TransferController(this.session, this.gateway, this.store, {this.onSuccess})
-    : _user = session.identity!.userId,
-      _session = session.identity!.sessionId {
+  TransferController(
+    this.session,
+    this.gateway,
+    this.store, {
+    this.onSuccess,
+    this.support,
+  }) : _user = session.identity!.userId,
+       _session = session.identity!.sessionId {
     session.addListener(_sessionChanged);
   }
   final SessionController session;
   final TransactionGateway gateway;
   final TransferStore store;
   final Future<void> Function()? onSuccess;
+
+  /// Lookup, quotes and PIN proofs. When present, every send asks for the PIN.
+  final TransferSupportGateway? support;
+  bool get requiresPin => support != null;
+  TransferQuote? quote;
+  bool quoting = false;
   final int _user;
   final String _session;
   bool _disposed = false, _active = true;
@@ -99,18 +113,21 @@ class TransferController extends ChangeNotifier {
     String remark, {
     String? qrString,
     String? destinationName,
+    bool qrFixed = false,
   }) {
     if (!_current || !ready || busy || saved != null || storageError != null) {
       return false;
     }
     error = refreshError = null;
+    quote = null;
     try {
       review = TransferDraft.validate(source, destination, amount, remark);
-      if (qrString != null) {
-        if (qrString.isEmpty ||
-            qrString.length > 4096 ||
-            destinationName == null ||
-            destinationName.isEmpty) {
+      if (qrString != null || destinationName != null) {
+        if (qrString != null &&
+            (qrString.isEmpty ||
+                qrString.length > 4096 ||
+                destinationName == null ||
+                destinationName.isEmpty)) {
           throw invalidTransfer;
         }
         review = TransferDraft(
@@ -120,6 +137,7 @@ class TransferController extends ChangeNotifier {
           review!.remark,
           qrString: qrString,
           destinationName: destinationName,
+          qrFixed: qrString != null && qrFixed,
         );
       }
     } on ApiFailure catch (e) {
@@ -127,18 +145,77 @@ class TransferController extends ChangeNotifier {
       review = null;
     }
     _emit();
+    if (review != null) unawaited(_quote(review!));
     return review != null;
+  }
+
+  /// Shows the exact credited amount (including conversion) on the review screen.
+  Future<void> _quote(TransferDraft draft) async {
+    final gateway = support;
+    if (gateway == null) return;
+    quoting = true;
+    _emit();
+    try {
+      final result = await session.authorizedRead(
+        (token) =>
+            gateway.quote(token, draft.source, draft.destination, draft.amount),
+      );
+      if (_current && identical(review, draft)) {
+        if (result.debit.minorUnits != draft.amount.minorUnits ||
+            result.debit.currency != draft.amount.currency) {
+          throw invalidTransfer;
+        }
+        quote = result;
+      }
+    } on ApiFailure catch (e) {
+      if (_current && identical(review, draft)) error = e;
+    } catch (_) {
+      if (_current && identical(review, draft)) error = invalidTransfer;
+    } finally {
+      if (_current) {
+        quoting = false;
+        _emit();
+      }
+    }
   }
 
   void edit() {
     if (_current && !busy && saved == null) {
       review = null;
+      quote = null;
       error = null;
       _emit();
     }
   }
 
-  Future<void> confirm() async {
+  /// Exchanges the PIN for a one-time proof. Returns null (with [error] set) on rejection.
+  Future<String?> _proof(String? pin) async {
+    final gateway = support;
+    if (gateway == null) return null;
+    if (pin == null || !RegExp(r'^[0-9]{4}$').hasMatch(pin)) {
+      error = const ApiFailure('PIN_REQUIRED', 'Enter your 4-digit PIN to confirm.');
+      return null;
+    }
+    try {
+      return await session.authorizedMutation(
+        (token) => gateway.transferProof(token, pin),
+      );
+    } on ApiFailure catch (e) {
+      if (_current) error = e;
+      return null;
+    } catch (_) {
+      // Never surfaces as a storage failure: nothing was claimed or sent.
+      if (_current) {
+        error = const ApiFailure(
+          'PIN_UNAVAILABLE',
+          'PIN confirmation is unavailable. Nothing was sent. Try again.',
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> confirm({String? pin}) async {
     final draft = review;
     if (!_current ||
         !ready ||
@@ -152,12 +229,14 @@ class TransferController extends ChangeNotifier {
     error = null;
     _emit();
     try {
+      final proof = await _proof(pin);
+      if (!_current || (requiresPin && proof == null)) return;
       final record = SavedTransfer.confirmed(draft);
       await store.claim(_user, record);
       if (!_current) return;
       saved = record;
       review = null;
-      await _send(record);
+      await _send(record, proof: proof);
     } catch (e) {
       if (_current) {
         storageError = e is ApiFailure && e.code == 'TRANSFER_PENDING'
@@ -174,7 +253,7 @@ class TransferController extends ChangeNotifier {
   }
 
   /// User-triggered only. Never revalidates an already-debited balance or makes a new key.
-  Future<void> retry() async {
+  Future<void> retry({String? pin}) async {
     if (!_current ||
         !ready ||
         busy ||
@@ -194,7 +273,12 @@ class TransferController extends ChangeNotifier {
         throw invalidTransfer;
       }
       saved = persisted;
-      if (persisted.unresolved) await _send(persisted);
+      if (persisted.unresolved) {
+        // A request the server already completed replays without consuming the proof.
+        final proof = await _proof(pin);
+        if (!_current || (requiresPin && proof == null)) return;
+        await _send(persisted, proof: proof);
+      }
     } catch (_) {
       if (_current) {
         storageError = storageFailure;
@@ -208,12 +292,12 @@ class TransferController extends ChangeNotifier {
     }
   }
 
-  Future<void> _send(SavedTransfer record) async {
+  Future<void> _send(SavedTransfer record, {String? proof}) async {
     SavedTransfer? resolution;
     RecentPosting? result;
     try {
       final received = await session.authorizedMutation<RecentPosting>(
-        (token) => gateway.transfer(token, record),
+        (token) => gateway.transfer(token, record, pinProof: proof),
       );
       result = received;
       HttpTransactionGateway.validateReceipt(received, record);

@@ -76,6 +76,46 @@ class ContinuationAuthTests extends PostgresIntegrationTest {
         return http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/accounts/me"))
                 .header("Authorization", "Bearer " + access).GET().build(), HttpResponse.BodyHandlers.ofString()).statusCode();
     }
+    @Test void settingsUpdatesProfileAndChangesPinWithoutReopeningAccounts() throws Exception {
+        String mail = email();
+        String ticket = pinPrepare(completedEmail(mail)).path("ticket").asText();
+        JsonNode unlocked = pinSetup(ticket, "5072", false);
+        String access = unlocked.path("accessToken").asText();
+        JsonNode second = continueEmailWithCooldown(mail);
+        String otherTicket = pinPrepare(second).path("ticket").asText();
+        JsonNode other = data(call("POST", "/pin/unlock", null, Map.of("ticket", otherTicket, "pin", "5072")));
+        JsonNode profile = data(call("PUT", "/profile/details", access, Map.of("firstName", "Sok", "lastName", "Dara")));
+        assertThat(profile.path("firstName").asText()).isEqualTo("Sok");
+        assertThat(profile.path("lastName").asText()).isEqualTo("Dara");
+        assertThat(accounts(access)).isEqualTo(200);
+        assertThat(call("PUT", "/profile/details", null, Map.of("firstName", "Sok", "lastName", "Dara")).statusCode()).isEqualTo(401);
+        assertThat(call("PUT", "/profile/details", access, Map.of("firstName", " ", "lastName", "Dara")).statusCode()).isEqualTo(400);
+        assertThat(call("POST", "/pin/change", access, Map.of("currentPin", "5072", "pin", "6874", "confirmPin", "6875")).statusCode()).isEqualTo(400);
+        data(call("POST", "/pin/change", access, Map.of("currentPin", "5072", "pin", "6874", "confirmPin", "6874")));
+        assertThat(accounts(access)).isEqualTo(200);
+        assertThat(accounts(other.path("accessToken").asText())).isEqualTo(401);
+        data(call("POST", "/pin/status", null, Map.of("ticket", ticket)));
+        assertThat(call("POST", "/pin/change", access, Map.of("currentPin", "6874", "pin", "5072", "confirmPin", "5072")).statusCode()).isEqualTo(403);
+        assertThat(call("PUT", "/profile/details", access, Map.of("firstName", "Other", "lastName", "Name")).statusCode()).isEqualTo(403);
+        assertThat(call("POST", "/pin/unlock", null, Map.of("ticket", ticket, "pin", "5072")).statusCode()).isEqualTo(403);
+        assertThat(data(call("POST", "/pin/unlock", null, Map.of("ticket", ticket, "pin", "6874"))).has("accessToken")).isTrue();
+    }
+    JsonNode continueEmailWithCooldown(String mail) throws Exception {
+        continueCooldownElapsed(mail);
+        return continueEmail(mail);
+    }
+    @Test void settingsWrongCurrentPinCountsAcrossRequestsAndLocksBanking() throws Exception {
+        String ticket = pinPrepare(completedEmail(email())).path("ticket").asText();
+        String access = pinSetup(ticket, "5072", false).path("accessToken").asText();
+        for (int i = 0; i < 5; i++) {
+            var response = call("POST", "/pin/change", access, Map.of("currentPin", "0000", "pin", "6874", "confirmPin", "6874"));
+            assertThat(response.statusCode()).isEqualTo(403);
+            assertThat(json.readTree(response.body()).path("error").asText()).isEqualTo(i == 4 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID");
+        }
+        assertThat(accounts(access)).isEqualTo(403);
+        assertThat(data(call("POST", "/pin/status", null, Map.of("ticket", ticket))).path("recoveryRequired").asBoolean()).isTrue();
+        assertThat(call("POST", "/pin/change", null, Map.of("currentPin", "5072", "pin", "6874", "confirmPin", "6874")).statusCode()).isEqualTo(401);
+    }
     @Test void pinSetupBlocksBankingAndRefreshAndOldAccessCannotSurviveAnUnlock() throws Exception {
         JsonNode tokens = completedEmail(email());
         String access = tokens.path("accessToken").asText();

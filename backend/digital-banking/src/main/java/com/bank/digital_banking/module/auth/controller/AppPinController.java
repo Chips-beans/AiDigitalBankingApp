@@ -20,11 +20,24 @@ public class AppPinController {
     public record UnlockRequest(@NotBlank @Size(max=128) String ticket, @NotBlank @Pattern(regexp="[0-9]{4}") String pin) {}
     public record SetupRequest(@NotBlank @Size(max=128) String ticket, @NotBlank @Pattern(regexp="[0-9]{4}") String pin,
                                @NotBlank @Pattern(regexp="[0-9]{4}") String confirmPin, Boolean reset) {}
+    public record ChangeRequest(@NotBlank @Pattern(regexp="[0-9]{4}") String currentPin,
+                                @NotBlank @Pattern(regexp="[0-9]{4}") String pin,
+                                @NotBlank @Pattern(regexp="[0-9]{4}") String confirmPin) {}
     @ModelAttribute public void noStore(HttpServletResponse response) {
         response.setHeader("Cache-Control", "no-store"); response.setHeader("Pragma", "no-cache");
     }
     @PostMapping("/prepare") public ApiResponse<AppPinService.Challenge> prepare(@AuthenticationPrincipal User user, Authentication auth) {
         return ApiResponse.success(pins.prepare(user, (UUID) auth.getDetails()), "PIN required");
+    }
+    @PostMapping("/change") public ApiResponse<Void> change(@AuthenticationPrincipal User user, Authentication auth,
+                                                           @Valid @RequestBody ChangeRequest request) {
+        pins.change(user, (UUID) auth.getDetails(), request.currentPin(), request.pin(), request.confirmPin());
+        return ApiResponse.success("PIN changed");
+    }
+    public record TransferVerifyRequest(@NotBlank @Pattern(regexp="[0-9]{4}") String pin) {}
+    @PostMapping("/transfer-proof") public ApiResponse<AppPinService.TransferProof> transferProof(@AuthenticationPrincipal User user,
+            Authentication auth, @Valid @RequestBody TransferVerifyRequest request) {
+        return ApiResponse.success(pins.verifyForTransfer(user, (UUID) auth.getDetails(), request.pin()), "Transfer confirmed with PIN");
     }
     @PostMapping("/status") public ApiResponse<AppPinService.Challenge> status(@Valid @RequestBody TicketRequest request) {
         return ApiResponse.success(pins.lock(request.ticket()), "App locked");

@@ -100,6 +100,16 @@ public class ContinuationPersistence {
         return user;
     }
     @Transactional
+    public User updateDetails(long userId, ProfileRequest request) {
+        User user = locked(userId);
+        requireCustomer(user);
+        if (!user.isProfileComplete()) throw new ApiException(HttpStatus.FORBIDDEN, "PROFILE_INCOMPLETE", "Complete your profile first");
+        user.setFirstName(request.firstName().strip());
+        user.setLastName(request.lastName().strip());
+        audit.successAs(user, "AUTH", "PROFILE_UPDATED", user.getId().toString());
+        return user;
+    }
+    @Transactional
     public TokenResponseDto linkEmail(long userId, String email, DeviceRequest device, String ip) {
         identityLock("email:" + email);
         User user = locked(userId);

@@ -1,0 +1,6 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Back button">
+<rect width="44" height="44" rx="22" fill="white" fill-opacity="0.121569"/>
+<path id="Back arrow" d="M22 15L15 22L22 29M15 22H29" stroke-width="1.5" stroke-linecap="round" stroke="white"/>
+</g>
+</svg>

@@ -251,8 +251,15 @@ class PhaseOneFinancialTests extends PostgresIntegrationTest {
         var refresh = call("POST", "/auth/refresh", null, null, Map.of("refreshToken", data.path("refreshToken").asText()));
         assertThat(refresh.statusCode()).isEqualTo(200); assertAudit(refresh, "REFRESH", alice.getId());
         String access = body(refresh).path("data").path("accessToken").asText();
-        var created = call("POST", "/accounts", access, null, Map.of("accountType", "SAVINGS", "currency", "USD", "initialDeposit", 0));
-        assertThat(created.statusCode()).isEqualTo(201); assertAudit(created, "ACCOUNT_CREATED", alice.getId());
+        // alice.demo already holds the one USD wallet V16 allows, so account creation is audited for a wallet-less customer.
+        String name = "audit." + key().substring(0, 8);
+        User opener = users.save(User.builder().username(name).email(name + "@example.test").password(alice.getPassword())
+                .roles(new HashSet<>(alice.getRoles())).enabled(true).build());
+        var created = call("POST", "/accounts", token(opener), null, Map.of("accountType", "SAVINGS", "currency", "USD", "initialDeposit", 0));
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201); assertAudit(created, "ACCOUNT_CREATED", opener.getId());
+        var rejected = call("POST", "/accounts", access, null, Map.of("accountType", "SAVINGS", "currency", "USD", "initialDeposit", 0));
+        assertThat(rejected.statusCode()).isEqualTo(400);
+        assertThat(rejected.body()).contains("ACCOUNT_LIMIT_EXCEEDED");
         User admin = users.findByUsername("admin.demo").orElseThrow();
         var frozen = call("PATCH", "/accounts/"+source.getAccountNumber()+"/status", token(admin), null, Map.of("status", "FROZEN"));
         assertThat(frozen.statusCode()).isEqualTo(200); assertAudit(frozen, "ACCOUNT_STATUS_CHANGED", admin.getId());

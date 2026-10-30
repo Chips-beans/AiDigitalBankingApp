@@ -70,6 +70,12 @@ public class FoundationOpenApiConfig {
             describe(api, "/auth/profile", PathItem.HttpMethod.PATCH, "Authentication", "Complete your information",
                     "Authenticated onboarding profiles only gain banking permissions after this succeeds. Existing complete profiles remain unchanged.",
                     "200", false, Map.of("firstName", "Dara", "lastName", "Sok"), "400", "401");
+            describe(api, "/auth/profile/details", PathItem.HttpMethod.PUT, "Authentication", "Edit your profile details",
+                    "Authenticated, unlocked customer with a completed profile. Updates names without rerunning onboarding or opening accounts.",
+                    "200", false, Map.of("firstName", "Dara", "lastName", "Sok"), "400", "401", "403");
+            describe(api, "/auth/pin/change", PathItem.HttpMethod.POST, "Authentication", "Change your app PIN",
+                    "Authenticated, unlocked customer. Verifies the current PIN against the shared five-attempt limit; saves a different matching four-digit PIN and revokes other sessions. Never log PIN values. Do not automatically replay a request after an uncertain response.",
+                    "200", false, null, "400", "401", "403");
             describe(api, "/auth/email/link/request", PathItem.HttpMethod.POST, "Authentication", "Request a code to connect email",
                     "Authenticated. Codes are bound to this profile. Verify the code before connecting the email identity.",
                     "200", false, Map.of("email", "customer@example.test"), "400", "401", "429");

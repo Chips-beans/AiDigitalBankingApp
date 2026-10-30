@@ -152,6 +152,31 @@ void main() {
             await tester.enterText(find.byKey(const ValueKey('otpCode')), '1');
             await tester.pump();
           }
+          if (screen == 'profile') {
+            await tester.enterText(
+              find.byKey(const ValueKey('firstName')),
+              fixture.km ? 'ដារ៉ា' : 'Dara',
+            );
+            await tester.enterText(
+              find.byKey(const ValueKey('lastName')),
+              fixture.km ? 'សុខ' : 'Sok',
+            );
+            FocusManager.instance.primaryFocus?.unfocus();
+            final scrollable = tester.state<ScrollableState>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('profile-photo-card')),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
+            );
+            scrollable.position.jumpTo(0);
+            await tester.pumpAndSettle();
+            expect(
+              find.byKey(const ValueKey('profile-photo-initial')),
+              findsOneWidget,
+            );
+          }
           expect(
             tester.takeException(),
             isNull,

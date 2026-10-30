@@ -147,6 +147,70 @@ public class AppPinService {
         jdbc.update("UPDATE app_pin_locks SET locked=FALSE,recovery_allowed=FALSE,pin_generation=pin_generation+1 WHERE session_id=?", session.getId());
         return sessionService.issueAfterPin(session);
     }
+    @Transactional(noRollbackFor = PinRejected.class)
+    public void change(User user, UUID sessionId, String current, String replacement, String confirm) {
+        continuation.requireCustomer(user);
+        users.findLockedById(user.getId()).orElseThrow(this::invalidTicket);
+        AuthSession session = valid(sessions.findLockedById(sessionId).orElseThrow(this::invalidTicket));
+        if (!session.getUser().getId().equals(user.getId()) || sessionService.isPinLocked(sessionId))
+            throw new PinRejected("PIN_REQUIRED", "Unlock the app before changing your PIN");
+        if (!replacement.matches("[0-9]{4}") || !replacement.equals(confirm))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PIN_CONFIRMATION_MISMATCH", "Enter the same four digits twice");
+        Pin saved = pin(user.getId());
+        if (saved == null) throw new PinRejected("PIN_SETUP_REQUIRED", "Create your PIN first");
+        if (saved.failures() >= 5) throw new PinRejected("PIN_RECOVERY_REQUIRED", "Verify your identity to reset your PIN");
+        if (!encoder.matches(secret(user.getId(), current), saved.hash())) {
+            int failures = saved.failures() + 1;
+            jdbc.update("UPDATE customer_app_pins SET failed_attempts=? WHERE user_id=?", failures, user.getId());
+            if (failures >= 5) jdbc.update("UPDATE app_pin_locks SET locked=TRUE WHERE session_id IN (SELECT id FROM auth_sessions WHERE user_id=?)", user.getId());
+            throw new PinRejected(failures >= 5 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID", "The current PIN did not match");
+        }
+        if (current.equals(replacement)) throw new ApiException(HttpStatus.BAD_REQUEST, "PIN_UNCHANGED", "Choose a different PIN");
+        jdbc.update("UPDATE customer_app_pins SET pin_hash=?,failed_attempts=0,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
+                encoder.encode(secret(user.getId(), replacement)), user.getId());
+        jdbc.update("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=? AND id<>? AND revoked_at IS NULL", user.getId(), sessionId);
+        audit.successAs(user, "AUTH", "PIN_CHANGED", sessionId.toString());
+    }
+    public record TransferProof(String proof, int expiresInSeconds) {}
+    public static final int TRANSFER_PROOF_SECONDS = 120;
+
+    /** Verifies the PIN for one upcoming transfer; failures share the persistent five-attempt counter. */
+    @Transactional(noRollbackFor = PinRejected.class)
+    public TransferProof verifyForTransfer(User user, UUID sessionId, String pin) {
+        continuation.requireCustomer(user);
+        users.findLockedById(user.getId()).orElseThrow(this::invalidTicket);
+        AuthSession session = valid(sessions.findLockedById(sessionId).orElseThrow(this::invalidTicket));
+        if (!session.getUser().getId().equals(user.getId()) || sessionService.isPinLocked(sessionId))
+            throw new PinRejected("PIN_REQUIRED", "Unlock the app before confirming a transfer");
+        Pin saved = pin(user.getId());
+        if (saved == null) throw new PinRejected("PIN_SETUP_REQUIRED", "Create your PIN first");
+        if (saved.failures() >= 5) throw new PinRejected("PIN_RECOVERY_REQUIRED", "Verify your identity to reset your PIN");
+        if (!encoder.matches(secret(user.getId(), pin), saved.hash())) {
+            int failures = saved.failures() + 1;
+            jdbc.update("UPDATE customer_app_pins SET failed_attempts=? WHERE user_id=?", failures, user.getId());
+            if (failures >= 5) jdbc.update("UPDATE app_pin_locks SET locked=TRUE WHERE session_id IN (SELECT id FROM auth_sessions WHERE user_id=?)", user.getId());
+            throw new PinRejected(failures >= 5 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID", "The PIN did not match");
+        }
+        jdbc.update("UPDATE customer_app_pins SET failed_attempts=0 WHERE user_id=?", user.getId());
+        jdbc.update("DELETE FROM transfer_pin_proofs WHERE expires_at < CURRENT_TIMESTAMP - INTERVAL '1 day'");
+        byte[] random = new byte[32]; RANDOM.nextBytes(random);
+        String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
+        jdbc.update("INSERT INTO transfer_pin_proofs(proof_hash,user_id,session_id,expires_at) VALUES (?,?,?,?)",
+                HashUtils.sha256(raw), user.getId(), sessionId, OffsetDateTime.now().plusSeconds(TRANSFER_PROOF_SECONDS));
+        audit.successAs(user, "AUTH", "TRANSFER_PIN_VERIFIED", sessionId.toString());
+        return new TransferProof(raw, TRANSFER_PROOF_SECONDS);
+    }
+
+    /** Consumes a proof inside the transfer's transaction, so a failed transfer leaves it usable until expiry. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void consumeTransferProof(User user, UUID sessionId, String raw) {
+        int used = raw == null || sessionId == null || raw.length() > 128 ? 0 : jdbc.update("""
+            UPDATE transfer_pin_proofs SET used_at=CURRENT_TIMESTAMP
+            WHERE proof_hash=? AND user_id=? AND session_id=? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP
+            """, HashUtils.sha256(raw), user.getId(), sessionId);
+        if (used != 1) throw new PinRejected("TRANSFER_PIN_REQUIRED", "Confirm this transfer with your PIN");
+    }
+
     @Transactional
     public void discard(String raw) {
         Ticket ticket = ticket(raw);

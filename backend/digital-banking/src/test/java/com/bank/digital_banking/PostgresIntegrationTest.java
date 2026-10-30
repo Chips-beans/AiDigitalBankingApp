@@ -8,6 +8,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 @SpringBootTest(classes = DigitalBankingApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"local", "test"})
+// Legacy suites post transfers directly; TransferPinAndExchangeTests overrides this to true.
+@org.springframework.test.context.TestPropertySource(properties = "app.transfer.pin-proof-required=false")
 abstract class PostgresIntegrationTest {
     static final String PASSWORD = "LocalTestOnly!2026";
     static final String SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";

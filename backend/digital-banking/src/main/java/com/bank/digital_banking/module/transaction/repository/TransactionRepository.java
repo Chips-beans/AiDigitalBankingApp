@@ -31,7 +31,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query(value = """
         SELECT CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE) AS txDate,
-               SUM(CASE WHEN t.destination_account_id = :accountId THEN t.amount ELSE 0 END) AS totalIncome,
+               SUM(CASE WHEN t.destination_account_id = :accountId THEN COALESCE(t.credit_amount, t.amount) ELSE 0 END) AS totalIncome,
                SUM(CASE WHEN t.source_account_id = :accountId THEN t.amount ELSE 0 END) AS totalExpense
         FROM transactions t
         WHERE (t.source_account_id = :accountId OR t.destination_account_id = :accountId)
@@ -49,14 +49,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query(value = """
         SELECT CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE) AS txDate,
-               SUM(CASE WHEN dst.user_id = :userId THEN t.amount ELSE 0 END) AS totalIncome,
-               SUM(CASE WHEN src.user_id = :userId THEN t.amount ELSE 0 END) AS totalExpense
+               SUM(CASE WHEN dst.user_id = :userId AND COALESCE(t.credit_currency, t.currency) = :currency
+                        THEN COALESCE(t.credit_amount, t.amount) ELSE 0 END) AS totalIncome,
+               SUM(CASE WHEN src.user_id = :userId AND t.currency = :currency THEN t.amount ELSE 0 END) AS totalExpense
         FROM transactions t
         LEFT JOIN accounts src ON src.id = t.source_account_id
         LEFT JOIN accounts dst ON dst.id = t.destination_account_id
         WHERE (src.user_id = :userId OR dst.user_id = :userId)
           AND NOT (COALESCE(src.user_id = :userId, FALSE) AND COALESCE(dst.user_id = :userId, FALSE))
-          AND t.currency = :currency AND t.status = 'SUCCESS'
+          AND (t.currency = :currency OR t.credit_currency = :currency) AND t.status = 'SUCCESS'
           AND t.created_at >= :startDate AND t.created_at < :endDate
         GROUP BY CAST(t.created_at AT TIME ZONE 'Asia/Phnom_Penh' AS DATE)
         ORDER BY txDate
@@ -80,7 +81,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     );
 
     @Query("""
-        SELECT COALESCE(SUM(t.amount), 0)
+        SELECT COALESCE(SUM(COALESCE(t.creditAmount, t.amount)), 0)
         FROM Transaction t
         WHERE t.destinationAccount.id = :accountId
           AND t.status = 'SUCCESS'

@@ -247,7 +247,12 @@ class QrPaymentIntegrationTests extends PostgresIntegrationTest {
     // --- Helper Methods ---
 
     @Test void pairedOpeningIsZeroFundedByDefault() throws Exception {
-        String token = login("alice.demo", "device-default-pair").path("accessToken").asText();
+        // A customer without wallets, so the pair is actually opened rather than returning seeded accounts.
+        var template = users.findByUsername("alice.demo").orElseThrow();
+        String name = "pair.default." + UUID.randomUUID().toString().substring(0, 8);
+        users.save(com.bank.digital_banking.module.auth.entity.User.builder().username(name).email(name + "@example.test")
+                .password(template.getPassword()).roles(new java.util.HashSet<>(template.getRoles())).enabled(true).build());
+        String token = login(name, "device-default-pair").path("accessToken").asText();
         var response = call("POST", "/accounts/pairs", token, Map.of("accountType", "CHECKING"));
         assertThat(response.statusCode()).as(response.body()).isEqualTo(201);
         var data = body(response).path("data");

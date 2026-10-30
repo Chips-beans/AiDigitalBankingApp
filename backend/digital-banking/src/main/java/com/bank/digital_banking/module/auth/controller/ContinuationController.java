@@ -46,6 +46,12 @@ public class ContinuationController {
         User completed = persistence.complete(user.getId(), request);
         return ApiResponse.success(SessionIdentityDto.from(completed, (UUID) auth.getDetails()), "Profile completed");
     }
+    // Profile edits deliberately do not rerun onboarding or open wallets.
+    @PutMapping("/profile/details")
+    public ApiResponse<SessionIdentityDto> updateDetails(@AuthenticationPrincipal User user, Authentication auth,
+                                                       @Valid @RequestBody ProfileRequest request) {
+        return ApiResponse.success(SessionIdentityDto.from(persistence.updateDetails(user.getId(), request), (UUID) auth.getDetails()), "Profile updated");
+    }
     @PostMapping("/email/link/request")
     public ApiResponse<OtpResponseDto> linkRequest(@AuthenticationPrincipal User user, @Valid @RequestBody EmailRequest request) {
         persistence.requireCustomer(user);

@@ -7,6 +7,7 @@ import '../../core/storage/session_vault.dart';
 import 'data/auth_gateway.dart';
 import 'data/app_pin_gateway.dart';
 import 'data/profile_photo.dart';
+import 'data/settings_gateway.dart';
 import 'telegram_window.dart';
 import 'telegram_native.dart';
 
@@ -384,8 +385,48 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// User decision (31 Oct 2026): one PIN entry covers use of the app until it is idle
+  /// or backgrounded for this long; transfers still ask for the PIN every time.
+  static const idleLimit = Duration(minutes: 3);
+  DateTime? _lastActivity, _backgroundedAt;
+
+  void noteActivity() {
+    if (phase == SessionPhase.signedIn) _lastActivity = _clock();
+  }
+
+  /// Called periodically; locks after [idleLimit] without interaction.
+  void checkIdle() {
+    if (phase != SessionPhase.signedIn || trustedImageSelection) return;
+    final last = _lastActivity ??= _clock();
+    if (_clock().difference(last) >= idleLimit) lockApp();
+  }
+
+  void markBackground() {
+    // Keep the first departure: returning also passes through `hidden`.
+    if (phase == SessionPhase.signedIn) _backgroundedAt ??= _clock();
+    if (phase == SessionPhase.pinLocked) {
+      // A partly typed PIN never survives leaving the app.
+      ++pinEntryRevision;
+      _emit();
+    }
+  }
+
+  /// Locks on return only if the app was away for at least [idleLimit].
+  void markForeground() {
+    final away = _backgroundedAt;
+    _backgroundedAt = null;
+    if (away == null || phase != SessionPhase.signedIn) return;
+    if (_clock().difference(away) >= idleLimit && !trustedImageSelection) {
+      lockApp();
+    } else {
+      noteActivity();
+    }
+  }
+
   void lockApp() {
     if (pinGateway == null || pinChallenge == null || _disposed) return;
+    _lastActivity = null;
+    _backgroundedAt = null;
     ++_generation;
     ++pinEntryRevision;
     ++_photoGeneration;
@@ -1132,6 +1173,69 @@ class SessionController extends ChangeNotifier {
         _emit();
       }
     }
+  }
+
+  Future<bool> updateProfileDetails(String first, String last) async {
+    if (busy || phase != SessionPhase.signedIn) return false;
+    final generation = _generation;
+    busy = true;
+    failure = null;
+    _emit();
+    try {
+      final updated = await authorizedMutation(
+        (token) =>
+            SettingsGateway(gateway)
+                .updateProfile(token, first.trim(), last.trim()),
+      );
+      if (!_current(generation)) return false;
+      identity = updated;
+      return true;
+    } on ApiFailure catch (e) {
+      if (_current(generation)) failure = e;
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+    return false;
+  }
+
+  Future<bool> changePin(String current, String pin, String confirm) async {
+    if (busy || phase != SessionPhase.signedIn) return false;
+    final changer = pinGateway;
+    if (changer is! PinChangeGateway) {
+      failure = const ApiFailure(
+        'PIN_UNAVAILABLE',
+        'PIN changes require the configured app lock.',
+      );
+      _emit();
+      return false;
+    }
+    final generation = _generation;
+    busy = true;
+    failure = null;
+    _emit();
+    try {
+      await authorizedMutation(
+        (token) =>
+            (changer as PinChangeGateway).change(token, current, pin, confirm),
+      );
+      return _current(generation);
+    } on ApiFailure catch (e) {
+      if (_current(generation)) {
+        failure = e;
+        if (e.code == 'PIN_RECOVERY_REQUIRED' || e.code == 'PIN_REQUIRED') {
+          lockApp();
+        }
+      }
+    } finally {
+      if (_current(generation)) {
+        busy = false;
+        _emit();
+      }
+    }
+    return false;
   }
 
   Future<void> continueTelegram() async {

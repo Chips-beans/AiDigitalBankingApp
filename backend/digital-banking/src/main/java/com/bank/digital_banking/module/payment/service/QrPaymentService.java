@@ -21,7 +21,8 @@ public interface QrPaymentService {
     /**
      * Executes transfer payment to the account encoded in the scanned QR code.
      */
-    QrTransferResponse processQrTransfer(User user, String idempotencyKey, QrTransferRequest request);
+    QrTransferResponse processQrTransfer(User user, String idempotencyKey, QrTransferRequest request,
+                                         com.bank.digital_banking.module.transaction.service.FinancialCommandService.PinProof proof);
 
     /**
      * Checks payment settlement status for a given QR hash.

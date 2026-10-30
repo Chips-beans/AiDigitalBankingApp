@@ -265,11 +265,17 @@ void main() {
     },
   );
   testWidgets(
-    'background PIN lock hides chat and unlock recovers without resending',
+    'PIN lock after 3 minutes away hides chat and unlock recovers without resending',
     (tester) async {
       final auth = DemoAuthGateway();
       final pin = DemoAppPinGateway(auth);
-      session = SessionController(auth, MemorySessionVault(), pinGateway: pin);
+      var now = DateTime.utc(2026, 10, 31, 9);
+      session = SessionController(
+        auth,
+        MemorySessionVault(),
+        pinGateway: pin,
+        clock: () => now,
+      );
       await session.initialize();
       session.openEmail();
       await session.beginEmail('ai-pin@example.test');
@@ -310,14 +316,16 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       await tester.pump();
-      api.sendGate!.complete();
-      await tester.pumpAndSettle();
-      expect(session.phase, SessionPhase.pinLocked);
-      expect(find.text('USD 190.00'), findsNothing);
+      // Away for 3 minutes: the return locks before the late answer can show.
+      now = now.add(SessionController.idleLimit);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(session.phase, SessionPhase.pinLocked);
+      api.sendGate!.complete();
       await tester.pumpAndSettle();
+      expect(find.text('USD 190.00'), findsNothing);
       await session.submitPin('0427');
       await tester.pumpAndSettle();
       await tap(tester, find.byTooltip('AI assistant'));

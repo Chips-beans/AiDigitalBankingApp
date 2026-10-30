@@ -63,6 +63,16 @@ public class Transaction {
     @Column(name = "correlation_id", length = 36)
     private String correlationId;
 
+    /** Set only for cross-currency transfers; otherwise the destination received {@code amount} in {@code currency}. */
+    @Column(name = "credit_amount", precision = 15, scale = 2)
+    private BigDecimal creditAmount;
+
+    @Column(name = "credit_currency", length = 3)
+    private String creditCurrency;
+
+    @Column(name = "exchange_rate", precision = 12, scale = 4)
+    private BigDecimal exchangeRate;
+
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

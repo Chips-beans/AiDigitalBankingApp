@@ -1,5 +1,68 @@
 # Core customer AI assistant
 
+Current runtime/acceptance status (31 October 2026): the user configured a Gemini
+key and enabled both flags on 30 October. A successful live Gemini answer and
+Khmer prose quality have **not** been verified. Configuration availability is not
+provider health. Defaults described below are source defaults; consult
+`NEXT_SESSION_BRIEF.md` for the consolidated handoff. Keep all key values private.
+
+### Live provider check — 31 October 2026 (Phase 2 of `IMPLEMENTATION_PLAN.md`)
+
+Result: **the live assistant does not answer; the Gemini provider never returns
+generated content for the configured key.** No code or `.env` value was changed.
+
+- Backend config (via the Dotenv loader): `GEMINI_ENABLED=true`,
+  `GEMINI_CUSTOMER_CONTEXT_ENABLED=true`, `GEMINI_MODEL=gemini-3.8-flash`, key
+  present (value not printed).
+- `GET /v1beta/models/gemini-3.8-flash` with the key: **200** (model exists, supports
+  `generateContent`). Model listing also succeeds, so the key is accepted.
+- `POST …:generateContent` with a synthetic, non-customer prompt: connection in
+  ~0.2 s, then **0 bytes within 20 s, 45 s and 60 s** — with and without the
+  backend's own `thinkingConfig`, from both PowerShell and curl. `gemini-flash-latest`
+  and `gemini-3.7-flash` behave the same. A retired model (`gemini-2.5-flash`) returns
+  a 404 in 0.5 s, so POST traffic does reach Google; the stall is provider/project
+  side for accepted generation requests.
+- Runtime logs: every real device assistant turn (30 October 17:34, 17:39, 17:40,
+  23:25) ended `AI_TIMEOUT` after ~10 s, the adapter's read budget. No successful
+  live Gemini answer exists in any log.
+- Consequence: intent extraction is the first provider call and has no local
+  fallback, so customers get `AI_TIMEOUT` and no cards. The `FALLBACK` path only
+  covers a failed second (explanation) call. English/Khmer answers, refusal of
+  payment requests and explanation fallback could not be exercised live.
+
+Next: check the Google AI Studio / Cloud project for this key (billing, quota,
+rate-limit or project status), or try a newly issued key; then rerun the probes.
+The provider's 404 text recommends its newer Interactions API — whether
+`generateContent` is restricted for this project is unconfirmed.
+
+### Second check — new key, 31 October 2026 ~02:00
+
+The user replaced the key. With it, model listing works, but `gemini-3.8-flash`,
+`gemini-3.7-flash` and `gemini-flash-latest` still stall (one reply was **503
+"currently experiencing high demand"** after 42 s), so the earlier failure was most
+likely provider capacity, not the old key. `gemini-3.5-flash-lite` answered in
+2.4–3.6 s with correct Khmer, including with the backend's `thinkingLevel=low`
+config. At the user's request `.env` now sets `GEMINI_MODEL=gemini-3.5-flash-lite`
+(only that line changed); the backend was restarted at 01:55 (Java PID 31644, log
+`.local/gemini-backend-20261031.log`).
+
+**First successful live turns (tablet, app language Khmer, locale `km`):** six
+questions all `COMPLETED` in 0.8–3.3 s, no `AI_TIMEOUT` — live intent extraction works.
+
+- Khmer balance request → two verified `BALANCE` cards, correct; Khmer reply.
+  `explanationStatus=FALLBACK`: the optional second (explanation) call did not
+  produce validated prose, so the localized fallback sentence was shown.
+- Greeting, identity, "what can you help with", saving tips → `NOT_NEEDED`, no
+  cards; the approved Khmer capability/limits text. Out-of-scope advice was
+  correctly not given.
+- "How can I scan a QR code?" → `HELP` card with the approved Khmer QR steps.
+- English-language questions were answered in Khmer because the app locale was
+  `km` (expected behavior; locale comes from the app language).
+
+Still unverified: any `explanationStatus=AI` answer (Gemini prose), an `en` locale
+turn, a monthly summary, and a payment-request refusal. The single explanation
+fallback is unexplained (validation rejection vs. provider error is not logged).
+
 The customer assistant is read-only. It interprets questions, retrieves the
 authenticated customer's banking data, renders verified cards, and optionally
 adds a short Gemini explanation. It cannot post a payment or prepare a payment

@@ -5,13 +5,24 @@ engine documentation does not establish external Bakong/KHQR settlement.
 
 ## Opening accounts
 
-After onboarding and PIN setup, **Open accounts** explicitly creates a USD and KHR
-pair of the chosen type. Nothing is opened automatically during authentication.
+**Updated 31 October 2026 (V16 automatic wallets, decided by the user):** every
+customer receives exactly one USD and one KHR `WALLET` account automatically at
+signup (`/auth/register`) and at profile completion (`PATCH /auth/profile`), in the
+same transaction. Test funding, when enabled, is applied there once per new
+account. Legacy customers without wallets still get them through **Open accounts**.
+
 `POST /api/v1/accounts/pairs` accepts `{ "accountType": "SAVINGS" }` and requires
-an `Idempotency-Key`. The standard response envelope contains `accounts` (two
-ordinary account DTOs) and `testFundingApplied`. Identical retries return the
-original opening response, even if balances have subsequently changed. Refresh
-account details for current balances. Changed requests under the same key conflict.
+an `Idempotency-Key`. It locks the customer, creates and funds only a missing
+wallet, and always returns the full pair in `accounts` (USD first, then KHR; the
+customer's earliest wallet per currency). It never creates a third wallet or
+tops up an existing one. `testFundingApplied` is true only when every returned
+wallet carries its `TEST_OPENING_CREDIT`; it is false for zero-funded wallets and
+for a mixed pair (an older funded wallet plus a newly created zero-funded one, or
+the reverse). The Flutter client accepts only fully funded or fully zero pairs,
+so such mixed legacy cases surface as invalid data rather than silently. Identical
+retries return the original opening response, even if balances have subsequently
+changed. Refresh account details for current balances. Changed requests under the
+same key conflict.
 
 `GET /api/v1/accounts/opening-policy` returns `testFundingEnabled`,
 `usdOpeningBalance`, and `khrOpeningBalance` in the normal envelope. The server

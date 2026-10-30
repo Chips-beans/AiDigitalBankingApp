@@ -46,8 +46,17 @@ void main() {
 
   tearDown(() => session.dispose());
   Future<void> tap(WidgetTester tester, String label) async {
-    final finder = label == 'Back'
-        ? find.byKey(const ValueKey('transfer-back'))
+    final finder = label == 'Confirm and send'
+        ? find.byKey(const ValueKey('transfer-confirm'))
+        : label == 'Done — return to transfer entry'
+        ? find.byKey(const ValueKey('transfer-another'))
+        : label == 'Back'
+        ? (find
+                  .byKey(const ValueKey('transfer-back-home'))
+                  .evaluate()
+                  .isNotEmpty
+              ? find.byKey(const ValueKey('transfer-back-home'))
+              : find.byKey(const ValueKey('transfer-back')))
         : find.text(label).evaluate().isNotEmpty
         ? find.text(label).first
         : find.byTooltip(label).first;
@@ -88,7 +97,7 @@ void main() {
         expect(gateway.requests, isEmpty);
         expect(find.text(funded(2).number), findsOneWidget);
         await tap(tester, 'Confirm and send');
-        expect(find.text('Transfer confirmed'), findsOneWidget);
+        expect(find.text('Transfer successful'), findsOneWidget);
         await tap(tester, 'Done — return to transfer entry');
         expect(gateway.committed.length, 1);
         await tester.pumpWidget(const SizedBox.shrink());

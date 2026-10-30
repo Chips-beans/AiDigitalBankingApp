@@ -11,8 +11,12 @@ import '../../../app/design_system/design_system.dart';
 import '../session_controller.dart';
 
 class AppPinPage extends StatefulWidget {
-  const AppPinPage(this.session, {super.key});
+  const AppPinPage(this.session, {this.onCancel, super.key});
   final SessionController session;
+
+  /// When set, Back from entering an existing PIN returns to the masked Home
+  /// instead of signing out.
+  final VoidCallback? onCancel;
   @override
   State<AppPinPage> createState() => _AppPinPageState();
 }
@@ -65,6 +69,11 @@ class _AppPinPageState extends State<AppPinPage> {
     if (widget.session.busy) return;
     if (widget.session.pinStage == PinStage.confirm) {
       widget.session.restartPinSetup();
+    } else if (widget.onCancel != null &&
+        (widget.session.pinStage == PinStage.unlock ||
+            widget.session.pinStage == PinStage.checking)) {
+      input.clear();
+      widget.onCancel!();
     } else {
       unawaited(widget.session.signOut());
     }

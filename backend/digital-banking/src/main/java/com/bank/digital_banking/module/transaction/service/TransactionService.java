@@ -8,7 +8,16 @@ import com.bank.digital_banking.module.transaction.dto.TransferRequestDto;
 
 public interface TransactionService {
 
-    TransactionResponseDto processTransfer(User user, TransferRequestDto request, String idempotencyKey);
+    default TransactionResponseDto processTransfer(User user, TransferRequestDto request, String idempotencyKey) {
+        return processTransfer(user, request, idempotencyKey, null);
+    }
+
+    TransactionResponseDto processTransfer(User user, TransferRequestDto request, String idempotencyKey,
+                                           com.bank.digital_banking.module.transaction.service.FinancialCommandService.PinProof proof);
+
+    /** Exact amounts a transfer would debit and credit, including fixed-rate conversion. */
+    ExchangeRates.Quote quote(User user, String sourceAccountNumber, String destinationAccountNumber,
+                              java.math.BigDecimal amount);
 
     TransactionResponseDto processDeposit(User user, DepositRequestDto request, String idempotencyKey);
 

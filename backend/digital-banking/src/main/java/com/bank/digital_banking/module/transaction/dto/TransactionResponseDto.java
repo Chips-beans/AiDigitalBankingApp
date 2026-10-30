@@ -28,13 +28,28 @@ public class TransactionResponseDto {
     private TransactionStatus status;
     private String remark;
     private OffsetDateTime createdAt;
+    /** What the destination received; equals amount/currency unless the transfer was converted. */
+    private BigDecimal creditAmount;
+    private String creditCurrency;
+    /** KHR per USD for a converted transfer, otherwise null. */
+    private BigDecimal exchangeRate;
+    /** Account holders' profile names; a deposit without a source account is from the bank itself. */
+    private String sourceName;
+    private String destinationName;
+    private boolean bankSource;
+    private String operation;
+
+    public static final String BANK_NAME = "Kesor Bank";
 
     public static TransactionResponseDto fromEntity(Transaction transaction) {
+        var source = transaction.getSourceAccount();
+        var destination = transaction.getDestinationAccount();
+        boolean converted = transaction.getCreditAmount() != null;
         return TransactionResponseDto.builder()
                 .id(transaction.getId())
                 .referenceNumber(transaction.getReferenceNumber())
-                .sourceAccountNumber(transaction.getSourceAccount() != null ? transaction.getSourceAccount().getAccountNumber() : null)
-                .destinationAccountNumber(transaction.getDestinationAccount() != null ? transaction.getDestinationAccount().getAccountNumber() : null)
+                .sourceAccountNumber(source != null ? source.getAccountNumber() : null)
+                .destinationAccountNumber(destination != null ? destination.getAccountNumber() : null)
                 .amount(transaction.getAmount())
                 .fee(transaction.getFee())
                 .currency(transaction.getCurrency())
@@ -42,6 +57,20 @@ public class TransactionResponseDto {
                 .status(transaction.getStatus())
                 .remark(transaction.getRemark())
                 .createdAt(transaction.getCreatedAt() == null ? null : transaction.getCreatedAt().withOffsetSameInstant(java.time.ZoneOffset.UTC))
+                .creditAmount(converted ? transaction.getCreditAmount() : transaction.getAmount())
+                .creditCurrency(converted ? transaction.getCreditCurrency() : transaction.getCurrency())
+                .exchangeRate(converted ? transaction.getExchangeRate() : null)
+                .sourceName(source == null ? BANK_NAME : displayName(source.getUser()))
+                .destinationName(destination == null ? null : displayName(destination.getUser()))
+                .bankSource(source == null)
+                .operation(transaction.getOperation())
                 .build();
+    }
+
+    public static String displayName(com.bank.digital_banking.module.auth.entity.User user) {
+        if (user == null) return null;
+        String name = ((user.getFirstName() == null ? "" : user.getFirstName().strip()) + " "
+                + (user.getLastName() == null ? "" : user.getLastName().strip())).strip();
+        return name.isEmpty() ? user.getUsername() : name;
     }
 }

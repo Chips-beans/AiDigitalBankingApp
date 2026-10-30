@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../app/app_labels.dart';
+import '../../../core/platform/image_picker.dart';
 import '../../../shared/widgets/app_states.dart';
 import '../../accounts/accounts_controller.dart';
 import '../../auth/session_controller.dart';
@@ -23,6 +24,7 @@ class ScanQrPanel extends StatefulWidget {
     required this.transfers,
     required this.enabled,
     this.chooseImage,
+    this.onScanned,
     super.key,
   });
   final SessionController session;
@@ -31,6 +33,10 @@ class ScanQrPanel extends StatefulWidget {
   final TransferController transfers;
   final bool enabled;
   final Future<XFile?> Function()? chooseImage;
+
+  /// When set, a verified scan is handed to the normal transfer screen instead of
+  /// continuing in this panel.
+  final ValueChanged<QrPreview>? onScanned;
   @override
   State<ScanQrPanel> createState() => _ScanQrPanelState();
 }
@@ -108,9 +114,23 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
     }
   }
 
+  Completer<void>? _resume;
+  Future<void> _resumed() async {
+    if (foreground || !mounted) return;
+    _resume ??= Completer<void>();
+    await _resume!.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {},
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
+    if (foreground && _resume != null) {
+      _resume!.complete();
+      _resume = null;
+    }
     if (!foreground) {
       unawaited(_stop());
     } else {
@@ -137,6 +157,12 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
     if (!active) return;
     if (await model.scan(values.single) && active) {
       final preview = model.preview!;
+      final handOff = widget.onScanned;
+      // An already-paid fixed request stays here so the panel can explain it.
+      if (handOff != null && !preview.paid) {
+        handOff(preview);
+        return;
+      }
       setState(() {
         amount.text = preview.amount?.decimal ?? '';
         source = widget.accounts.accounts
@@ -165,19 +191,10 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
     if (!active) return;
     widget.session.beginTrustedImageSelection();
     try {
-      final file =
-          await (widget.chooseImage?.call() ??
-              openFile(
-                acceptedTypeGroups: const [
-                  XTypeGroup(
-                    label: 'QR image',
-                    extensions: ['jpg', 'jpeg', 'png'],
-                    mimeTypes: ['image/jpeg', 'image/png'],
-                    uniformTypeIdentifiers: ['public.jpeg', 'public.png'],
-                  ),
-                ],
-              ));
+      final file = await (widget.chooseImage?.call() ?? pickImageFile());
       widget.session.endTrustedImageSelection();
+      // The picker result can arrive just before Android resumes the app.
+      await _resumed();
       if (file == null || !active) return;
       if (await file.length() > 5 * 1024 * 1024) throw const FormatException();
       final bytes = await file.readAsBytes();

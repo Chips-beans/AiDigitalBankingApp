@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:customer_app/app/banking_app.dart';
 import 'package:customer_app/core/config/app_config.dart';
 import 'package:customer_app/core/network/api_client.dart';
 import 'package:customer_app/core/storage/session_vault.dart';
 import 'package:customer_app/features/auth/data/auth_gateway.dart';
+import 'package:customer_app/features/auth/data/app_pin_gateway.dart';
 import 'package:customer_app/features/auth/session_controller.dart';
 import 'package:customer_app/features/auth/telegram_native.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -79,19 +82,24 @@ class TestNativeGateway extends DemoAuthGateway
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('only an exact callback with the active state supplies a code', () {
+  test('native callbacks require the exact redirect and reject conflicting state', () {
     expect(
       nativeTelegramCode('$redirect?state=$flowId&code=one', redirect, flowId),
       'one',
     );
+    // Official native callbacks may omit state. Code exchange remains bound to
+    // this local attempt's private server flow and PKCE verifier, not the URI.
+    expect(nativeTelegramCode('$redirect?code=one', redirect, flowId), 'one');
     for (final uri in [
       'http://app937652339-login.tg.dev/tglogin?state=$flowId&code=one',
       'https://evil.example/tglogin?state=$flowId&code=one',
       '${redirect}extra?state=$flowId&code=one',
       '$redirect?state=other&code=one',
+      '$redirect?state=&code=one',
       '$redirect?state=$flowId',
       '$redirect?state=$flowId&state=$flowId&code=one',
       '$redirect?state=$flowId&code=one&code=two',
+      '$redirect?code=one&code=two',
       '$redirect?state=$flowId&code=one#fragment',
     ]) {
       expect(
@@ -184,6 +192,81 @@ void main() {
     },
   );
 
+  testWidgets('native callback after background resumes Create Profile', (
+    tester,
+  ) async {
+    final gateway = TestNativeGateway();
+    final native = TestNativeClient()..response = Completer<String>();
+    final session = SessionController(
+      gateway,
+      MemorySessionVault(),
+      nativeTelegram: native,
+    );
+    addTearDown(session.dispose);
+    await tester.runAsync(session.initialize);
+    await tester.pumpWidget(
+      BankingApp(
+        session: session,
+        config: AppConfig(
+          apiBaseUrl: 'http://localhost:8080/api/v1',
+          environment: 'dev',
+          mode: 'demo',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Continue with Telegram'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Continue with Telegram'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    await tester.pump();
+    expect(native.calls, 1);
+    expect(session.telegramPending, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.runAsync(() async {
+      native.response!.complete('test-provider-code');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Create profile'), findsOneWidget);
+    expect(gateway.exchanges, 1);
+    expect(session.telegramPending, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  test(
+    'returning Telegram profile still requires PIN unlock before Home',
+    () async {
+      final gateway = TestNativeGateway();
+      final pins = DemoAppPinGateway(gateway);
+      final session = SessionController(
+        gateway,
+        MemorySessionVault(),
+        nativeTelegram: TestNativeClient(),
+        pinGateway: pins,
+      );
+      addTearDown(session.dispose);
+      await session.initialize();
+      await session.continueTelegram();
+      await session.completeInformation('Dara', 'Sok');
+      await session.submitPin('0427');
+      await session.submitPin('0427');
+      expect(session.phase, SessionPhase.signedIn);
+      await session.signOut();
+      await session.continueTelegram();
+      expect(session.identity!.profileComplete, isTrue);
+      expect(session.phase, SessionPhase.pinLocked);
+      expect(session.pinStage, PinStage.unlock);
+      await session.submitPin('0427');
+      expect(session.phase, SessionPhase.signedIn);
+      expect(gateway.exchanges, 2);
+    },
+  );
+
   test(
     'cancellation suppresses a late callback without submitting an exchange',
     () async {
@@ -269,12 +352,15 @@ void main() {
             expect(request.body, isNot(contains('password')));
             if (request.url.path.endsWith('/exchange')) {
               return http.Response(
-              '{"success":true,"data":{"accessToken":"access","refreshToken":"refresh","expiresInMs":900000}}',
+                '{"success":true,"data":{"accessToken":"access","refreshToken":"refresh","expiresInMs":900000}}',
                 200,
               );
             }
             expect(request.headers['Authorization'], 'Bearer owner');
-          return http.Response('{"success":true,"data":{"flowId":"flow"}}', 200);
+            return http.Response(
+              '{"success":true,"data":{"flowId":"flow"}}',
+              200,
+            );
           }),
         ),
       );

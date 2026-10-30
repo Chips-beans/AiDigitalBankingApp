@@ -10,7 +10,12 @@ class PostingPage {
 }
 
 abstract interface class TransactionGateway {
-  Future<RecentPosting> transfer(String token, SavedTransfer operation);
+  /// [pinProof] is required for a new key; a replay of a completed key needs none.
+  Future<RecentPosting> transfer(
+    String token,
+    SavedTransfer operation, {
+    String? pinProof,
+  });
   Future<PostingPage> history(String token, String account, int page);
   Future<RecentPosting> detail(String token, String account, String reference);
 }
@@ -19,12 +24,17 @@ class HttpTransactionGateway implements TransactionGateway {
   HttpTransactionGateway(this.client);
   final ApiClient client;
   @override
-  Future<RecentPosting> transfer(String token, SavedTransfer operation) async {
+  Future<RecentPosting> transfer(
+    String token,
+    SavedTransfer operation, {
+    String? pinProof,
+  }) async {
     final response = await client.request(
       'POST',
       operation.draft.isQr ? '/payments/qr/transfer' : '/transactions/transfer',
       accessToken: token,
       idempotencyKey: operation.key,
+      pinProof: pinProof,
       body: operation.draft.isQr
           ? operation.draft.qrPayload
           : operation.draft.payload,
@@ -123,8 +133,11 @@ class PreviewTransactionGateway implements TransactionGateway {
     'Transaction details are unavailable in this preview.',
   );
   @override
-  Future<RecentPosting> transfer(String token, SavedTransfer operation) async =>
-      throw const ApiFailure(
+  Future<RecentPosting> transfer(
+    String token,
+    SavedTransfer operation, {
+    String? pinProof,
+  }) async => throw const ApiFailure(
         'PREVIEW_ONLY',
         'Sending transfers requires the native app and real API.',
       );

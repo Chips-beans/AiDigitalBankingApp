@@ -40,6 +40,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     boolean existsByUserAndAccountCategoryAndCurrency(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory, String currency);
 
+    Optional<Account> findFirstByUserAndAccountCategoryAndCurrencyOrderByIdAsc(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory, String currency);
+
     List<Account> findByMerchantId(Long merchantId);
 
     List<Account> findByMerchantId(Long merchantId, org.springframework.data.domain.Pageable pageable);

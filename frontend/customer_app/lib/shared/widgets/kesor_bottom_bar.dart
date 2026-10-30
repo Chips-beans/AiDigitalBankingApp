@@ -122,7 +122,8 @@ class KesorBottomBar extends StatelessWidget {
         const SizedBox(width: 16),
         Semantics(
           button: true,
-          label: 'AI assistant',
+          selected: selectedIndex == 3,
+          label: khmer ? 'ជំនួយការ AI' : 'AI assistant',
           child: Tooltip(
             message: 'AI assistant',
             excludeFromSemantics: true,
@@ -150,9 +151,9 @@ class KesorBottomBar extends StatelessWidget {
                     ),
                     child: Center(
                       child: SvgPicture.asset(
-                        'assets/home/ai-sun.svg',
-                        width: 30,
-                        height: 30,
+                        'assets/home/ai-chat.svg',
+                        width: 24,
+                        height: 24,
                         excludeFromSemantics: true,
                       ),
                     ),

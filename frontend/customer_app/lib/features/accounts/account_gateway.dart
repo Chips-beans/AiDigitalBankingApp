@@ -76,7 +76,13 @@ class RecentPosting {
     required this.status,
     required this.createdAt,
     this.remark,
-  });
+    Money? debit,
+    this.sourceName,
+    this.destinationName,
+    this.bankSource = false,
+    this.operation,
+    this.exchangeRate,
+  }) : debit = debit ?? amount;
   factory RecentPosting.fromJson(Object? value, String accountNumber) {
     final data = objectData(value);
     final source = data['sourceAccountNumber'];
@@ -94,23 +100,50 @@ class RecentPosting {
     if (data['remark'] != null && data['remark'] is! String) {
       throw invalidAccountData;
     }
+    String? optionalText(String key) {
+      final v = data[key];
+      if (v != null && (v is! String || v.length > 200)) {
+        throw invalidAccountData;
+      }
+      return v as String?;
+    }
+
+    final debit = Money.parse(data['amount'], currency);
+    // Older servers omit the credit side; it then equals the debit.
+    final credit = data['creditAmount'] == null
+        ? debit
+        : Money.parse(data['creditAmount'], textField(data, 'creditCurrency'));
+    // The receiving account sees what it was credited; everyone else sees the debit.
+    final received = destination == accountNumber && source != accountNumber;
     return RecentPosting(
       reference: textField(data, 'referenceNumber'),
       source: source as String?,
       destination: destination as String?,
-      amount: Money.parse(data['amount'], currency),
+      amount: received ? credit : debit,
+      debit: debit,
       fee: Money.parse(data['fee'], currency),
       type: type,
       status: status,
       createdAt: dateField(data, 'createdAt'),
       remark: data['remark'] as String?,
+      sourceName: optionalText('sourceName'),
+      destinationName: optionalText('destinationName'),
+      bankSource: data['bankSource'] == true,
+      operation: optionalText('operation'),
+      exchangeRate: data['exchangeRate'] == null
+          ? null
+          : '${data['exchangeRate']}',
     );
   }
   final String reference, type, status;
   final String? source, destination;
-  final String? remark;
-  final Money amount, fee;
+  final String? remark, sourceName, destinationName, operation, exchangeRate;
+  final bool bankSource;
+
+  /// [amount] is from this account's perspective; [debit] is what the source paid.
+  final Money amount, fee, debit;
   final DateTime createdAt;
+  bool get converted => debit.currency != amount.currency || exchangeRate != null;
   String direction(String number) => type == 'DEPOSIT'
       ? 'Deposit'
       : source == number

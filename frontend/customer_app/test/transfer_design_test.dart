@@ -8,6 +8,7 @@ import 'package:customer_app/features/transactions/recipient_favorites.dart';
 import 'package:customer_app/features/transactions/transfer_controller.dart';
 import 'package:customer_app/features/transactions/transfer_store.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'accounts_test.dart' show FakeAccounts;
@@ -96,7 +97,7 @@ void main() {
       await tap(tester, continueButton);
       expect(transfers.review, isNotNull);
       expect(gateway.requests, isEmpty);
-      await tap(tester, find.text('Edit transfer'));
+      await tap(tester, find.byKey(const ValueKey('transfer-edit')));
       expect(
         tester
             .widget<TextFormField>(
@@ -121,6 +122,16 @@ void main() {
     'wallet selection uses live balances and enforces whole KHR amounts',
     (tester) async {
       await mount(tester);
+      final usdFlag = tester.widget<SvgPicture>(
+        find.descendant(
+          of: find.byKey(const ValueKey('transfer-currency-flag-USD')),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect(
+        (usdFlag.bytesLoader as SvgAssetLoader).assetName,
+        'assets/transfer/flag-us.svg',
+      );
       await tap(tester, walletPicker);
       final frozen = tester.widget<ListTile>(
         find.widgetWithText(ListTile, 'FROZEN'),
@@ -128,6 +139,17 @@ void main() {
       expect(frozen.enabled, false);
       await tap(tester, find.text('Khmer Riel Wallet'));
       expect(find.text('KHR 100,000'), findsOneWidget);
+      final khrFlagFinder = find.byKey(
+        const ValueKey('transfer-currency-flag-KHR'),
+      );
+      expect(tester.getSize(khrFlagFinder), const Size(26, 18));
+      final khrFlag = tester.widget<SvgPicture>(
+        find.descendant(of: khrFlagFinder, matching: find.byType(SvgPicture)),
+      );
+      expect(
+        (khrFlag.bytesLoader as SvgAssetLoader).assetName,
+        'assets/transfer/flag-kh.svg',
+      );
       await fill(tester, amount: '1.2');
       await tap(tester, continueButton);
       expect(transfers.review, null);
@@ -148,7 +170,7 @@ void main() {
       await tap(tester, find.byKey(const ValueKey('transfer-favorite-toggle')));
       await tap(tester, continueButton);
       expect(await favorites.read(1), isEmpty);
-      await tap(tester, find.text('Confirm and send'));
+      await tap(tester, find.byKey(const ValueKey('transfer-confirm')));
       expect(find.text('Transfer outcome unknown'), findsOneWidget);
       expect(await favorites.read(1), isEmpty);
       final key = gateway.requests.single.key;
@@ -159,14 +181,16 @@ void main() {
     },
   );
   testWidgets(
-    'saved recipient is currency-filtered and fills the form without submitting',
+    // Cross-currency transfers convert at the fixed rate, so every saved recipient is offered.
+    'saved recipients of any currency fill the form without submitting',
     (tester) async {
       await mount(tester);
       await favorites.add(1, FavoriteRecipient(funded(2).number, 'USD'));
       await favorites.add(1, FavoriteRecipient(funded(5).number, 'KHR'));
       await tap(tester, find.bySemanticsLabel('Saved recipients'));
-      expect(find.text(funded(5).number), findsNothing);
-      await tap(tester, find.widgetWithText(ListTile, funded(2).number));
+      expect(find.byKey(ValueKey('saved-recipient-${funded(5).number}')), findsOneWidget);
+      expect(find.text('${funded(5).number} · KHR'), findsOneWidget);
+      await tap(tester, find.byKey(ValueKey('saved-recipient-${funded(2).number}')));
       expect(
         tester
             .widget<TextFormField>(
@@ -210,5 +234,22 @@ void main() {
     expect(tester.widget<FilledButton>(continueButton).onPressed, null);
     expect(transfers.review, null);
     expect(gateway.requests, isEmpty);
+  });
+
+  testWidgets('Continue stays above the keyboard without sending a payment', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 667);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await mount(tester);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pumpAndSettle();
+    expect(tester.getBottomRight(continueButton).dy, lessThanOrEqualTo(407));
+    expect(tester.getSize(continueButton).height, greaterThanOrEqualTo(54));
+    expect(gateway.requests, isEmpty);
+    expect(tester.takeException(), isNull);
   });
 }

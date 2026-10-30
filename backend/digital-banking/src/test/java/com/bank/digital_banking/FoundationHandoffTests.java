@@ -36,7 +36,7 @@ class FoundationHandoffTests {
             }
             var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
             upgraded.migrate(); upgraded.validate();
-            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("15");
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("17");
             try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
                 try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
                     assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
@@ -71,8 +71,8 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(15);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("16");
+                assertThat(flyway.info().applied()).hasSize(16);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -135,7 +135,7 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(15);
+                assertThat(flyway.info().applied()).hasSize(16);
                 assertThat(flyway.info().pending()).isEmpty();
                 JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
                 assertThat(pinState.path("configured").asBoolean()).isTrue();
@@ -207,6 +207,8 @@ class FoundationHandoffTests {
                 "--spring.mail.properties.mail.smtp.auth=false",
                 "--spring.mail.properties.mail.smtp.starttls.enable=false",
                 "--spring.mail.properties.mail.smtp.starttls.required=false",
+                // Restart/replay is the subject here; PIN proofs (and proof-free replays) are covered by TransferPinAndExchangeTests.
+                "--app.transfer.pin-proof-required=false",
                 "--app.ai.enabled=false", "--spring.main.banner-mode=off", "--logging.level.root=WARN");
     }
 

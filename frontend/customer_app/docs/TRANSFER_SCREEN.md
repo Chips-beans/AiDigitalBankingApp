@@ -1,4 +1,63 @@
-# Kesor Transfer screen
+# Kesor Transfer flow
+
+## Latest — full Figma flow and bottom navigation
+
+Updated 30 October 2026 from [Transfer Flow section 307:340](https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=307-340).
+The native entry `273:356` and review `308:269` target 440 × 956; success `308:740`
+targets 440 × 978. The layouts use `kesor_transfer_screen.dart`,
+`transfer_review_screen.dart`, `transfer_success_screen.dart` and shared
+`transfer_flow_design.dart`. The original entry-only implementation is documented
+below as history; its generic review is superseded for manual transfers.
+
+Reference positions and typography are checked for the emblems/panels, inputs,
+392 × 54 payment actions, 175px review account card, 64px reminder, 84px light
+success amount, 376 × 366 receipt and 376 × 56 home action. The receipt uses
+Figma's original perforation, notches, icons and gold shadow. The static seal is
+exported directly from its Figma node as a transparent 2× PNG because Flutter's
+SVG renderer does not support the source blur filter. Its 198 × 178.174 rendered
+bounds remain in the 198 × 168 design slot. No screen screenshot is used as UI.
+Existing entry/navigation SVGs were verified byte-for-byte against current exports.
+All runtime assets are local; no temporary Figma URLs are embedded.
+
+The customer's subsequent icon/flag correction is included: account/receiver
+artwork uses the exact Figma paths and intrinsic bounds with no added gold square
+in dark mode; a monochrome theme tint preserves contrast without changing shape.
+KHR now uses the Cambodia flag and USD uses a borderless US flag, shared across
+entry/review/success. These intentional flag changes replace the source's padded
+US raster badge and earlier riel-glyph adaptation. Sources/licenses are recorded
+in `assets/transfer/FLAG_SOURCES.md`. Original Figma glyph assets are unchanged.
+
+Entry and review payment actions stay at the bottom above the keyboard; details
+scroll independently. On wide displays the form and footer share the same 440px
+maximum width. Success content/actions scroll together if needed. English/Khmer,
+both themes, 2× text, narrow, landscape and tablet variants are supported.
+Reference measurements apply at normal text settings. The connected Samsung uses
+130% text plus a 300 font-weight adjustment; these accessibility settings are
+respected and were not modified to imitate the reference.
+
+Manual recipient names are not supplied by the existing API, so the real account
+number occupies the primary recipient slot. A verified QR name can display when
+available. No sample recipient, date or reference is inserted into a real receipt.
+Dates use the confirmed server receipt; absent dates are explicitly unavailable.
+Only a durably confirmed success selects the gold-seal screen. Home/another-transfer
+actions dismiss the resolved journal through the existing controller before
+navigating/clearing fields. Unknown/rejected states retain `TransferPanel` recovery.
+No backend, transfer API, precision, PIN or idempotency behavior was changed.
+
+The shared `KesorBottomBar` follows `90:644` and row `73:1328`: 320 × 64 capsule,
+4px inset, 56px selected tab, 20px linked active/inactive icons, Google Sans 11/16
+labels, 16px gap and separate 64px gradient assistant action. The assistant uses
+the original 24px Figma chat artwork and exposes its selected state. Existing
+Home/Analytics/Settings/AI routing is preserved; sizes adapt for narrow/large text.
+
+Verification: **213 Flutter tests passed**, analyzer clean. The entry fixture and
+new `tool/transfer_flow_visual_qa.dart` also passed, rendering 14 entry variants
+and 42 review/success/navigation variants including KHR. Reference geometry checks passed;
+representative renders were visually compared with Figma. Keyboard clearance,
+explicit confirmation, lost-response retry and success dismissal are covered.
+Latest packaged build and physical-device observations are in the project handoff.
+
+## Original entry implementation — historical
 
 Implemented from [Kesor Bank, frame 273:356](https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=273-356)
 on 30 October 2026. Home → Transfer opens the native Flutter screen in

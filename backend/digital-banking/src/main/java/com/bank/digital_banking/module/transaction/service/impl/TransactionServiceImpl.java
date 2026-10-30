@@ -22,12 +22,27 @@ public class TransactionServiceImpl implements TransactionService {
     private final AccountRepository accountRepository;
     private final FinancialCommandService commands;
     private final AuditTrail audit;
+    private final ExchangeRates rates;
 
     @Override
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NEVER)
-    public TransactionResponseDto processTransfer(User user, TransferRequestDto request, String key) {
-        return attempt(user, "TRANSFER", () -> commands.execute(user, TransactionType.TRANSFER, key,
-                request.getSourceAccountNumber(), request.getDestinationAccountNumber(), request.getAmount(), request.getCurrency(), request.getRemark()));
+    public TransactionResponseDto processTransfer(User user, TransferRequestDto request, String key,
+                                                  FinancialCommandService.PinProof proof) {
+        return attempt(user, "TRANSFER", () -> commands.executeTransfer(user, key,
+                request.getSourceAccountNumber(), request.getDestinationAccountNumber(), request.getAmount(), request.getCurrency(),
+                request.getRemark(), proof));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ExchangeRates.Quote quote(User user, String sourceNumber, String destinationNumber, java.math.BigDecimal amount) {
+        var source = accountRepository.findByAccountNumber(sourceNumber == null ? "" : sourceNumber)
+                .filter(a -> a.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Account not available"));
+        var destination = accountRepository.findByAccountNumber(destinationNumber == null ? "" : destinationNumber)
+                .filter(a -> a.getStatus() == com.bank.digital_banking.module.account.entity.AccountStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not available"));
+        return rates.forDebit(amount, source.getCurrency(), destination.getCurrency());
     }
 
     @Override

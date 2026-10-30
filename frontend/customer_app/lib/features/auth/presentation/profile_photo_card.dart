@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +7,20 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../app/app_preferences.dart';
 import '../../../app/design_system/design_system.dart';
+import '../../../core/platform/image_picker.dart';
 import '../data/profile_photo.dart';
 import '../session_controller.dart';
 
 class ProfilePhotoCard extends StatefulWidget {
-  const ProfilePhotoCard(this.session, {super.key});
+  const ProfilePhotoCard(
+    this.session, {
+    this.displayName,
+    this.chooseImage,
+    super.key,
+  });
   final SessionController session;
+  final String? displayName;
+  final Future<XFile?> Function()? chooseImage;
   @override
   State<ProfilePhotoCard> createState() => _ProfilePhotoCardState();
 }
@@ -19,44 +28,79 @@ class ProfilePhotoCard extends StatefulWidget {
 class _ProfilePhotoCardState extends State<ProfilePhotoCard> {
   String? error;
   bool picking = false;
+  Uint8List? preview;
+  int selectionRevision = 0;
   @override
   void initState() {
     super.initState();
+    widget.session.addListener(clearPrivatePreview);
     // Do not notify the enclosing session builder during its build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(widget.session.loadProfilePhoto());
     });
   }
 
+  void clearPrivatePreview() {
+    // Opening the gallery makes the app inactive and raises the privacy cover; that
+    // must not cancel the trusted selection in progress (the cover still hides it).
+    if (widget.session.phase != SessionPhase.signedIn ||
+        (widget.session.privacyCovered &&
+            !widget.session.trustedImageSelection)) {
+      selectionRevision++;
+      preview = null;
+      error = null;
+      picking = false;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfilePhotoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      oldWidget.session.removeListener(clearPrivatePreview);
+      widget.session.addListener(clearPrivatePreview);
+      selectionRevision++;
+      preview = null;
+      error = null;
+      picking = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(clearPrivatePreview);
+    super.dispose();
+  }
+
   Future<void> choose() async {
     final session = widget.session;
-    if (picking || session.busy || session.photoBusy) return;
+    if (picking ||
+        session.busy ||
+        session.photoBusy ||
+        session.privacyCovered) {
+      return;
+    }
     final user = session.identity?.userId;
+    final revision = ++selectionRevision;
+    bool current() =>
+        mounted &&
+        widget.session == session &&
+        revision == selectionRevision &&
+        session.identity?.userId == user &&
+        // The privacy cover may still be up while the picker result arrives (before
+        // resume). A slow (>60 s) selection locks the app and fails this phase check.
+        session.phase == SessionPhase.signedIn;
     setState(() {
       picking = true;
       error = null;
     });
     try {
       session.beginPhotoSelection();
-      final file = await openFile(
-        acceptedTypeGroups: const [
-          XTypeGroup(
-            label: 'JPG or PNG',
-            extensions: ['jpg', 'jpeg', 'png'],
-            mimeTypes: ['image/jpeg', 'image/png'],
-            uniformTypeIdentifiers: ['public.jpeg', 'public.png'],
-          ),
-        ],
-      );
+      final file = await (widget.chooseImage?.call() ?? pickImageFile());
       session.endPhotoSelection();
-      if (file == null ||
-          !mounted ||
-          session.identity?.userId != user ||
-          session.phase != SessionPhase.signedIn) {
-        return;
-      }
+      if (file == null || !current()) return;
       if (await file.length() > maxProfilePhotoBytes) {
-        if (mounted) {
+        if (current()) {
           setState(
             () => error = tr(
               context,
@@ -68,10 +112,12 @@ class _ProfilePhotoCardState extends State<ProfilePhotoCard> {
         return;
       }
       final bytes = await file.readAsBytes();
-      if (!mounted || session.identity?.userId != user) return;
+      if (!current()) return;
+      // Preview locally while the existing authenticated upload confirms saving.
+      setState(() => preview = bytes);
       await session.saveProfilePhoto(bytes);
     } catch (_) {
-      if (mounted) {
+      if (current()) {
         setState(
           () => error = tr(
             context,
@@ -81,8 +127,15 @@ class _ProfilePhotoCardState extends State<ProfilePhotoCard> {
         );
       }
     } finally {
-      session.endPhotoSelection();
-      if (mounted) setState(() => picking = false);
+      if (revision == selectionRevision && widget.session == session) {
+        session.endPhotoSelection();
+        if (mounted) {
+          setState(() {
+            picking = false;
+            preview = null;
+          });
+        }
+      }
     }
   }
 
@@ -94,11 +147,39 @@ class _ProfilePhotoCardState extends State<ProfilePhotoCard> {
       final colors = AppColors.of(context);
       final text = AppTextStyles.of(context);
       final dark = Theme.of(context).brightness == Brightness.dark;
-      final action = tr(
-        context,
-        session.profilePhoto == null ? 'Upload photo' : 'Change photo',
-        session.profilePhoto == null ? 'បញ្ចូលរូបថត' : 'ប្ដូររូបថត',
-      );
+      final name = (widget.displayName ?? session.identity?.displayName ?? '')
+          .trim();
+      final bytes = preview ?? session.profilePhoto?.bytes;
+      final fallback = name.isEmpty
+          ? SvgPicture.asset(
+              'assets/auth/email-profile-user.svg',
+              width: 36,
+              height: 36,
+              excludeFromSemantics: true,
+            )
+          : Text(
+              name.characters.first.toUpperCase(),
+              key: const ValueKey('profile-photo-initial'),
+              style: text.titleXL.copyWith(
+                color: colors.accent500,
+                fontSize: 32,
+                height: 1,
+              ),
+              maxLines: 1,
+              textScaler: TextScaler.noScaling,
+              semanticsLabel: tr(
+                context,
+                'Default profile picture for $name',
+                'រូបភាពប្រវត្តិរូបលំនាំដើមសម្រាប់ $name',
+              ),
+            );
+      final action = preview != null
+          ? tr(context, 'Uploading photo…', 'កំពុងបញ្ចូលរូបថត…')
+          : tr(
+              context,
+              session.profilePhoto == null ? 'Upload photo' : 'Change photo',
+              session.profilePhoto == null ? 'បញ្ចូលរូបថត' : 'ប្ដូររូបថត',
+            );
       final photo = Container(
         key: const ValueKey('profile-photo-avatar'),
         width: 80,
@@ -109,26 +190,22 @@ class _ProfilePhotoCardState extends State<ProfilePhotoCard> {
         ),
         clipBehavior: Clip.antiAlias,
         alignment: Alignment.center,
-        child: session.profilePhoto != null
+        child: bytes != null
             ? Image.memory(
-                session.profilePhoto!.bytes,
+                bytes,
                 width: 80,
                 height: 80,
+                cacheWidth: (80 * MediaQuery.devicePixelRatioOf(context))
+                    .ceil(),
                 fit: BoxFit.cover,
                 semanticLabel: tr(
                   context,
                   'Your profile photo',
                   'រូបថតប្រវត្តិរូបរបស់អ្នក',
                 ),
-                errorBuilder: (_, error, stack) =>
-                    const Icon(Icons.person_outline, size: 36),
+                errorBuilder: (_, error, stack) => fallback,
               )
-            : SvgPicture.asset(
-                'assets/auth/email-profile-user.svg',
-                width: 36,
-                height: 36,
-                excludeFromSemantics: true,
-              ),
+            : fallback,
       );
       final uploadVisual = Row(
         mainAxisSize: MainAxisSize.min,

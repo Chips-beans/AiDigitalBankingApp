@@ -11,6 +11,7 @@ class AppPreferences extends ChangeNotifier {
   final PreferencesStore _store;
   ThemeMode themeMode = ThemeMode.system;
   Locale locale = const Locale('en');
+  bool activityAlerts = false;
   Future<void> _pendingWrite = Future<void>.value();
 
   bool get isKhmer => locale.languageCode == 'km';
@@ -27,6 +28,7 @@ class AppPreferences extends ChangeNotifier {
               .firstOrNull ??
           ThemeMode.system;
       locale = Locale(data['language'] == 'km' ? 'km' : 'en');
+      activityAlerts = data['activityAlerts'] == true;
     } catch (_) {
       // Display preference storage must never block sign-in or banking.
     }
@@ -43,11 +45,28 @@ class AppPreferences extends ChangeNotifier {
     _changed();
   }
 
+  void setLanguage(Locale value) {
+    if (!const ['en', 'km'].contains(value.languageCode)) return;
+    locale = value;
+    _changed();
+  }
+
+  void setThemeMode(ThemeMode value) {
+    themeMode = value;
+    _changed();
+  }
+
+  void setActivityAlerts(bool value) {
+    activityAlerts = value;
+    _changed();
+  }
+
   void _changed() {
     notifyListeners();
     final value = jsonEncode({
       'theme': themeMode.name,
       'language': locale.languageCode,
+      'activityAlerts': activityAlerts,
     });
     // Serialize rapid toggles, so an older write cannot overwrite the latest.
     _pendingWrite = _pendingWrite

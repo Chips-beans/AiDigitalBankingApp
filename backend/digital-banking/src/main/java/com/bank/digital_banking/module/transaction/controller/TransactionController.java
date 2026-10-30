@@ -25,10 +25,25 @@ public class TransactionController {
             @AuthenticationPrincipal User user,
             @io.swagger.v3.oas.annotations.Parameter(required = true, description = "Stable unique key for this operation; reuse it for retries")
             @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @io.swagger.v3.oas.annotations.Parameter(description = "One-time proof from POST /auth/pin/transfer-proof; not needed to replay a completed key")
+            @RequestHeader(value = "X-Pin-Proof", required = false) String pinProof,
+            org.springframework.security.core.Authentication authentication,
             @Valid @RequestBody TransferRequestDto request) {
 
-        TransactionResponseDto response = transactionService.processTransfer(user, request, key);
+        TransactionResponseDto response = transactionService.processTransfer(user, request, key,
+                new com.bank.digital_banking.module.transaction.service.FinancialCommandService.PinProof(
+                        authentication.getDetails() instanceof java.util.UUID session ? session : null, pinProof));
         return ResponseEntity.ok(ApiResponse.success(response,"Transfer executed successfully" ));
+    }
+
+    @GetMapping("/quote")
+    public ResponseEntity<ApiResponse<com.bank.digital_banking.module.transaction.service.ExchangeRates.Quote>> quote(
+            @AuthenticationPrincipal User user,
+            @RequestParam String sourceAccountNumber,
+            @RequestParam String destinationAccountNumber,
+            @RequestParam java.math.BigDecimal amount) {
+        return ResponseEntity.ok(ApiResponse.success(
+                transactionService.quote(user, sourceAccountNumber, destinationAccountNumber, amount), "Transfer quote"));
     }
 
     @PostMapping("/deposit")
