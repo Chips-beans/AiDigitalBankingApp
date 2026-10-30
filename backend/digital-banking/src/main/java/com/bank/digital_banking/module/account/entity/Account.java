@@ -44,6 +44,14 @@ public class Account {
     @Builder.Default
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_category", nullable = false, length = 20)
+    @Builder.Default
+    private AccountCategory accountCategory = AccountCategory.WALLET;
+
+    @Column(name = "merchant_id")
+    private Long merchantId;
+
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

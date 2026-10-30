@@ -1,5 +1,6 @@
 package com.bank.digital_banking.module.account.dto;
 
+import com.bank.digital_banking.module.account.entity.AccountCategory;
 import com.bank.digital_banking.module.account.entity.AccountType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,4 +22,8 @@ public class CreateAccountRequestDto {
     @NotNull(message = "Initial deposit balance is required")
     @PositiveOrZero(message = "Initial deposit balance cannot be negative")
     private BigDecimal initialDeposit;
+
+    private AccountCategory accountCategory = AccountCategory.WALLET;
+
+    private Long merchantId;
 }

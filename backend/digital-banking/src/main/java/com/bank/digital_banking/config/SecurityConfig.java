@@ -70,6 +70,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/transactions/**", "/api/v1/ai/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/audit/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/fraud/**").hasAnyRole("ADMIN", "BANK_EMPLOYEE")
+                .requestMatchers(HttpMethod.POST, "/api/v1/merchants/register").hasAnyRole("ADMIN", "CUSTOMER", "MERCHANT")
                 .requestMatchers("/api/v1/merchants/**").hasAnyRole("ADMIN", "MERCHANT")
                 .requestMatchers("/api/v1/analytics/monthly-overview").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/analytics/**").hasAnyRole("CUSTOMER", "ADMIN")

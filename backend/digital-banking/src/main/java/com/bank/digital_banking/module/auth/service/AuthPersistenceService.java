@@ -19,6 +19,7 @@ public class AuthPersistenceService {
     private final RoleRepository roles;
     private final DeviceService devices;
     private final SessionService sessions;
+    private final com.bank.digital_banking.module.account.service.AccountService accountService;
     private final AuditTrail audit;
 
     @Transactional
@@ -28,6 +29,7 @@ public class AuthPersistenceService {
         User user = users.save(User.builder().username(request.getUsername().trim()).email(email)
                 .password(passwordHash).firstName(request.getFirstName()).lastName(request.getLastName())
                 .enabled(true).roles(Set.of(role)).build());
+        accountService.createDefaultUserWallets(user);
         Device device = devices.bind(user, request.getDeviceFingerprint(), request.getDeviceName(),
                 request.getDeviceType(), null, ip);
         var response = sessions.create(user, device);

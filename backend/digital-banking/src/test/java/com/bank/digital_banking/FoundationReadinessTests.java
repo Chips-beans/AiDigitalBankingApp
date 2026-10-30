@@ -130,12 +130,11 @@ class FoundationReadinessTests extends PostgresIntegrationTest {
         JsonNode tokens = body(registered).path("data");
         String customer = tokens.path("accessToken").asText();
         assertThat(call("GET", "/api/v1/auth/me", customer, null, null).statusCode()).isEqualTo(200);
-        assertThat(body(call("GET", "/api/v1/accounts/me", customer, null, null)).path("data").size()).isZero();
+        assertThat(body(call("GET", "/api/v1/accounts/me", customer, null, null)).path("data").size()).isEqualTo(2);
 
-        var opened = call("POST", "/api/v1/accounts", customer, null, example(api, "/accounts", "post"));
-        assertThat(opened.statusCode()).isEqualTo(201);
-        String number = body(opened).path("data").path("accountNumber").asText();
-        assertThat(body(opened).path("data").path("balance").decimalValue()).isZero();
+        String number = body(call("GET", "/api/v1/accounts/me", customer, null, null)).path("data").get(0).path("accountNumber").asText();
+        assertThat(body(call("GET", "/api/v1/accounts/me", customer, null, null)).path("data").get(0).path("balance").decimalValue()).isZero();
+        assertThat(call("POST", "/api/v1/accounts", customer, null, example(api, "/accounts", "post")).statusCode()).isEqualTo(400);
         String staff = login(api, "employee.demo");
         Map<String, Object> deposit = example(api, "/transactions/deposit", "post");
         deposit.put("accountNumber", number);

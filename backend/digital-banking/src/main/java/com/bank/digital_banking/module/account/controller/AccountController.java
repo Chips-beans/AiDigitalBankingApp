@@ -51,9 +51,19 @@ public class AccountController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<AccountResponseDto>>> getMyAccounts(
-            @AuthenticationPrincipal User user, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        List<AccountResponseDto> accounts = accountService.getUserAccounts(user, page, size);
+        List<AccountResponseDto> accounts;
+        if ("MERCHANT".equalsIgnoreCase(category)) {
+            accounts = accountService.getUserMerchantAccounts(user, page, size);
+        } else if ("ALL".equalsIgnoreCase(category)) {
+            accounts = accountService.getAllUserAccounts(user, page, size);
+        } else {
+            accounts = accountService.getUserAccounts(user, page, size);
+        }
         return ResponseEntity.ok(ApiResponse.success(accounts, "User accounts retrieved successfully"));
     }
 

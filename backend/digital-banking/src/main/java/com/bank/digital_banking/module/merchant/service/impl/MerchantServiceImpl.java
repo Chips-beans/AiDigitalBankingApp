@@ -1,16 +1,21 @@
 package com.bank.digital_banking.module.merchant.service.impl;
 
 import com.bank.digital_banking.common.util.PageBounds;
-
+import com.bank.digital_banking.module.account.dto.AccountResponseDto;
+import com.bank.digital_banking.module.account.entity.AccountCategory;
+import com.bank.digital_banking.module.account.repository.AccountRepository;
+import com.bank.digital_banking.module.account.service.AccountService;
 import com.bank.digital_banking.module.audit.service.AuditTrail;
-
+import com.bank.digital_banking.module.auth.entity.ERole;
+import com.bank.digital_banking.module.auth.entity.Role;
+import com.bank.digital_banking.module.auth.entity.User;
+import com.bank.digital_banking.module.auth.repository.RoleRepository;
+import com.bank.digital_banking.module.auth.repository.UserRepository;
 import com.bank.digital_banking.module.merchant.dto.*;
 import com.bank.digital_banking.module.merchant.entity.Merchant;
 import com.bank.digital_banking.module.merchant.entity.MerchantStatus;
 import com.bank.digital_banking.module.merchant.repository.MerchantRepository;
 import com.bank.digital_banking.module.merchant.service.MerchantService;
-import com.bank.digital_banking.module.auth.entity.User;
-import com.bank.digital_banking.module.auth.entity.ERole;
 import com.bank.digital_banking.common.exception.ResourceNotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +30,10 @@ import java.util.UUID;
 public class MerchantServiceImpl implements MerchantService {
 
     private final MerchantRepository merchantRepository;
+    private final AccountRepository accountRepository;
+    private final AccountService accountService;
+    private final UserRepository users;
+    private final RoleRepository roles;
     private final AuditTrail audit;
 
     @Override
@@ -50,8 +59,39 @@ public class MerchantServiceImpl implements MerchantService {
                 .build();
 
         Merchant savedMerchant = merchantRepository.save(merchant);
+
+        User owner = users.findById(request.ownerUserId()).orElse(actor);
+        Role merchantRole = roles.findByName(ERole.ROLE_MERCHANT).orElse(null);
+        if (merchantRole != null && !owner.getRoles().contains(merchantRole)) {
+            owner.getRoles().add(merchantRole);
+            users.save(owner);
+        }
+
+        accountService.createDefaultMerchantAccounts(owner, savedMerchant);
+
         audit.successAs(actor, "MERCHANT", "MERCHANT_REGISTERED", savedMerchant.getId().toString());
         return MerchantResponse.fromEntity(savedMerchant);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountResponseDto> getMerchantAccounts(User actor, Long merchantId, int page, int size) {
+        Merchant merchant = merchantRepository.findById(merchantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Merchant not available"));
+        requireOwner(actor, merchant);
+        return accountRepository.findByMerchantId(merchantId, PageBounds.ascendingId(page, size))
+                .stream()
+                .map(AccountResponseDto::fromEntity)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountResponseDto> getMyMerchantAccounts(User actor, int page, int size) {
+        return accountRepository.findByUserAndAccountCategory(actor, AccountCategory.MERCHANT, PageBounds.ascendingId(page, size))
+                .stream()
+                .map(AccountResponseDto::fromEntity)
+                .toList();
     }
 
     @Override

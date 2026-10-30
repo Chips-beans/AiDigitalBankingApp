@@ -2,12 +2,14 @@ package com.bank.digital_banking.module.account.service;
 
 import com.bank.digital_banking.common.exception.ApiException;
 import com.bank.digital_banking.common.util.HashUtils;
+import com.bank.digital_banking.common.util.PageBounds;
 import com.bank.digital_banking.common.util.TransactionLockPolicy;
 import com.bank.digital_banking.module.account.dto.*;
 import com.bank.digital_banking.module.account.entity.*;
 import com.bank.digital_banking.module.account.repository.AccountRepository;
 import com.bank.digital_banking.module.audit.service.AuditTrail;
 import com.bank.digital_banking.module.auth.entity.User;
+import com.bank.digital_banking.module.merchant.repository.MerchantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ public class AccountPairService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final AccountRepository accounts;
+    private final MerchantRepository merchantRepository;
     private final TestOpeningFundingService funding;
     private final OpeningFundingPolicy policy;
     private final AuditTrail audit;
@@ -43,18 +46,60 @@ public class AccountPairService {
             throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Opening key belongs to a different request");
         if (claim.get("response_json") != null)
             return json.readValue((String) claim.get("response_json"), AccountPairDtos.Response.class);
+
+        AccountCategory category = request.accountCategory() != null ? request.accountCategory() : AccountCategory.WALLET;
         var result = new ArrayList<AccountResponseDto>();
-        for (String currency : new String[]{"USD", "KHR"}) {
-            String number;
-            do { number = Long.toString(RANDOM.nextLong(1_000_000_000L, 10_000_000_000L)); }
-            while (accounts.existsByAccountNumber(number));
-            Account account = accounts.saveAndFlush(Account.builder().user(owner).accountNumber(number)
-                    .accountType(request.accountType()).currency(currency).balance(BigDecimal.ZERO)
-                    .status(AccountStatus.ACTIVE).build());
-            funding.creditNewAccount(owner, account);
-            audit.successAs(owner, "ACCOUNT", "ACCOUNT_CREATED", number);
-            result.add(AccountResponseDto.fromEntity(account));
+
+        if (category == AccountCategory.WALLET) {
+            var existingWallets = accounts.findByUserAndAccountCategory(owner, AccountCategory.WALLET);
+            if (existingWallets.size() >= 2) {
+                for (Account a : existingWallets) {
+                    result.add(AccountResponseDto.fromEntity(a));
+                }
+            } else {
+                for (String currency : new String[]{"USD", "KHR"}) {
+                    if (!accounts.existsByUserAndAccountCategoryAndCurrency(owner, AccountCategory.WALLET, currency)) {
+                        String number;
+                        do { number = Long.toString(RANDOM.nextLong(1_000_000_000L, 10_000_000_000L)); }
+                        while (accounts.existsByAccountNumber(number));
+                        Account account = accounts.saveAndFlush(Account.builder().user(owner).accountNumber(number)
+                                .accountType(request.accountType()).currency(currency).balance(BigDecimal.ZERO)
+                                .status(AccountStatus.ACTIVE).accountCategory(AccountCategory.WALLET).build());
+                        funding.creditNewAccount(owner, account);
+                        audit.successAs(owner, "ACCOUNT", "ACCOUNT_CREATED", number);
+                        result.add(AccountResponseDto.fromEntity(account));
+                    }
+                }
+            }
+        } else if (category == AccountCategory.MERCHANT) {
+            Long merchantId = request.merchantId();
+            if (merchantId == null) {
+                var m = merchantRepository.findByOwnerUserId(owner.getId(), PageBounds.ascendingId(0, 1));
+                if (m.isEmpty()) throw new ApiException(HttpStatus.FORBIDDEN, "MERCHANT_REGISTRATION_REQUIRED",
+                        "User must sign up for merchant app before opening merchant accounts");
+                merchantId = m.get(0).getId();
+            }
+            long merchantCount = accounts.countByMerchantId(merchantId);
+            if (merchantCount >= 2) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "ACCOUNT_LIMIT_EXCEEDED",
+                        "Merchant account limit reached: merchants can have at most 2 accounts (1 USD and 1 KHR)");
+            }
+            for (String currency : new String[]{"USD", "KHR"}) {
+                if (!accounts.existsByMerchantIdAndCurrency(merchantId, currency)) {
+                    String number;
+                    do { number = Long.toString(RANDOM.nextLong(1_000_000_000L, 10_000_000_000L)); }
+                    while (accounts.existsByAccountNumber(number));
+                    Account account = accounts.saveAndFlush(Account.builder().user(owner).accountNumber(number)
+                            .accountType(request.accountType()).currency(currency).balance(BigDecimal.ZERO)
+                            .status(AccountStatus.ACTIVE).accountCategory(AccountCategory.MERCHANT)
+                            .merchantId(merchantId).build());
+                    funding.creditNewAccount(owner, account);
+                    audit.successAs(owner, "ACCOUNT", "ACCOUNT_CREATED", number);
+                    result.add(AccountResponseDto.fromEntity(account));
+                }
+            }
         }
+
         var response = new AccountPairDtos.Response(result, policy.enabled());
         jdbc.update("UPDATE account_opening_requests SET response_json=? WHERE actor_user_id=? AND request_key=?",
                 json.writeValueAsString(response), owner.getId(), key);

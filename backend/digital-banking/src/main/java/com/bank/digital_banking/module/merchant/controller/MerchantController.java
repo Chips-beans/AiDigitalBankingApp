@@ -76,6 +76,25 @@ public class MerchantController {
     public ResponseEntity<MerchantResponse> updateMerchantStatus(@AuthenticationPrincipal User actor, @PathVariable Long id, @RequestParam MerchantStatus status) {
         return ResponseEntity.ok(merchantService.updateMerchantStatus(actor, id, status));
     }
+
+    @Operation(summary = "Get merchant accounts", description = "Retrieves accounts dedicated to this merchant")
+    @GetMapping("/{id}/accounts")
+    public ResponseEntity<List<com.bank.digital_banking.module.account.dto.AccountResponseDto>> getMerchantAccounts(
+            @AuthenticationPrincipal User actor,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(merchantService.getMerchantAccounts(actor, id, page, size));
+    }
+
+    @Operation(summary = "Get my merchant accounts", description = "Retrieves accounts for merchants owned by the current user")
+    @GetMapping("/me/accounts")
+    public ResponseEntity<List<com.bank.digital_banking.module.account.dto.AccountResponseDto>> getMyMerchantAccounts(
+            @AuthenticationPrincipal User actor,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(merchantService.getMyMerchantAccounts(actor, page, size));
+    }
     
     // Added: OpenAPI Operation description
     @Operation(summary = "Get merchant QR configuration", description = "Retrieves QR credentials, merchant account details, and pre-computed static QR code for this merchant")

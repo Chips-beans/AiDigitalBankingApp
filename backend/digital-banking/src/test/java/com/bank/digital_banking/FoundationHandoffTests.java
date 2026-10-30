@@ -71,8 +71,8 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(14);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("15");
+                assertThat(flyway.info().applied()).hasSize(15);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("16");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -94,10 +94,10 @@ class FoundationHandoffTests {
                         app.getBean(com.bank.digital_banking.module.auth.repository.UserRepository.class)
                                 .findByUsername("handoff.sender").orElseThrow(),
                         new org.springframework.mock.web.MockMultipartFile("photo", "photo.png", "image/png", photoBytes.toByteArray()));
-                assertThat(ok("GET", "/accounts/me", senderAccess, null, null, 200).size()).isZero();
-                assertThat(ok("GET", "/accounts/me", receiverAccess, null, null, 200).size()).isZero();
-                source = open(senderAccess);
-                destination = open(receiverAccess);
+                assertThat(ok("GET", "/accounts/me", senderAccess, null, null, 200).size()).isEqualTo(2);
+                assertThat(ok("GET", "/accounts/me", receiverAccess, null, null, 200).size()).isEqualTo(2);
+                source = ok("GET", "/accounts/me", senderAccess, null, null, 200).get(0).path("accountNumber").asText();
+                destination = ok("GET", "/accounts/me", receiverAccess, null, null, 200).get(0).path("accountNumber").asText();
 
                 ok("POST", "/auth/request-otp", null, null,
                         Map.of("email", "employee.demo@example.test", "purpose", "LOGIN"), 200);
@@ -135,14 +135,14 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(14);
+                assertThat(flyway.info().applied()).hasSize(15);
                 assertThat(flyway.info().pending()).isEmpty();
                 JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
                 assertThat(pinState.path("configured").asBoolean()).isTrue();
                 assertThat(pinState.path("attemptsRemaining").asInt()).isEqualTo(4);
                 assertThat(pinState.path("canRecover").asBoolean()).isFalse();
                 JsonNode pinUnlocked = ok("POST", "/auth/pin/unlock", null, null, Map.of("ticket", durablePinTicket, "pin", "0427"), 200);
-                assertThat(ok("GET", "/accounts/me", pinUnlocked.path("accessToken").asText(), null, null, 200).size()).isZero();
+                assertThat(ok("GET", "/accounts/me", pinUnlocked.path("accessToken").asText(), null, null, 200).size()).isEqualTo(2);
                 renewed = ok("POST", "/auth/refresh", null, null,
                         Map.of("refreshToken", sender.path("refreshToken").asText()), 200);
                 assertThat(renewed.path("sessionId").asText()).isEqualTo(sender.path("sessionId").asText());

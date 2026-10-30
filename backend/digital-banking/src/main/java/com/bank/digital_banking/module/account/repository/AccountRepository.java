@@ -32,5 +32,21 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     List<Account> findByUser(User user, org.springframework.data.domain.Pageable pageable);
 
+    List<Account> findByUserAndAccountCategory(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory);
+
+    List<Account> findByUserAndAccountCategory(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory, org.springframework.data.domain.Pageable pageable);
+
+    long countByUserAndAccountCategory(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory);
+
+    boolean existsByUserAndAccountCategoryAndCurrency(User user, com.bank.digital_banking.module.account.entity.AccountCategory accountCategory, String currency);
+
+    List<Account> findByMerchantId(Long merchantId);
+
+    List<Account> findByMerchantId(Long merchantId, org.springframework.data.domain.Pageable pageable);
+
+    long countByMerchantId(Long merchantId);
+
+    boolean existsByMerchantIdAndCurrency(Long merchantId, String currency);
+
     boolean existsByAccountNumber(String accountNumber);
 }

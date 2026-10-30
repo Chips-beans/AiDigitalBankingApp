@@ -129,3 +129,4 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         return new SemesterComparisonResponse(List.copyOf(items), totalIn, totalOut);
     }
 }
+    

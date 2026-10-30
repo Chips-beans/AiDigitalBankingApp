@@ -1,6 +1,7 @@
 package com.bank.digital_banking.module.account.dto;
 
 import com.bank.digital_banking.module.account.entity.Account;
+import com.bank.digital_banking.module.account.entity.AccountCategory;
 import com.bank.digital_banking.module.account.entity.AccountStatus;
 import com.bank.digital_banking.module.account.entity.AccountType;
 import lombok.Builder;
@@ -21,6 +22,9 @@ public class AccountResponseDto {
     private String currency;
     private BigDecimal balance;
     private AccountStatus status;
+    @Builder.Default
+    private AccountCategory accountCategory = AccountCategory.WALLET;
+    private Long merchantId;
     private OffsetDateTime createdAt;
 
     public static AccountResponseDto fromEntity(Account account) {
@@ -31,6 +35,8 @@ public class AccountResponseDto {
                 .currency(account.getCurrency())
                 .balance(account.getBalance())
                 .status(account.getStatus())
+                .accountCategory(account.getAccountCategory() != null ? account.getAccountCategory() : AccountCategory.WALLET)
+                .merchantId(account.getMerchantId())
                 .createdAt(account.getCreatedAt() == null ? null : account.getCreatedAt().withOffsetSameInstant(java.time.ZoneOffset.UTC))
                 .build();
     }

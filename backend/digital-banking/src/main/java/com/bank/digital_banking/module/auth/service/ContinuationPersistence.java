@@ -22,6 +22,7 @@ public class ContinuationPersistence {
     private final DeviceService devices;
     private final SessionService sessions;
     private final AuthSessionRepository authSessions;
+    private final com.bank.digital_banking.module.account.service.AccountService accountService;
     private final JdbcTemplate jdbc;
     private final AuditTrail audit;
 
@@ -87,10 +88,14 @@ public class ContinuationPersistence {
     public User complete(long userId, ProfileRequest request) {
         User user = locked(userId);
         requireCustomer(user);
-        if (user.isProfileComplete()) return user;
+        if (user.isProfileComplete()) {
+            accountService.createDefaultUserWallets(user);
+            return user;
+        }
         user.setFirstName(request.firstName().strip());
         user.setLastName(request.lastName().strip());
         user.setProfileComplete(true);
+        accountService.createDefaultUserWallets(user);
         audit.successAs(user, "AUTH", "PROFILE_COMPLETED", user.getId().toString());
         return user;
     }

@@ -13,6 +13,14 @@ public interface AccountService {
 
     List<AccountResponseDto> getUserAccounts(User user, int page, int size);
 
+    List<AccountResponseDto> getUserMerchantAccounts(User user, int page, int size);
+
+    List<AccountResponseDto> getAllUserAccounts(User user, int page, int size);
+
+    List<AccountResponseDto> createDefaultUserWallets(User user);
+
+    List<AccountResponseDto> createDefaultMerchantAccounts(User owner, com.bank.digital_banking.module.merchant.entity.Merchant merchant);
+
     AccountResponseDto getAccountByNumber(User user, String accountNumber);
 
     AccountResponseDto updateAccountStatus(User user, String accountNumber, UpdateAccountStatusDto request);
