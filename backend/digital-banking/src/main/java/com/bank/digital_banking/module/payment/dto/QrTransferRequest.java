@@ -11,11 +11,12 @@ public record QrTransferRequest(
         String sourceAccountNumber,
 
         @NotBlank(message = "QR code string is required")
+        @jakarta.validation.constraints.Size(max = 4096)
         String qrString,
 
         BigDecimal amount,
 
         String currency,
 
-        String remark
+        @jakarta.validation.constraints.Size(max = 255) String remark
 ) {}

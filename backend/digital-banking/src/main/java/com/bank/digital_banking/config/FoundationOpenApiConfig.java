@@ -41,6 +41,12 @@ public class FoundationOpenApiConfig {
             ModelConverters.getInstance(api.getSpecVersion() == SpecVersion.V31).read(ApiErrorResponse.class)
                     .forEach((name, schema) -> api.getComponents().addSchemas(name, schema));
             // Optional Java reference values accept/emit JSON null, not just an absent key.
+            describe(api, "/accounts/pairs", PathItem.HttpMethod.POST, "Accounts", "Open USD and KHR accounts together",
+                    "Customer only. Required Idempotency-Key. Atomic creation and server-controlled non-production opening credits; replay returns the original pair.",
+                    "201", false, Map.of("accountType", "SAVINGS"), "400", "401", "403", "409", "503");
+            describe(api, "/accounts/opening-policy", PathItem.HttpMethod.GET, "Accounts", "Read opening balances",
+                    "Server-authoritative USD/KHR opening amounts and explicit test-funding status. Production never permits test opening credits.",
+                    "200", false, null, "401", "403");
             nullable(api, "ApiErrorResponse", "retryAfterSeconds");
             nullable(api, "RegisterRequestDto", "firstName", "lastName", "deviceType");
             nullable(api, "LoginRequestDto", "deviceType");

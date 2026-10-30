@@ -22,6 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.context.TestPropertySource(properties = "app.dev.opening-funding.enabled=false")
 class QrPaymentIntegrationTests extends PostgresIntegrationTest {
 
     @Value("${local.server.port}")
@@ -49,10 +50,13 @@ class QrPaymentIntegrationTests extends PostgresIntegrationTest {
 
     @BeforeEach
     void reset() {
+        loginLimits.deleteAll();
         sessions.deleteAll();
         limits.deleteAll();
         SMTP.reset();
     }
+
+    @Autowired com.bank.digital_banking.module.auth.repository.LoginAttemptLimitRepository loginLimits;
 
     @Test
     void aliceGeneratesDynamicQr_bobScansAndTransfersSuccessfully() throws Exception {
@@ -241,6 +245,16 @@ class QrPaymentIntegrationTests extends PostgresIntegrationTest {
     }
 
     // --- Helper Methods ---
+
+    @Test void pairedOpeningIsZeroFundedByDefault() throws Exception {
+        String token = login("alice.demo", "device-default-pair").path("accessToken").asText();
+        var response = call("POST", "/accounts/pairs", token, Map.of("accountType", "CHECKING"));
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(201);
+        var data = body(response).path("data");
+        assertThat(data.path("testFundingApplied").asBoolean()).isFalse();
+        assertThat(data.path("accounts").size()).isEqualTo(2);
+        for (var account : data.path("accounts")) assertThat(account.path("balance").decimalValue()).isZero();
+    }
 
     JsonNode login(String username, String device) throws Exception {
         requestOtp(username + "@example.test", "LOGIN");

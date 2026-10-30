@@ -12,5 +12,6 @@ public record QrTransferResponse(
         BigDecimal amount,
         String currency,
         String remark,
-        LocalDateTime timestamp
+        LocalDateTime timestamp,
+        com.bank.digital_banking.module.transaction.dto.TransactionResponseDto transaction
 ) {}

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/app_labels.dart';
+import '../../../core/network/api_client.dart';
+
 import '../../../shared/widgets/app_states.dart';
 import '../../../shared/widgets/copyable_value.dart';
 import '../../accounts/accounts_controller.dart';
@@ -11,11 +14,13 @@ class TransferPanel extends StatefulWidget {
     required this.controller,
     required this.accounts,
     required this.enabled,
+    this.onDone,
     super.key,
   });
   final TransferController controller;
   final AccountsController accounts;
   final bool enabled;
+  final VoidCallback? onDone;
   @override
   State<TransferPanel> createState() => _TransferPanelState();
 }
@@ -41,7 +46,7 @@ class _TransferPanelState extends State<TransferPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('FROM ACCOUNT'),
+          Text(tx(context, 'FROM ACCOUNT')),
           TextFormField(
             key: ValueKey('review-source-${draft.source}'),
             initialValue: draft.source,
@@ -49,7 +54,7 @@ class _TransferPanelState extends State<TransferPanel> {
             maxLines: null,
           ),
           const SizedBox(height: 16),
-          const Text('TO ACCOUNT'),
+          Text(tx(context, 'TO ACCOUNT')),
           TextFormField(
             key: ValueKey('review-destination-${draft.destination}'),
             initialValue: draft.destination,
@@ -57,15 +62,25 @@ class _TransferPanelState extends State<TransferPanel> {
             maxLines: null,
           ),
           const SizedBox(height: 16),
+          if (draft.destinationName != null) ...[
+            Text(tx(context, 'Recipient')),
+            Text(
+              draft.destinationName!,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+          ],
           Text(
-            'Amount: ${draft.amount.formatted}',
+            '${tx(context, 'Amount')}: ${draft.amount.formatted}',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          Text('Fee: ${draft.amount.currency == 'USD' ? 'USD 0.00' : 'KHR 0'}'),
-          Text('Total debit: ${draft.amount.formatted}'),
+          Text(
+            '${tx(context, 'Fee')}: ${draft.amount.currency == 'USD' ? 'USD 0.00' : 'KHR 0'}',
+          ),
+          Text('${tx(context, 'Total debit')}: ${draft.amount.formatted}'),
           if (draft.remark != null) ...[
             const SizedBox(height: 16),
-            Text('Remark: ${draft.remark}'),
+            Text('${tx(context, 'Remark')}: ${draft.remark}'),
           ],
         ],
       ),
@@ -94,26 +109,33 @@ class _TransferPanelState extends State<TransferPanel> {
           ),
         ],
         if (model.error != null)
-          NoticePanel(model.error!.message, error: true, focusNode: errorFocus),
+          NoticePanel(
+            tx(context, model.error!.message),
+            error: true,
+            focusNode: errorFocus,
+          ),
         if (model.refreshError != null)
           NoticePanel(model.refreshError!.message, error: true),
         if (saved != null) ...[
           Text(
             saved.outcome == 'success'
-                ? 'Transfer confirmed'
+                ? tx(context, 'Transfer confirmed')
                 : saved.outcome == 'rejected'
-                ? 'Transfer rejected'
-                : 'Transfer outcome unknown',
+                ? tx(context, 'Transfer rejected')
+                : tx(context, 'Transfer outcome unknown'),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
           _summary(saved.draft),
           if (saved.unresolved) ...[
-            const NoticePanel(
-              'This transfer may already have completed. Retry sends exactly the same transfer with the original request key. If it was not processed, retry may complete the transfer. A timeout alone does not establish failure.',
+            NoticePanel(
+              tx(
+                context,
+                'This transfer may already have completed. Retry sends exactly the same transfer with the original request key. If it was not processed, retry may complete the transfer. A timeout alone does not establish failure.',
+              ),
             ),
             BusyButton(
-              label: 'Retry this exact transfer',
+              label: tx(context, 'Retry this exact transfer'),
               busy: model.busy,
               onPressed:
                   widget.enabled && model.ready && model.storageError == null
@@ -122,14 +144,14 @@ class _TransferPanelState extends State<TransferPanel> {
             ),
           ] else ...[
             if (saved.reference != null) ...[
-              const Text('TRANSACTION REFERENCE'),
+              Text(tx(context, 'TRANSACTION REFERENCE')),
               CopyableValue(saved.reference!),
               const SizedBox(height: 16),
-              const Text('Status: SUCCESS'),
+              Text(tx(context, 'Status: SUCCESS')),
             ],
             if (saved.rejectionCode != null)
               NoticePanel(
-                'No transfer was posted. ${saved.rejectionCode!.replaceAll('_', ' ')}',
+                '${tx(context, 'No transfer was posted.')} ${tx(context, ApiFailure.messageFor(saved.rejectionCode!))}',
                 error: true,
               ),
             const SizedBox(height: 24),
@@ -142,23 +164,29 @@ class _TransferPanelState extends State<TransferPanel> {
                         destination.clear();
                         amount.clear();
                         remark.clear();
+                        widget.onDone?.call();
                       }
                     },
-              child: const Text('Done — return to transfer entry'),
+              child: Text(tx(context, 'Done — return to transfer entry')),
             ),
           ],
         ] else if (model.review != null) ...[
           Text(
-            'Review transfer',
+            tx(context, 'Review transfer'),
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 16),
           _summary(model.review!),
-          const NoticePanel(
-            'Check the destination account number carefully. Recipient names are not available. Confirm only when these details are correct.',
+          NoticePanel(
+            model.review!.isQr
+                ? tx(
+                    context,
+                    'Check the recipient, account and amount before confirming.',
+                  )
+                : 'Check the destination account number carefully. Recipient names are not available. Confirm only when these details are correct.',
           ),
           BusyButton(
-            label: 'Confirm and send',
+            label: tx(context, 'Confirm and send'),
             busy: model.busy,
             onPressed:
                 widget.enabled && model.ready && model.storageError == null
@@ -167,7 +195,7 @@ class _TransferPanelState extends State<TransferPanel> {
           ),
           TextButton(
             onPressed: model.busy ? null : model.edit,
-            child: const Text('Edit transfer'),
+            child: Text(tx(context, 'Edit transfer')),
           ),
         ] else
           Form(

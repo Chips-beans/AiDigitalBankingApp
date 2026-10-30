@@ -101,7 +101,7 @@ class FoundationReadinessTests extends PostgresIntegrationTest {
                 assertThat(required).isTrue();
             }
             if (document.endsWith("foundation")) {
-                assertThat(api.path("paths").size()).isEqualTo(32);
+                assertThat(api.path("paths").size()).isEqualTo(34);
                 assertThat(api.path("paths").has("/api/v1/payments/khqr/generate")).isFalse();
                 assertThat(api.path("paths").has("/api/v1/ai/chat")).isFalse();
                 assertThat(api.path("paths").has("/api/v1/fraud/check")).isFalse();

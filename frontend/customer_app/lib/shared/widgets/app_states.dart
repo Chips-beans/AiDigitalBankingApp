@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_labels.dart';
+
 class NoticePanel extends StatelessWidget {
   const NoticePanel(
     this.message, {
@@ -70,16 +72,16 @@ class BusyButton extends StatelessWidget {
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       child: busy
-          ? const Row(
+          ? Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
-                SizedBox(width: 12),
-                Flexible(child: Text('Please wait…')),
+                const SizedBox(width: 12),
+                Flexible(child: Text(tx(context, 'Please wait…'))),
               ],
             )
           : Text(label),

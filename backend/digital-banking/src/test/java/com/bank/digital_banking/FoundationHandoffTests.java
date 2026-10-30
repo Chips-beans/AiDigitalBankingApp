@@ -36,7 +36,7 @@ class FoundationHandoffTests {
             }
             var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
             upgraded.migrate(); upgraded.validate();
-            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("13");
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("14");
             try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
                 try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
                     assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
@@ -58,6 +58,9 @@ class FoundationHandoffTests {
             String source;
             String destination;
             JsonNode receipt;
+            JsonNode openedPair;
+            JsonNode qrReceipt;
+            Map<String, Object> qrTransfer;
             com.bank.digital_banking.module.auth.service.ProfilePhotoService.Photo savedPhoto;
             String durablePinTicket;
             Map<String, Object> transfer;
@@ -66,8 +69,8 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(12);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("13");
+                assertThat(flyway.info().applied()).hasSize(13);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("14");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -111,6 +114,11 @@ class FoundationHandoffTests {
                 receipt = ok("POST", "/transactions/transfer", senderAccess, "handoff.transfer", transfer, 200);
                 balance(source, senderAccess, "75.00");
                 balance(destination, receiverAccess, "25.00");
+                openedPair = ok("POST", "/accounts/pairs", senderAccess, "handoff.pair", Map.of("accountType", "SAVINGS"), 201);
+                String qr = ok("POST", "/payments/qr/generate", receiverAccess, null,
+                        Map.of("accountNumber", destination, "currency", "USD", "amount", "1.00"), 200).path("qrString").asText();
+                qrTransfer = Map.of("sourceAccountNumber", source, "qrString", qr, "amount", "1.00", "currency", "USD");
+                qrReceipt = ok("POST", "/payments/qr/transfer", senderAccess, "handoff.qr", qrTransfer, 200);
                 assertThat(call("GET", "/accounts/" + source, receiverAccess, null, null).statusCode()).isEqualTo(404);
                 assertThat(call("GET", "/transactions/account/" + source, receiverAccess, null, null).statusCode())
                         .isEqualTo(404);
@@ -121,7 +129,7 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(12);
+                assertThat(flyway.info().applied()).hasSize(13);
                 assertThat(flyway.info().pending()).isEmpty();
                 JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
                 assertThat(pinState.path("configured").asBoolean()).isTrue();
@@ -141,11 +149,13 @@ class FoundationHandoffTests {
                         .isEqualTo(sender.path("userId"));
                 assertThat(ok("POST", "/transactions/transfer", senderAccess, "handoff.transfer", transfer, 200))
                         .isEqualTo(receipt);
-                balance(source, senderAccess, "75.00");
-                balance(destination, receiverAccess, "25.00");
+                assertThat(ok("POST", "/accounts/pairs", senderAccess, "handoff.pair", Map.of("accountType", "SAVINGS"), 201)).isEqualTo(openedPair);
+                assertThat(ok("POST", "/payments/qr/transfer", senderAccess, "handoff.qr", qrTransfer, 200)).isEqualTo(qrReceipt);
+                balance(source, senderAccess, "74.00");
+                balance(destination, receiverAccess, "26.00");
                 String reference = receipt.path("referenceNumber").asText();
-                history(source, senderAccess, reference, 2);
-                history(destination, receiverAccess, reference, 1);
+                history(source, senderAccess, reference, 3);
+                history(destination, receiverAccess, reference, 2);
                 detail(senderAccess, receipt);
                 detail(receiverAccess, receipt);
                 ok("POST", "/auth/logout", senderAccess, null, null, 200);

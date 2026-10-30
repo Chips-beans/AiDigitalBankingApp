@@ -2,6 +2,8 @@ import 'package:customer_app/app/banking_app.dart';
 import 'package:customer_app/core/config/app_config.dart';
 import 'package:customer_app/core/storage/session_vault.dart';
 import 'package:customer_app/features/accounts/creation_store.dart';
+import 'package:customer_app/features/accounts/account_gateway.dart';
+import 'package:customer_app/shared/money.dart';
 import 'package:customer_app/features/auth/session_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +39,7 @@ void main() {
           register: false,
         );
         await session.verifyCode('123456');
-        final gateway = FakeAccounts()
+        final gateway = FakePairAccounts()
           ..data = [
             account(1, status: 'FROZEN'),
             account(2, currency: 'KHR', status: 'CLOSED'),
@@ -71,8 +73,8 @@ void main() {
         expect(find.text('Currency: USD'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
-        await tap('Open account');
-        expect(find.text('Opening balance: USD 0.00'), findsOneWidget);
+        await tap('Open accounts');
+        expect(find.text('Opening balances'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         await tap('Home');
@@ -104,7 +106,7 @@ void main() {
         register: false,
       );
       await session.verifyCode('123456');
-      final gateway = FakeAccounts();
+      final gateway = FakePairAccounts();
       await tester.pumpWidget(
         BankingApp(
           session: session,
@@ -122,17 +124,36 @@ void main() {
       await tester.pumpAndSettle();
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      await tester.tap(find.text('Open account'));
+      await tester.tap(find.text('Open accounts'));
       await tester.pumpAndSettle();
       expect(gateway.opens, 0);
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-      await tester.tap(find.text('Confirm open account'));
+      await tester.tap(find.text('Confirm open accounts'));
       await tester.pumpAndSettle();
-      expect(gateway.opens, 1);
+      expect(gateway.opens, 2);
       expect(find.text('USD 0.00'), findsWidgets);
       await tester.pumpWidget(const SizedBox.shrink());
       semantics.dispose();
     },
   );
+}
+
+class FakePairAccounts extends FakeAccounts implements AccountPairGateway {
+  final pairs = <String, AccountPairResult>{};
+  @override
+  Future<OpeningPolicy> openingPolicy(String token) async =>
+      OpeningPolicy(false, Money.parse('0', 'USD'), Money.parse('0', 'KHR'));
+  @override
+  Future<AccountPairResult> openPair(
+    String token,
+    String type,
+    String key,
+  ) async {
+    if (pairs[key] case final saved?) return saved;
+    return pairs[key] = AccountPairResult([
+      await open(token, type, 'USD'),
+      await open(token, type, 'KHR'),
+    ], false);
+  }
 }

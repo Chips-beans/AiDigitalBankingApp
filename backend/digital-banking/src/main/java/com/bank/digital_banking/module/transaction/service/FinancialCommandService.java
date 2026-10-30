@@ -29,6 +29,17 @@ public class FinancialCommandService {
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public TransactionResponseDto execute(User actor, TransactionType operation, String key, String source,
                                           String destination, BigDecimal amount, String currency, String remark) {
+        return executeNamed(actor, operation, operation.name(), key, source, destination, amount, currency, remark);
+    }
+
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public TransactionResponseDto executeQr(User actor, String key, String source, String destination,
+                                             BigDecimal amount, String currency, String remark) {
+        return executeNamed(actor, TransactionType.TRANSFER, "QR_TRANSFER", key, source, destination, amount, currency, remark);
+    }
+
+    private TransactionResponseDto executeNamed(User actor, TransactionType operation, String namespace, String key,
+            String source, String destination, BigDecimal amount, String currency, String remark) {
         if (actor == null || actor.getId() == null) throw new AccessDeniedException("An authenticated actor is required");
         if (operation != TransactionType.TRANSFER && operation != TransactionType.DEPOSIT)
             throw new IllegalArgumentException("Unsupported financial operation");
@@ -51,11 +62,11 @@ public class FinancialCommandService {
         jdbc.update("""
                 INSERT INTO idempotency_records(actor_user_id, operation, request_key, request_hash)
                 VALUES (?, ?, ?, ?) ON CONFLICT (actor_user_id, operation, request_key) DO NOTHING
-                """, actor.getId(), operation.name(), key, fingerprint);
+                """, actor.getId(), namespace, key, fingerprint);
         var claim = jdbc.queryForMap("""
                 SELECT id, request_hash, transaction_id, response_json FROM idempotency_records
                 WHERE actor_user_id = ? AND operation = ? AND request_key = ? FOR UPDATE
-                """, actor.getId(), operation.name(), key);
+                """, actor.getId(), namespace, key);
         if (!fingerprint.equals(claim.get("request_hash")))
             throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "This key was already used with a different request");
         if (claim.get("transaction_id") != null)

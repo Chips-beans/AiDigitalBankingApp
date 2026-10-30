@@ -22,14 +22,18 @@ class HttpTransactionGateway implements TransactionGateway {
   Future<RecentPosting> transfer(String token, SavedTransfer operation) async {
     final response = await client.request(
       'POST',
-      '/transactions/transfer',
+      operation.draft.isQr ? '/payments/qr/transfer' : '/transactions/transfer',
       accessToken: token,
       idempotencyKey: operation.key,
-      body: operation.draft.payload,
+      body: operation.draft.isQr
+          ? operation.draft.qrPayload
+          : operation.draft.payload,
       expectedStatus: 200,
     );
     final posting = RecentPosting.fromJson(
-      response['data'],
+      operation.draft.isQr
+          ? objectData(response['data'])['transaction']
+          : response['data'],
       operation.draft.source,
     );
     validateReceipt(posting, operation);

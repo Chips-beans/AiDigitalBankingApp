@@ -52,7 +52,7 @@ public class QrPaymentController {
     @PostMapping("/qr/transfer")
     public ResponseEntity<ApiResponse<QrTransferResponse>> transferByQr(
             @AuthenticationPrincipal User user,
-            @Parameter(description = "Unique idempotency key for safely retrying payments")
+            @Parameter(required = true, description = "Required immutable request key; replay with the identical QR payment body")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody QrTransferRequest request) {
         QrTransferResponse response = qrPaymentService.processQrTransfer(user, idempotencyKey, request);

@@ -125,9 +125,87 @@ abstract interface class AccountGateway {
   Future<List<RecentPosting>> recent(String token, String number);
 }
 
-class HttpAccountGateway implements AccountGateway {
+class OpeningPolicy {
+  const OpeningPolicy(this.testFundingEnabled, this.usd, this.khr);
+  factory OpeningPolicy.fromJson(Object? value) {
+    final data = objectData(value);
+    final usd = Money.parse(data['usdOpeningBalance'], 'USD');
+    final khr = Money.parse(data['khrOpeningBalance'], 'KHR');
+    if (data['testFundingEnabled'] is! bool ||
+        usd.minorUnits < BigInt.zero ||
+        khr.minorUnits < BigInt.zero) {
+      throw invalidAccountData;
+    }
+    return OpeningPolicy(data['testFundingEnabled'] as bool, usd, khr);
+  }
+  final bool testFundingEnabled;
+  final Money usd, khr;
+}
+
+class AccountPairResult {
+  const AccountPairResult(this.accounts, this.testFundingApplied);
+  factory AccountPairResult.fromJson(Object? value, String type) {
+    final data = objectData(value);
+    if (data['accounts'] is! List || data['testFundingApplied'] is! bool) {
+      throw invalidAccountData;
+    }
+    final accounts = (data['accounts'] as List)
+        .map(BankAccount.fromJson)
+        .toList();
+    final funded = data['testFundingApplied'] as bool;
+    if (accounts.length != 2 ||
+        accounts.map((a) => a.currency).toSet().length != 2 ||
+        accounts.map((a) => a.number).toSet().length != 2 ||
+        accounts.any(
+          (a) =>
+              a.type != type ||
+              a.status != 'ACTIVE' ||
+              a.balance.minorUnits !=
+                  (funded
+                      ? BigInt.from(a.currency == 'USD' ? 20000 : 100000)
+                      : BigInt.zero),
+        )) {
+      throw invalidAccountData;
+    }
+    return AccountPairResult(accounts, funded);
+  }
+  final List<BankAccount> accounts;
+  final bool testFundingApplied;
+}
+
+abstract interface class AccountPairGateway {
+  Future<OpeningPolicy> openingPolicy(String token);
+  Future<AccountPairResult> openPair(String token, String type, String key);
+}
+
+class HttpAccountGateway implements AccountGateway, AccountPairGateway {
   HttpAccountGateway(this.client);
   final ApiClient client;
+  @override
+  Future<OpeningPolicy> openingPolicy(String token) async =>
+      OpeningPolicy.fromJson(
+        (await client.request(
+          'GET',
+          '/accounts/opening-policy',
+          accessToken: token,
+        ))['data'],
+      );
+  @override
+  Future<AccountPairResult> openPair(
+    String token,
+    String type,
+    String key,
+  ) async => AccountPairResult.fromJson(
+    (await client.request(
+      'POST',
+      '/accounts/pairs',
+      accessToken: token,
+      idempotencyKey: key,
+      expectedStatus: 201,
+      body: {'accountType': type},
+    ))['data'],
+    type,
+  );
   @override
   Future<List<BankAccount>> list(String token, int page) async {
     final response = await client.request(
@@ -187,9 +265,43 @@ class HttpAccountGateway implements AccountGateway {
 }
 
 /// Selected only by explicit APP_MODE=demo. Contains no live financial data.
-class DemoAccountGateway implements AccountGateway {
+class DemoAccountGateway implements AccountGateway, AccountPairGateway {
   final List<BankAccount> _accounts = [];
-  void clearSession() => _accounts.clear();
+  final Map<String, AccountPairResult> _pairs = {};
+  @override
+  Future<OpeningPolicy> openingPolicy(String token) async => OpeningPolicy(
+    true,
+    Money.parse('200.00', 'USD'),
+    Money.parse('100000', 'KHR'),
+  );
+  @override
+  Future<AccountPairResult> openPair(
+    String token,
+    String type,
+    String key,
+  ) async {
+    if (_pairs[key] case final result?) return result;
+    final created = <BankAccount>[];
+    for (final currency in ['USD', 'KHR']) {
+      final account = BankAccount(
+        id: _accounts.length + 1,
+        number: '${8000000000 + _accounts.length}',
+        type: type,
+        balance: Money.parse(currency == 'USD' ? '200.00' : '100000', currency),
+        status: 'ACTIVE',
+        createdAt: DateTime.now(),
+      );
+      _accounts.add(account);
+      created.add(account);
+    }
+    return _pairs[key] = AccountPairResult(created, true);
+  }
+
+  void clearSession() {
+    _accounts.clear();
+    _pairs.clear();
+  }
+
   @override
   Future<List<BankAccount>> list(String token, int page) async =>
       _accounts.skip(page * 20).take(20).toList();

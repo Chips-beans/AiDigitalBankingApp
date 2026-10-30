@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import com.bank.digital_banking.common.util.CurrencyUtils;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -44,7 +44,8 @@ public class QrCodeEngine {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "Account number is required for QR code");
         }
 
-        String currencyStr = options.currency() != null ? options.currency().trim().toUpperCase() : properties.getDefaultCurrency();
+        String currencyStr = CurrencyUtils.currency(options.currency() != null ? options.currency() : properties.getDefaultCurrency());
+        if (options.amount() != null) CurrencyUtils.amount(options.amount(), currencyStr, true);
         String currencyCode = toCurrencyNumericCode(currencyStr);
 
         boolean isDynamic = options.dynamic() || (options.amount() != null && options.amount().compareTo(BigDecimal.ZERO) > 0);
@@ -53,13 +54,13 @@ public class QrCodeEngine {
         String payeeName = options.payeeName() != null && !options.payeeName().trim().isEmpty()
                 ? options.payeeName().trim()
                 : properties.getMerchantName();
-        if (payeeName.length() > 25) {
-            payeeName = payeeName.substring(0, 25);
+        if (payeeName.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 25) {
+            payeeName = utf8Limit(payeeName, 25);
         }
 
         String merchantCity = properties.getMerchantCity();
-        if (merchantCity.length() > 15) {
-            merchantCity = merchantCity.substring(0, 15);
+        if (merchantCity.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 15) {
+            merchantCity = utf8Limit(merchantCity, 15);
         }
 
         EmvcoTlvBuilder builder = new EmvcoTlvBuilder();
@@ -91,7 +92,7 @@ public class QrCodeEngine {
                 // KHR typically whole units or up to 2 decimal places
                 formattedAmount = finalAmount.stripTrailingZeros().toPlainString();
             } else {
-                formattedAmount = finalAmount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+                formattedAmount = CurrencyUtils.amount(finalAmount, currencyStr, false).toPlainString();
             }
             builder.addTag(EmvcoTag.TRANSACTION_AMOUNT, formattedAmount);
         }
@@ -115,8 +116,8 @@ public class QrCodeEngine {
         }
         if (options.remark() != null && !options.remark().trim().isEmpty()) {
             String remark = options.remark().trim();
-            if (remark.length() > 50) {
-                remark = remark.substring(0, 50);
+            if (remark.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 50) {
+                remark = utf8Limit(remark, 50);
             }
             additionalSubTags.put(EmvcoTag.SUBTAG_PURPOSE_TRANSACTION, remark);
         }
@@ -160,7 +161,7 @@ public class QrCodeEngine {
      * Parses and strictly validates any EMVCo QR code string.
      */
     public EmvcoQrCode parse(String qrString) {
-        if (qrString == null || qrString.trim().isEmpty()) {
+        if (qrString == null || qrString.length() > 4096 || qrString.trim().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_QR_CODE", "QR code string is required");
         }
 
@@ -182,6 +183,8 @@ public class QrCodeEngine {
 
         // 4. Point of Initiation Method (Tag 01)
         String pointOfInitiation = tags.get(EmvcoTag.POINT_OF_INITIATION_METHOD);
+        if (!"11".equals(pointOfInitiation) && !"12".equals(pointOfInitiation))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_QR_FORMAT", "Unsupported QR initiation method");
         boolean isDynamic = EmvcoTag.POINT_OF_INITIATION_DYNAMIC.equals(pointOfInitiation);
 
         // 5. Account Information (Tag 29 or Tag 30)
@@ -286,6 +289,18 @@ public class QrCodeEngine {
         if (EmvcoTag.CURRENCY_KHR_CODE.equals(numericCode)) {
             return "KHR";
         }
-        return "USD";
+        if (EmvcoTag.CURRENCY_USD_CODE.equals(numericCode)) return "USD";
+        throw new ApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_CURRENCY", "QR currency must be USD or KHR");
+    }
+    private static String utf8Limit(String value, int maxBytes) {
+        var result = new StringBuilder();
+        int bytes = 0;
+        for (int point : value.codePoints().toArray()) {
+            String next = new String(Character.toChars(point));
+            bytes += next.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (bytes > maxBytes) break;
+            result.append(next);
+        }
+        return result.toString();
     }
 }

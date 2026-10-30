@@ -9,6 +9,109 @@ String tx(BuildContext context, String english) =>
     : english;
 
 const _khmer = <String, String>{
+  'Open accounts': 'បើកគណនី',
+  'Account opening is unavailable. Try again later.':
+      'មិនអាចបើកគណនីបានទេ។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',
+  'Account type': 'ប្រភេទគណនី',
+  'Savings': 'គណនីសន្សំ',
+  'Checking': 'គណនីចរន្ត',
+  'Payroll': 'គណនីប្រាក់បៀវត្ស',
+  'Please wait…': 'សូមរង់ចាំ…',
+  'This transfer may already have completed. Retry sends exactly the same transfer with the original request key. If it was not processed, retry may complete the transfer. A timeout alone does not establish failure.': 'ការផ្ទេរប្រាក់នេះអាចបានបញ្ចប់។ ការព្យាយាមម្ដងទៀតផ្ញើការផ្ទេរដដែលជាមួយលេខសំណើដើម។ ប្រសិនបើមិនទាន់ដំណើរការ វាអាចបញ្ចប់ការផ្ទេរប្រាក់។ ការអស់ពេលរង់ចាំមិនមានន័យថាបរាជ័យទេ។',
+  'No transfer was posted.': 'មិនមានការផ្ទេរប្រាក់ត្រូវបានកត់ត្រាទេ។',
+  'USD and KHR accounts': 'គណនីដុល្លារ និងរៀល',
+  'Opening balances': 'សមតុល្យដំបូង',
+  'Test funds for non-production transfer testing.':
+      'ប្រាក់សាកល្បងសម្រាប់សាកល្បងការផ្ទេរប្រាក់។',
+  'Confirm open accounts': 'បញ្ជាក់បើកគណនី',
+  'Accounts opened': 'បានបើកគណនី',
+  'Retry this exact opening request': 'សាកល្បងសំណើបើកគណនីដដែលម្ដងទៀត',
+  'This request may have completed. Retry uses the original request and cannot create another pair.': 'សំណើនេះអាចបានបញ្ចប់។ ការសាកល្បងម្ដងទៀតប្រើសំណើដដែល ហើយមិនបង្កើតគណនីមួយគូទៀតទេ។',
+  'Review the earlier account-opening request first.':
+      'សូមពិនិត្យសំណើបើកគណនីមុនជាមុនសិន។',
+  'Retry': 'ព្យាយាមម្ដងទៀត',
+  'An account-opening request needs attention.':
+      'សូមពិនិត្យសំណើបើកគណនីដែលបានរក្សាទុក។',
+  'Account-opening safety could not be loaded.':
+      'មិនអាចផ្ទុកសំណើបើកគណនីដែលបានរក្សាទុកបានទេ។',
+  'Account-opening safety could not be saved.':
+      'មិនអាចរក្សាទុកសំណើបើកគណនីដោយសុវត្ថិភាពបានទេ។',
+  'The saved account-opening request could not be verified.':
+      'មិនអាចផ្ទៀងផ្ទាត់សំណើបើកគណនីដែលបានរក្សាទុកបានទេ។',
+  'Accounts opened. Refresh to obtain current balances.':
+      'បានបើកគណនី។ សូមធ្វើបច្ចុប្បន្នភាពដើម្បីទទួលបានសមតុល្យបច្ចុប្បន្ន។',
+  'QR could not be loaded. Try again.':
+      'មិនអាចផ្ទុកកូដ QR បានទេ។ សូមព្យាយាមម្ដងទៀត។',
+  'Payment status could not refresh.':
+      'មិនអាចធ្វើបច្ចុប្បន្នភាពស្ថានភាពទូទាត់បានទេ។',
+  'My QR': 'កូដ QR របស់ខ្ញុំ',
+  'Scan QR': 'ស្កេនកូដ QR',
+  'Receive money': 'ទទួលប្រាក់',
+  'Choose an account': 'ជ្រើសរើសគណនី',
+  'Choose an active account to receive money.':
+      'ជ្រើសរើសគណនីដែលសកម្ម ដើម្បីទទួលប្រាក់។',
+  'Reusable account QR': 'កូដ QR គណនីដែលអាចប្រើម្ដងទៀត',
+  'Use this QR to receive Kesor internal transfers.':
+      'ប្រើកូដ QR នេះដើម្បីទទួលការផ្ទេរប្រាក់ក្នុង Kesor។',
+  'Request an amount': 'ស្នើសុំចំនួនប្រាក់',
+  'Amount': 'ចំនួនប្រាក់',
+  'Create amount request': 'បង្កើតសំណើចំនួនប្រាក់',
+  'Show reusable QR': 'បង្ហាញកូដ QR ដែលអាចប្រើម្ដងទៀត',
+  'Waiting for payment': 'កំពុងរង់ចាំការទូទាត់',
+  'Payment received': 'បានទទួលប្រាក់',
+  'This amount request can be paid once.':
+      'សំណើចំនួនប្រាក់នេះអាចទូទាត់បានតែមួយដង។',
+  'Load more accounts': 'ផ្ទុកគណនីបន្ថែម',
+  'Open an account before receiving money.': 'សូមបើកគណនីមុនពេលទទួលប្រាក់។',
+  'QR features require the API app.': 'មុខងារ QR ត្រូវការកម្មវិធីភ្ជាប់ API។',
+  'Point your camera at a Kesor account QR.':
+      'តម្រង់កាមេរ៉ាទៅកូដ QR គណនី Kesor។',
+  'Choose QR image': 'ជ្រើសរើសរូបភាព QR',
+  'Scan again': 'ស្កេនម្ដងទៀត',
+  'Torch': 'ពិល',
+  'Camera access is denied. Enable it in device settings, or choose a QR image.': 'មិនមានសិទ្ធិប្រើកាមេរ៉ា។ សូមបើកសិទ្ធិក្នុងការកំណត់ឧបករណ៍ ឬជ្រើសរើសរូបភាព QR។',
+  'Camera is unavailable. Retry or choose a QR image.':
+      'មិនអាចប្រើកាមេរ៉ាបាន។ សូមព្យាយាមម្ដងទៀត ឬជ្រើសរើសរូបភាព QR។',
+  'Camera and image scanning are available in the Android and iOS app.':
+      'ការស្កេនតាមកាមេរ៉ា និងរូបភាពមានក្នុងកម្មវិធី Android និង iOS។',
+  'Choose a JPG or PNG containing one QR code, up to 5 MB.':
+      'ជ្រើសរើស JPG ឬ PNG ដែលមានកូដ QR មួយ មិនលើស 5 MB។',
+  'No QR code was found. Choose another image.':
+      'រកមិនឃើញកូដ QR។ សូមជ្រើសរើសរូបភាពផ្សេង។',
+  'Recipient': 'អ្នកទទួល',
+  'Source account': 'គណនីដើម',
+  'No active source account matches this currency.':
+      'មិនមានគណនីដើមដែលសកម្ម និងមានរូបិយប័ណ្ណដូចគ្នាទេ។',
+  'Review transfer': 'ពិនិត្យការផ្ទេរប្រាក់',
+  'Confirm and send': 'បញ្ជាក់ និងផ្ញើប្រាក់',
+  'Edit transfer': 'កែប្រែការផ្ទេរប្រាក់',
+  'Transfer confirmed': 'បានបញ្ជាក់ការផ្ទេរប្រាក់',
+  'Transfer rejected': 'ការផ្ទេរប្រាក់ត្រូវបានបដិសេធ',
+  'Transfer outcome unknown': 'មិនទាន់ដឹងលទ្ធផលនៃការផ្ទេរប្រាក់',
+  'FROM ACCOUNT': 'ពីគណនី',
+  'TO ACCOUNT': 'ទៅគណនី',
+  'Fee': 'កម្រៃ',
+  'Total debit': 'ប្រាក់កាត់សរុប',
+  'Remark': 'កំណត់សម្គាល់',
+  'TRANSACTION REFERENCE': 'លេខយោងប្រតិបត្តិការ',
+  'Status: SUCCESS': 'ស្ថានភាព៖ ជោគជ័យ',
+  'Done — return to transfer entry': 'រួចរាល់ — ត្រឡប់ទៅការផ្ទេរប្រាក់',
+  'Retry this exact transfer': 'សាកល្បងការផ្ទេរប្រាក់ដដែលម្ដងទៀត',
+  'Check the recipient, account and amount before confirming.':
+      'សូមពិនិត្យអ្នកទទួល គណនី និងចំនួនប្រាក់មុនពេលបញ្ជាក់។',
+  'Only registered Kesor QR codes are supported.':
+      'អាចប្រើបានតែកូដ QR ដែលបានចុះបញ្ជីក្នុង Kesor ប៉ុណ្ណោះ។',
+  'This request has already been paid.': 'សំណើនេះត្រូវបានទូទាត់រួចហើយ។',
+  'Enter a positive amount within the currency precision and supported range.':
+      'សូមបញ្ចូលចំនួនប្រាក់វិជ្ជមានតាមខ្ទង់រូបិយប័ណ្ណ និងក្នុងដែនកំណត់។',
+  'Both accounts must use the transfer currency.':
+      'គណនីទាំងពីរត្រូវប្រើរូបិយប័ណ្ណដូចគ្នា។',
+  'There are not enough funds in the source account.':
+      'គណនីដើមមិនមានប្រាក់គ្រប់គ្រាន់ទេ។',
+  'Both accounts must be active to make a transfer.':
+      'គណនីទាំងពីរត្រូវសកម្មដើម្បីផ្ទេរប្រាក់។',
+  'The amount does not match this QR request.':
+      'ចំនួនប្រាក់មិនត្រូវនឹងសំណើ QR នេះទេ។',
   'Send Code': 'ផ្ញើលេខកូដ',
   'Verification code': 'លេខកូដផ្ទៀងផ្ទាត់',
   'Enter the 6-digit code sent to': 'បញ្ចូលលេខកូដ ៦ ខ្ទង់ដែលបានផ្ញើទៅ',

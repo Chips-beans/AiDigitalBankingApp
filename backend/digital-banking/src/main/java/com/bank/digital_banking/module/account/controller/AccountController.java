@@ -21,6 +21,23 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
+    private final com.bank.digital_banking.module.account.service.AccountPairService pairs;
+    private final com.bank.digital_banking.module.account.service.OpeningFundingPolicy openingPolicy;
+
+    @GetMapping("/opening-policy")
+    public ResponseEntity<ApiResponse<com.bank.digital_banking.module.account.dto.AccountPairDtos.Policy>> openingPolicy() {
+        return ResponseEntity.ok(ApiResponse.success(openingPolicy.response(), "Account opening policy"));
+    }
+
+    @PostMapping("/pairs")
+    public ResponseEntity<ApiResponse<com.bank.digital_banking.module.account.dto.AccountPairDtos.Response>> openPair(
+            @AuthenticationPrincipal User user,
+            @io.swagger.v3.oas.annotations.Parameter(required = true, description = "Required immutable account-pair opening key")
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @Valid @RequestBody com.bank.digital_banking.module.account.dto.AccountPairDtos.Request request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(pairs.open(user, key, request), "Accounts opened successfully"));
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<AccountResponseDto>> createAccount(

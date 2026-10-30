@@ -16,6 +16,7 @@ import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
+    boolean existsByDestinationAccountAndOperation(com.bank.digital_banking.module.account.entity.Account account, String operation);
 
     Optional<Transaction> findByReferenceNumber(String referenceNumber);
 

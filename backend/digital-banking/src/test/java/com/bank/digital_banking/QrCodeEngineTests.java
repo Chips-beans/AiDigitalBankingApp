@@ -13,6 +13,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class QrCodeEngineTests {
 
+    @Test void khmerTextUsesUtf8LengthsAndAmountsNeverRound() {
+        var generated = engine.generate(new QrCodeEngine.GenerateOptions("9000000001", "សុខ ដារ៉ា", new java.math.BigDecimal("10.25"), "USD", "អរគុណ", "reference", null, true));
+        var decoded = engine.parse(generated.getQrString());
+        assertThat(decoded.getAmount()).isEqualByComparingTo("10.25");
+        assertThat(decoded.getRemark()).isEqualTo("អរគុណ");
+        assertThatThrownBy(() -> engine.generate(new QrCodeEngine.GenerateOptions("9000000001", "Alice", new java.math.BigDecimal("1.001"), "USD", null, null, null, true))).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> engine.generate(new QrCodeEngine.GenerateOptions("9000000001", "Alice", new java.math.BigDecimal("1.1"), "KHR", null, null, null, true))).isInstanceOf(ApiException.class);
+    }
+
     private QrCodeEngine engine;
     private QrProperties properties;
 

@@ -10,7 +10,14 @@ const invalidTransfer = ApiFailure(
 );
 
 class TransferDraft {
-  const TransferDraft(this.source, this.destination, this.amount, this.remark);
+  const TransferDraft(
+    this.source,
+    this.destination,
+    this.amount,
+    this.remark, {
+    this.qrString,
+    this.destinationName,
+  });
   factory TransferDraft.validate(
     BankAccount source,
     String destination,
@@ -80,9 +87,18 @@ class TransferDraft {
   final String source, destination;
   final Money amount;
   final String? remark;
+  final String? qrString, destinationName;
+  bool get isQr => qrString != null;
   Map<String, dynamic> get payload => {
     'sourceAccountNumber': source,
     'destinationAccountNumber': destination,
+    'amount': amount.decimal,
+    'currency': amount.currency,
+    'remark': remark,
+  };
+  Map<String, dynamic> get qrPayload => {
+    'sourceAccountNumber': source,
+    'qrString': qrString,
     'amount': amount.decimal,
     'currency': amount.currency,
     'remark': remark,
@@ -110,7 +126,7 @@ class SavedTransfer {
   factory SavedTransfer.fromJson(Object? value) {
     try {
       final data = objectData(value);
-      if (data['version'] != 1) throw invalidTransfer;
+      if (data['version'] != 1 && data['version'] != 2) throw invalidTransfer;
       final key = textField(data, 'key');
       final source = textField(data, 'source');
       final destination = textField(data, 'destination');
@@ -119,6 +135,17 @@ class SavedTransfer {
       final outcome = textField(data, 'outcome');
       final reference = data['reference'];
       final rejection = data['rejectionCode'];
+      final qrString = data['qrString'],
+          destinationName = data['destinationName'];
+      if (data['version'] == 2 &&
+          (data['kind'] != 'qr' ||
+              qrString is! String ||
+              qrString.isEmpty ||
+              qrString.length > 4096 ||
+              destinationName is! String ||
+              destinationName.isEmpty)) {
+        throw invalidTransfer;
+      }
       if (!RegExp(r'^[A-Za-z0-9._:-]{1,128}$').hasMatch(key) ||
           !RegExp(r'^[0-9]{10,20}$').hasMatch(source) ||
           !RegExp(r'^[0-9]{10,20}$').hasMatch(destination) ||
@@ -137,7 +164,16 @@ class SavedTransfer {
       }
       return SavedTransfer(
         key: key,
-        draft: TransferDraft(source, destination, money, remark as String?),
+        draft: TransferDraft(
+          source,
+          destination,
+          money,
+          remark as String?,
+          qrString: data['version'] == 2 ? qrString as String : null,
+          destinationName: data['version'] == 2
+              ? destinationName as String
+              : null,
+        ),
         createdAt: dateField(data, 'createdAt'),
         outcome: outcome,
         reference: reference as String?,
@@ -155,6 +191,13 @@ class SavedTransfer {
     'INVALID_REQUEST',
     'VALIDATION_FAILED',
     'RESOURCE_NOT_FOUND',
+    'UNSUPPORTED_QR',
+    'INVALID_QR_CODE',
+    'INVALID_QR_FORMAT',
+    'INVALID_QR_CHECKSUM',
+    'INVALID_QR_DATA',
+    'AMOUNT_MISMATCH',
+    'PAYMENT_ALREADY_COMPLETED',
   };
   final String key, outcome;
   final TransferDraft draft;
@@ -171,7 +214,12 @@ class SavedTransfer {
         rejectionCode: rejectionCode,
       );
   Map<String, dynamic> toJson() => {
-    'version': 1,
+    'version': draft.isQr ? 2 : 1,
+    if (draft.isQr) ...{
+      'kind': 'qr',
+      'qrString': draft.qrString,
+      'destinationName': draft.destinationName,
+    },
     'key': key,
     'source': draft.source,
     'destination': draft.destination,

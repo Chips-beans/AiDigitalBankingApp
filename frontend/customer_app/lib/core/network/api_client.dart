@@ -23,6 +23,14 @@ class ApiFailure implements Exception {
   String toString() => '$code: $message';
 
   static String messageFor(String code) => switch (code) {
+    'UNSUPPORTED_QR' ||
+    'INVALID_QR_CODE' ||
+    'INVALID_QR_FORMAT' ||
+    'INVALID_QR_CHECKSUM' ||
+    'INVALID_QR_DATA' ||
+    'INVALID_QR_AMOUNT' => 'Only registered Kesor QR codes are supported.',
+    'PAYMENT_ALREADY_COMPLETED' => 'This request has already been paid.',
+    'AMOUNT_MISMATCH' => 'The amount does not match this QR request.',
     'PIN_REQUIRED' => 'Unlock the app with your PIN.',
     'PIN_INVALID' => 'Incorrect PIN. Please try again.',
     'PIN_RECOVERY_REQUIRED' =>

@@ -2,6 +2,73 @@
 
 Updated 30 October 2026, Asia/Phnom_Penh (UTC+07:00).
 
+## Latest: customer QR transfers and funded account pairs
+
+Implemented 30 October 2026. Read [QR_CUSTOMER_FLOW.md](QR_CUSTOMER_FLOW.md)
+before changing account opening, QR payments, or their recovery/lifecycle code.
+The customer app's **Open accounts** now explicitly creates a USD/KHR pair of the
+selected type. With opt-in test funding, opening credits are **USD 200.00** and
+**KHR 100,000**, recorded as DEPOSIT history/income with `TEST_OPENING_CREDIT`.
+Creation, credits, audit and replay receipt are atomic. Lost responses retry the
+same saved request; existing single-account uncertainty markers remain separate.
+The legacy single-account API remains compatible and zero-funded.
+
+Home **My QR**, account-detail QR and **Scan QR** are connected to real APIs.
+Reusable account codes, distinct one-time fixed-amount requests, recipient review,
+camera capture and local JPG/PNG import are implemented. QR payments share the
+manual-transfer safety journal; old v1 records remain readable and new QR v2
+records retain their immutable payload/key. Persistent backend claims handle
+concurrent attempts and replay before checking paid state. Static QR codes remain
+reusable. Server-registered internal codes, ownership, exact money and matching
+currencies are enforced. The bounded picker lease also covers QR image import;
+ordinary background/PIN locking is preserved. English/Khmer and both themes use
+the existing Kesor design system. Browser/demo transfer restrictions remain.
+
+Source schema is **V14**, with **34 foundation paths**. Additive V14 introduces
+pair-opening/QR replay records and QR type/settlement metadata; V1–V13 were not
+changed. A read-only PostgreSQL check confirmed development is still **V11**.
+Its next ordinary backend startup applies V12, V13 and V14. No development
+customer, account, balance or history was changed and no real email was sent.
+
+The ignored backend `.env` now explicitly enables
+`TEST_OPENING_FUNDING_ENABLED=true` for the user's development testing. Other
+assignments/credentials were preserved and not printed. Source/example defaults
+remain false. Enabling the flag requires local/dev/test/staging and rejects
+prod/production, including mixed profiles. No credit is applied to old accounts.
+
+Verification: **133 backend tests** passed, including real HTTP USD 10/KHR 10,000
+journeys between controlled customers in isolated PostgreSQL, concurrent attempts,
+atomic rollback, currency/ownership/precision negatives and restart replay.
+The final backend QR subset also passed after adding payload-size validation.
+The complete Flutter regression passed **166 tests**, followed by a passing
+10-test QR widget rerun that adds an inactive-account refresh regression (**167
+unique tests**). Analysis is clean. The additional QR visual fixture passed and
+generated **60** fixture views with representative images visually inspected
+across English/Khmer, light/dark, reference/narrow/large-text/landscape
+variants. Camera calls in widget tests are faked; this is not physical camera
+acceptance. API-mode web build and Wasm dry run succeeded. Logs/screenshots are
+ignored under the backend `.local/qr-*` and Flutter `.local/qr-*` / `.local/qa/qr/`.
+The final normal-entrypoint Android debug APK built successfully in API mode with
+`APP_ENV=dev` and `API_BASE_URL=http://127.0.0.1:8080/api/v1`. It is **245,014,308
+bytes**, SHA-256
+`54193f802411ef11b12fe085e1d95825df6c7666a3a03a246005f01f0ddc55c0`.
+It supersedes the prior PIN APK at
+`frontend/customer_app/build/app/outputs/flutter-apk/app-debug.apk`. A user-facing
+copy is `C:\Users\User\Documents\Codex\2026-10-30\project-kesor-bank-ai-digital-banking\outputs\KesorBank-QR-Test.apk`.
+Packaging verification found no backend `.env` or unique configured secret values.
+A common numeric byte-pattern match was independently located in unchanged Dart
+SDK encoding/number tables and absent from application source; no credential value
+was printed. No device installation occurred. Temporary build daemons exited;
+ports 8080–8083 and emulator state were rechecked as stopped.
+
+The checkout started clean on `main` at `c814d6d`; the implementation is
+uncommitted. Preserve it. No ordinary backend or emulator was started; shared
+PostgreSQL was left running. Personal Telegram/email/PIN acceptance, physical
+camera/file-picker testing and native iOS build/device acceptance remain pending.
+External bank/Bakong settlement and production deployment remain out of scope.
+
+## Previous handoff history
+
 ## Read this first
 
 Latest implementation: the normal Flutter customer app now requires a **4-digit

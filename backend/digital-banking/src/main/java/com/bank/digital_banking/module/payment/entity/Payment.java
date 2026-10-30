@@ -35,6 +35,12 @@ public class Payment {
     @Column(nullable = false)
     private PaymentStatus status;
 
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private String qrType = "DYNAMIC";
+
+    private Long transactionId;
+
     @Column(columnDefinition = "TEXT")
     private String qrString;
 

@@ -13,6 +13,7 @@ import '../features/auth/data/auth_gateway.dart';
 import '../features/accounts/account_gateway.dart';
 import '../features/analytics/analytics_gateway.dart';
 import '../features/accounts/creation_store.dart';
+import '../features/accounts/pair_opening.dart';
 import '../features/accounts/presentation/accounts_shell.dart';
 import '../features/transactions/transaction_gateway.dart';
 import '../features/transactions/transfer_store.dart';
@@ -26,6 +27,7 @@ class BankingApp extends StatefulWidget {
     this.accountGateway,
     this.analyticsGateway,
     this.creationStore,
+    this.pairOpeningStore,
     this.transactionGateway,
     this.transferStore,
     this.preferences,
@@ -36,6 +38,7 @@ class BankingApp extends StatefulWidget {
   final AccountGateway? accountGateway;
   final AnalyticsGateway? analyticsGateway;
   final CreationStore? creationStore;
+  final PairOpeningStore? pairOpeningStore;
   final TransactionGateway? transactionGateway;
   final TransferStore? transferStore;
   final AppPreferences? preferences;
@@ -47,6 +50,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   late final AccountGateway accounts;
   late final AppPreferences preferences;
   late final CreationStore creationStore;
+  late final PairOpeningStore pairOpeningStore;
   late final TransactionGateway transactions;
   late final TransferStore transferStore;
   @override
@@ -68,6 +72,13 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 '${widget.config.apiBaseUrl}|${widget.config.mode}',
               ));
     final auth = widget.session.gateway;
+    pairOpeningStore =
+        widget.pairOpeningStore ??
+        PairOpeningStore(
+          namespace: kIsWeb || widget.config.isDemo || auth is! HttpAuthGateway
+              ? null
+              : '${widget.config.apiBaseUrl}|${widget.config.mode}',
+        );
     transactions =
         widget.transactionGateway ??
         (!widget.config.isDemo && auth is HttpAuthGateway
@@ -96,13 +107,13 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.inactive) session.coverPrivateContent();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (!session.trustedPhotoSelection) session.lockApp();
+      if (!session.trustedImageSelection) session.lockApp();
     }
     if (state == AppLifecycleState.resumed) {
       session.uncoverPrivateContent();
       session.expirePendingIfNeeded();
       if (session.phase == SessionPhase.signedIn &&
-          !session.trustedPhotoSelection) {
+          !session.trustedImageSelection) {
         session.refreshProfile();
       }
     }
@@ -204,6 +215,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                           )
                         : UnavailableAnalyticsGateway()),
                 store: creationStore,
+                pairOpeningStore: pairOpeningStore,
                 transactions: transactions,
                 transferStore: transferStore,
                 designPreview: widget.config.isDemo,

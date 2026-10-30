@@ -96,14 +96,32 @@ class TransferController extends ChangeNotifier {
     BankAccount source,
     String destination,
     String amount,
-    String remark,
-  ) {
+    String remark, {
+    String? qrString,
+    String? destinationName,
+  }) {
     if (!_current || !ready || busy || saved != null || storageError != null) {
       return false;
     }
     error = refreshError = null;
     try {
       review = TransferDraft.validate(source, destination, amount, remark);
+      if (qrString != null) {
+        if (qrString.isEmpty ||
+            qrString.length > 4096 ||
+            destinationName == null ||
+            destinationName.isEmpty) {
+          throw invalidTransfer;
+        }
+        review = TransferDraft(
+          review!.source,
+          review!.destination,
+          review!.amount,
+          review!.remark,
+          qrString: qrString,
+          destinationName: destinationName,
+        );
+      }
     } on ApiFailure catch (e) {
       error = e;
       review = null;

@@ -1,5 +1,10 @@
 # Native EMVCo QR Payment System Specification & Documentation
 
+> Current customer implementation: see [QR_CUSTOMER_FLOW.md](QR_CUSTOMER_FLOW.md).
+> QR payments are registered Kesor internal transfers. External Bakong/KHQR
+> acceptance, certification and settlement are not established. The older
+> frontend instructions and broad parity claims below are historical.
+
 ## 1. Overview & Architectural Motivation
 
 This document details the in-house **EMVCo QR Payment Engine** designed and implemented to replace external dependencies on the Bakong KHQR SDK (`kh.gov.nbc.bakong_khqr:sdk-java`) and NBC Bakong OpenAPI endpoints.

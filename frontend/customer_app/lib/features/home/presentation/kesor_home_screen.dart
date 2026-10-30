@@ -27,6 +27,8 @@ class KesorHomeScreen extends StatefulWidget {
     this.onBalanceVisibilityChanged,
     this.onAccounts,
     this.onTransfer,
+    this.onMyQr,
+    this.onScanQr,
     this.onActivity,
     this.onProfile,
     this.onTransaction,
@@ -41,6 +43,7 @@ class KesorHomeScreen extends StatefulWidget {
   final ValueChanged<bool>? onBalanceVisibilityChanged;
   final bool showDeviceChrome, pendingTransfer, showNavigation, loading;
   final VoidCallback? onAccounts, onTransfer, onActivity, onProfile;
+  final VoidCallback? onMyQr, onScanQr;
   final ValueChanged<HomeTransaction>? onTransaction;
   final Future<void> Function()? onRefresh;
   final String? errorMessage;
@@ -449,7 +452,9 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
               ),
               _Tap(
                 label: 'My QR',
-                onTap: () => _showPanel('កូដ QR របស់ខ្ញុំ', 'My QR'),
+                onTap:
+                    widget.onMyQr ??
+                    () => _showPanel('កូដ QR របស់ខ្ញុំ', 'My QR'),
                 child: SizedBox(
                   width: 28,
                   height: 44,
@@ -708,6 +713,8 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
       onTap: transfer
           ? widget.onTransfer ??
                 () => _showPanel('ផ្ទេរប្រាក់', 'Internal transfer')
+          : qr && widget.onScanQr != null
+          ? widget.onScanQr!
           : () => _showPanel(
               qr ? _tr('Scan QR', 'ស្កេនកូដ QR') : 'ទូទាត់ប្រាក់',
               qr ? 'QR scanner' : 'Payments',

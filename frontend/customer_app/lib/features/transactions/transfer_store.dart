@@ -70,6 +70,10 @@ class SecureTransferStore implements TransferStore {
         jsonEncode(saved.draft.payload) != jsonEncode(record.draft.payload)) {
       throw invalidTransfer;
     }
+    if (saved.draft.qrString != record.draft.qrString ||
+        saved.draft.destinationName != record.draft.destinationName) {
+      throw invalidTransfer;
+    }
     if (!saved.unresolved &&
         jsonEncode(saved.toJson()) != jsonEncode(record.toJson())) {
       throw invalidTransfer;
@@ -104,6 +108,10 @@ class MemoryTransferStore implements TransferStore {
         saved.key != record.key ||
         record.unresolved ||
         jsonEncode(saved.draft.payload) != jsonEncode(record.draft.payload)) {
+      throw invalidTransfer;
+    }
+    if (saved.draft.qrString != record.draft.qrString ||
+        saved.draft.destinationName != record.draft.destinationName) {
       throw invalidTransfer;
     }
     _saved[user] = record;

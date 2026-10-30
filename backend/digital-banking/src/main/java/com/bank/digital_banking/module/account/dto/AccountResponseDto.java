@@ -11,6 +11,8 @@ import java.time.OffsetDateTime;
 
 @Data
 @Builder
+@lombok.NoArgsConstructor
+@lombok.AllArgsConstructor
 public class AccountResponseDto {
 
     private Long id;
@@ -29,7 +31,7 @@ public class AccountResponseDto {
                 .currency(account.getCurrency())
                 .balance(account.getBalance())
                 .status(account.getStatus())
-                .createdAt(account.getCreatedAt())
+                .createdAt(account.getCreatedAt() == null ? null : account.getCreatedAt().withOffsetSameInstant(java.time.ZoneOffset.UTC))
                 .build();
     }
 }

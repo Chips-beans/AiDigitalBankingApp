@@ -2,6 +2,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
+import '../../../app/app_labels.dart';
+import '../pair_opening.dart';
+import 'pair_opening_panel.dart';
+import '../../qr/qr_gateway.dart';
+import '../../qr/presentation/receive_qr_panel.dart';
+import '../../qr/presentation/scan_qr_panel.dart';
 
 import '../../../shared/widgets/kesor_layout.dart';
 import '../../../shared/widgets/app_states.dart';
@@ -42,6 +50,7 @@ class AccountsShell extends StatefulWidget {
     required this.transfersEnabled,
     this.designPreview = false,
     this.analyticsGateway,
+    this.pairOpeningStore,
     super.key,
   });
   final SessionController session;
@@ -52,6 +61,7 @@ class AccountsShell extends StatefulWidget {
   final bool transfersEnabled;
   final bool designPreview;
   final AnalyticsGateway? analyticsGateway;
+  final PairOpeningStore? pairOpeningStore;
   @override
   State<AccountsShell> createState() => _AccountsShellState();
 }
@@ -62,13 +72,14 @@ class _AccountsShellState extends State<AccountsShell> {
   AnalyticsController? analytics;
   late final TransferController transfers;
   late final HistoryController history;
+  PairOpeningController? pairs;
+  QrGateway? qrGateway;
   late final Listenable changes;
   String? transactionReference;
   String? transactionReturnPage;
   int tab = 0;
   bool _homeBalanceVisible = true;
   String? page;
-  String type = 'SAVINGS', currency = 'USD';
   @override
   void initState() {
     super.initState();
@@ -90,7 +101,36 @@ class _AccountsShellState extends State<AccountsShell> {
         await analytics?.invalidate();
       },
     );
-    changes = Listenable.merge([model, transfers, history, home, ?analytics]);
+    final gateway = widget.gateway;
+    if (gateway is AccountPairGateway) {
+      pairs = PairOpeningController(
+        widget.session,
+        gateway as AccountPairGateway,
+        widget.pairOpeningStore ??
+            PairOpeningStore(
+              namespace: !kIsWeb && gateway is HttpAccountGateway
+                  ? '${gateway.client.config.apiBaseUrl}|${gateway.client.config.mode}'
+                  : null,
+            ),
+        onSuccess: () async {
+          await model.refresh();
+          await home.refresh();
+          await history.refresh();
+          await analytics?.invalidate();
+        },
+      );
+    }
+    if (gateway is HttpAccountGateway) {
+      qrGateway = HttpQrGateway(gateway.client);
+    }
+    changes = Listenable.merge([
+      model,
+      transfers,
+      history,
+      home,
+      ?analytics,
+      ?pairs,
+    ]);
     unawaited(transfers.initialize());
     unawaited(model.initialize());
     if (!widget.designPreview) unawaited(home.refresh());
@@ -98,6 +138,7 @@ class _AccountsShellState extends State<AccountsShell> {
 
   @override
   void dispose() {
+    pairs?.dispose();
     home.dispose();
     analytics?.dispose();
     transfers.dispose();
@@ -111,8 +152,12 @@ class _AccountsShellState extends State<AccountsShell> {
     listenable: changes,
     builder: (context, _) {
       if (page == null) return _root(context);
-      final title = page == 'open'
-          ? 'Open an account'
+      final title = page == 'receiveQr'
+          ? 'My QR'
+          : page == 'scanQr'
+          ? 'Scan QR'
+          : page == 'open'
+          ? 'Open accounts'
           : page == 'details'
           ? 'Account details'
           : page == 'transfer'
@@ -143,7 +188,7 @@ class _AccountsShellState extends State<AccountsShell> {
                     onPressed: _back,
                   )
                 : null,
-            title: Text(title),
+            title: Text(tx(context, title)),
             actions: [
               if (page != 'profile')
                 IconButton(
@@ -175,10 +220,54 @@ class _AccountsShellState extends State<AccountsShell> {
                   padding: const EdgeInsets.all(24),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
+                      constraints: BoxConstraints(
+                        maxWidth: {'receiveQr', 'scanQr', 'open'}.contains(page)
+                            ? KesorLayout.frameWidth
+                            : 640,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: page == 'open'
+                        children: page == 'receiveQr'
+                            ? [
+                                if (qrGateway != null)
+                                  ReceiveQrPanel(
+                                    session: widget.session,
+                                    gateway: qrGateway!,
+                                    accounts: model,
+                                    onPaid: () async {
+                                      await model.refresh();
+                                      await home.refresh();
+                                      await history.refresh();
+                                      await analytics?.invalidate();
+                                    },
+                                  )
+                                else
+                                  NoticePanel(
+                                    tx(
+                                      context,
+                                      'QR features require the API app.',
+                                    ),
+                                  ),
+                              ]
+                            : page == 'scanQr'
+                            ? [
+                                if (qrGateway != null)
+                                  ScanQrPanel(
+                                    session: widget.session,
+                                    gateway: qrGateway!,
+                                    accounts: model,
+                                    transfers: transfers,
+                                    enabled: widget.transfersEnabled,
+                                  )
+                                else
+                                  NoticePanel(
+                                    tx(
+                                      context,
+                                      'QR features require the API app.',
+                                    ),
+                                  ),
+                              ]
+                            : page == 'open'
                             ? _opening(context)
                             : page == 'details'
                             ? _details(context)
@@ -295,6 +384,8 @@ class _AccountsShellState extends State<AccountsShell> {
                                 ),
                           onAccounts: () => setState(() => page = 'accounts'),
                           onTransfer: () => setState(() => page = 'transfer'),
+                          onMyQr: () => setState(() => page = 'receiveQr'),
+                          onScanQr: () => setState(() => page = 'scanQr'),
                           onActivity: () => setState(() => page = 'history'),
                           onProfile: () => setState(() => page = 'profile'),
                           onRefresh: widget.designPreview
@@ -469,7 +560,7 @@ class _AccountsShellState extends State<AccountsShell> {
       const LinearProgressIndicator(semanticsLabel: 'Refreshing accounts'),
     if (!model.loading && model.accounts.isEmpty && model.listError == null)
       const NoticePanel(
-        'You have no accounts yet. Open an account to get started with a zero balance.',
+        'You have no accounts yet. Open accounts to get started.',
       ),
     if (model.accountsUpdatedAt != null)
       Text(
@@ -521,12 +612,10 @@ class _AccountsShellState extends State<AccountsShell> {
               model.storageError != null
           ? null
           : () => setState(() {
-              type = 'SAVINGS';
-              currency = 'USD';
               page = 'open';
             }),
       icon: const Icon(Icons.add),
-      label: const Text('Open account'),
+      label: Text(tx(context, 'Open accounts')),
     ),
   ];
 
@@ -573,6 +662,13 @@ class _AccountsShellState extends State<AccountsShell> {
       Text('Type: ${account.type}'),
       Text('Currency: ${account.currency}'),
       Text('Created ${displayDate(account.createdAt)}'),
+      TextButton.icon(
+        onPressed: account.status == 'ACTIVE'
+            ? () => setState(() => page = 'receiveQr')
+            : null,
+        icon: const Icon(Icons.qr_code_2),
+        label: Text(tx(context, 'My QR')),
+      ),
       TextButton(
         onPressed: model.loadingDetail ? null : () => model.select(account),
         child: const Text('Refresh selected account'),
@@ -581,49 +677,25 @@ class _AccountsShellState extends State<AccountsShell> {
   }
 
   List<Widget> _opening(BuildContext context) => [
-    const NoticePanel(
-      'Your new account starts at zero. Funding is handled by bank staff.',
-    ),
     ..._errors(),
-    DropdownButtonFormField<String>(
-      initialValue: type,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Account type'),
-      items: BankAccount.types
-          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-          .toList(),
-      onChanged: model.opening || model.uncertain
-          ? null
-          : (v) => setState(() => type = v!),
-    ),
-    const SizedBox(height: 24),
-    DropdownButtonFormField<String>(
-      initialValue: currency,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Currency'),
-      items: [
-        'USD',
-        'KHR',
-      ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-      onChanged: model.opening || model.uncertain
-          ? null
-          : (v) => setState(() => currency = v!),
-    ),
-    const SizedBox(height: 24),
-    Text('Opening balance: ${currency == 'USD' ? 'USD 0.00' : 'KHR 0'}'),
-    const SizedBox(height: 24),
-    if (model.creationError != null)
-      NoticePanel(model.creationError!.message, error: true),
-    BusyButton(
-      label: 'Confirm open account',
-      busy: model.opening,
-      onPressed: model.uncertain || !model.ready || model.storageError != null
-          ? null
-          : () async {
-              final success = await model.open(type, currency);
-              if (success) await analytics?.invalidate();
-              if (success && mounted) setState(() => page = 'accounts');
-            },
-    ),
+    if (pairs != null)
+      PairOpeningPanel(
+        model: pairs!,
+        legacyPending:
+            model.uncertain || !model.ready || model.storageError != null,
+        onOpened: () {
+          if (mounted) {
+            setState(() {
+              model.notice = tx(context, 'Accounts opened');
+              page = 'accounts';
+            });
+          }
+        },
+      )
+    else
+      NoticePanel(
+        tx(context, 'Account opening is unavailable. Try again later.'),
+        error: true,
+      ),
   ];
 }

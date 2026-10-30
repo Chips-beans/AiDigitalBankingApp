@@ -147,11 +147,20 @@ class SessionController extends ChangeNotifier {
   }
 
   void beginPhotoSelection() {
+    beginTrustedImageSelection();
+  }
+
+  void beginTrustedImageSelection() {
+    if (phase != SessionPhase.signedIn || selectingProfilePhoto) return;
     selectingProfilePhoto = true;
     _selectionStarted = _clock();
   }
 
   void endPhotoSelection() {
+    endTrustedImageSelection();
+  }
+
+  void endTrustedImageSelection() {
     selectingProfilePhoto = false;
     if (_selectionStarted != null &&
         _clock().difference(_selectionStarted!).inSeconds > 60) {
@@ -164,6 +173,7 @@ class SessionController extends ChangeNotifier {
       selectingProfilePhoto &&
       _selectionStarted != null &&
       _clock().difference(_selectionStarted!).inSeconds <= 60;
+  bool get trustedImageSelection => trustedPhotoSelection;
   void uncoverPrivateContent() {
     privacyCovered = false;
     _emit();
