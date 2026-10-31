@@ -45,12 +45,14 @@ class QrPaymentIntegrationTests extends PostgresIntegrationTest {
 
     @Autowired
     com.bank.digital_banking.module.auth.repository.AuthSessionRepository sessions;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
     @BeforeEach
     void reset() {
         loginLimits.deleteAll();
+        jdbc.update("DELETE FROM merchant_auth_attempts");
         sessions.deleteAll();
         limits.deleteAll();
         SMTP.reset();

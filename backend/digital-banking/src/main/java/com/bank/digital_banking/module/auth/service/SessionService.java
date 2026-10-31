@@ -33,7 +33,7 @@ public class SessionService {
     }
 
     @Transactional
-    public TokenResponseDto issueAfterPin(AuthSession session) { return issue(session); }
+    public TokenResponseDto issueAfterPin(AuthSession session) { requirePurpose(session, "CUSTOMER"); return issue(session); }
 
     @Transactional
     public TokenResponseDto create(User user, Device device) {
@@ -47,10 +47,20 @@ public class SessionService {
     // Failed reuse must commit revocation, rather than roll it back with the exception.
     @Transactional(noRollbackFor = AuthenticationFailedException.class)
     public TokenResponseDto refresh(String rawToken) {
+        return refreshForPurpose(rawToken, "CUSTOMER");
+    }
+
+    @Transactional(noRollbackFor = AuthenticationFailedException.class)
+    public TokenResponseDto refreshMerchant(String rawToken) {
+        return refreshForPurpose(rawToken, "MERCHANT");
+    }
+
+    private TokenResponseDto refreshForPurpose(String rawToken, String purpose) {
         Claims claims = tokens.parse(rawToken, "refresh");
         AuthSession session = sessions.findLockedById(UUID.fromString(claims.get("sid", String.class)))
                 .orElseThrow(() -> failure("SESSION_INVALID", "Session is not available"));
         validate(session, claims);
+        requirePurpose(session, purpose);
         if (isPinLocked(session.getId())) throw new com.bank.digital_banking.common.exception.ApiException(
                 org.springframework.http.HttpStatus.FORBIDDEN, "PIN_REQUIRED", "Unlock the app with your PIN");
         if (!MessageDigest.isEqual(session.getRefreshTokenHash().getBytes(StandardCharsets.US_ASCII),
@@ -62,6 +72,22 @@ public class SessionService {
         var response = issue(session);
         audit.successAs(session.getUser(), "AUTH", "REFRESH", session.getId().toString());
         return response;
+    }
+
+    @Transactional
+    public TokenResponseDto createMerchant(User user, Device device) {
+        // Never replace the Customer session, even on the same physical device.
+        sessions.revokeMerchantForDevice(user.getId(),device.getId(),OffsetDateTime.now());
+        AuthSession session = AuthSession.builder().id(UUID.randomUUID()).user(user).device(device)
+                .purpose("MERCHANT").clientId("kesor-merchant-android").createdAt(OffsetDateTime.now())
+                .expiresAt(OffsetDateTime.now().plusSeconds(tokens.getRefreshMs() / 1000)).build();
+        return issue(session);
+    }
+
+    public void requirePurpose(AuthSession session, String purpose) {
+        if (!purpose.equals(session.getPurpose())) throw failure(
+                purpose.equals("MERCHANT") ? "MERCHANT_SESSION_REQUIRED" : "CUSTOMER_SESSION_REQUIRED",
+                "This session cannot be used for this action");
     }
 
     @Transactional(readOnly = true)
@@ -90,16 +116,36 @@ public class SessionService {
     }
 
     private void validate(AuthSession session, Claims claims) {
+        String purpose = claims.get("purpose", String.class);
+        // Pre-V18 signed Customer tokens had no audience/purpose. Only the
+        // backfilled Customer rows may accept that exact legacy claim shape.
+        boolean legacy = purpose == null && claims.getAudience() == null && claims.get("client_id") == null;
+        if (!(legacy && "CUSTOMER".equals(session.getPurpose())) &&
+                (!session.getPurpose().equals(purpose) || !session.getClientId().equals(claims.get("client_id", String.class))
+                 || !Set.of("MERCHANT".equals(purpose) ? "kesor-merchant" : "kesor-customer").equals(claims.getAudience())))
+            throw failure("TOKEN_INVALID", "Session audience is invalid");
         if (!session.getUser().getId().toString().equals(claims.getSubject())
                 || session.getRevokedAt() != null || !session.getExpiresAt().isAfter(OffsetDateTime.now()))
             throw failure("SESSION_INVALID", "Session is expired or revoked");
         if (!session.getUser().isEnabled()) throw failure("USER_DISABLED", "Account is disabled");
+        if ("MERCHANT".equals(session.getPurpose()) && (!session.getUser().isProfileComplete()
+                || session.getUser().getRoles().stream().noneMatch(r -> r.getName() == ERole.ROLE_CUSTOMER)))
+            throw failure("SESSION_INVALID", "Merchant owner is no longer eligible");
         if (session.getDevice().getStatus() != DeviceStatus.ACTIVE)
             throw failure("DEVICE_REVOKED", "Device is not active");
     }
 
     private TokenResponseDto issue(AuthSession session) {
         User user = session.getUser();
+        if ("MERCHANT".equals(session.getPurpose())) {
+            String refresh = tokens.generateMerchantToken(user.getId(), session.getId(), "refresh");
+            session.setRefreshTokenHash(HashUtils.sha256(refresh));
+            sessions.saveAndFlush(session);
+            return TokenResponseDto.builder().accessToken(tokens.generateMerchantToken(user.getId(), session.getId(), "access"))
+                    .refreshToken(refresh).tokenType("Bearer").expiresInMs(Math.min(tokens.getAccessMs(), 300000))
+                    .refreshExpiresAt(session.getExpiresAt().withOffsetSameInstant(java.time.ZoneOffset.UTC)).sessionId(session.getId()).userId(user.getId())
+                    .roles(Set.of("MERCHANT_SESSION")).build();
+        }
         Set<String> roles = user.getRoles().stream().map(r -> r.getName().name()).collect(Collectors.toSet());
         String refresh = tokens.generateRefreshToken(user.getId(), session.getId());
         session.setRefreshTokenHash(HashUtils.sha256(refresh));

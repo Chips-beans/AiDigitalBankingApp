@@ -1,0 +1,13 @@
+name: kesor_design_system
+description: Shared Kesor palette, typography and Material theme.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: ^3.13.4
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  assets:
+    - assets/kesor-logo.svg
+    - assets/licenses/

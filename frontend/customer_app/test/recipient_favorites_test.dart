@@ -47,6 +47,29 @@ void main() {
       expect(await storage.read(key: key), '{broken');
     },
   );
+  test('manual favorites keep their custom name and stay manual after a transfer bookmark', () async {
+    final store = RecipientFavoritesStore(namespace: 'names');
+    await store.add(
+      1,
+      const FavoriteRecipient('1000000002', 'USD', name: 'Mom', manual: true),
+    );
+    expect(
+      (await RecipientFavoritesStore(namespace: 'names').read(1)).single.name,
+      'Mom',
+    );
+    await store.add(1, usd);
+    expect((await store.read(1)).single.name, 'Mom');
+    expect((await store.read(1)).single.manual, isTrue);
+    await store.add(
+      1,
+      const FavoriteRecipient('1000000002', 'USD', name: 'Mum'),
+    );
+    expect((await store.read(1)).single.name, 'Mum');
+    await expectLater(
+      store.add(1, const FavoriteRecipient('1000000003', 'KHR', name: ' ')),
+      throwsA(isA<ApiFailure>()),
+    );
+  });
   test(
     'invalid account identifiers and unsupported currencies are refused',
     () async {

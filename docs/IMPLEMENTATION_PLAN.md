@@ -1,5 +1,11 @@
 # Kesor Bank — implementation plan (next work)
 
+Merchant App work is planned separately in
+[MERCHANT_APP_IMPLEMENTATION_PLAN.md](MERCHANT_APP_IMPLEMENTATION_PLAN.md).
+It defines Customer-App-only sign-in, shop identity, two business wallets and
+milestones M0-M9 for the first release, with later features M10-M13.
+The Merchant milestones have not been implemented.
+
 Written 31 October 2026. Builds on `NEXT_SESSION_BRIEF.md`; that brief stays the
 source of truth for current state. Nothing in this plan has been executed yet.
 

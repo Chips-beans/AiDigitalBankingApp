@@ -36,7 +36,7 @@ class FoundationHandoffTests {
             }
             var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
             upgraded.migrate(); upgraded.validate();
-            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("17");
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("18");
             try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
                 try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
                     assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
@@ -66,13 +66,15 @@ class FoundationHandoffTests {
             Map<String, Object> transfer;
             String assistantConversation;
             JsonNode assistantResult;
+            Map<String,Object> merchantExchange;
+            JsonNode merchantTokens;
 
             try (var app = start(url, smtp.port())) {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(16);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
+                assertThat(flyway.info().applied()).hasSize(17);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("18");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -128,6 +130,27 @@ class FoundationHandoffTests {
                 assertThat(call("GET", "/accounts/" + source, receiverAccess, null, null).statusCode()).isEqualTo(404);
                 assertThat(call("GET", "/transactions/account/" + source, receiverAccess, null, null).statusCode())
                         .isEqualTo(404);
+                // Exercise encrypted response-loss recovery across a real server
+                // restart, using the synthetic customer's existing PIN.
+                String merchantOwnerAccess=ok("POST", "/auth/pin/unlock", null, null,
+                        Map.of("ticket",durablePinTicket,"pin","0427"),200).path("accessToken").asText();
+                String verifier=randomCredential(),secret=randomCredential(),state=randomCredential();
+                String challenge=java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                        java.util.HexFormat.of().parseHex(com.bank.digital_banking.common.util.HashUtils.sha256(verifier)));
+                JsonNode attempt=ok("POST","/merchant-auth/attempts",null,null,Map.of(
+                        "clientId","kesor-merchant-android","redirectUri","kesormerchant://auth/callback",
+                        "state",state,"codeChallenge",challenge,"codeChallengeMethod","S256",
+                        "attemptSecretHash",com.bank.digital_banking.common.util.HashUtils.sha256(secret),
+                        "installationId",randomCredential(),"deviceName","Restart fixture"),200);
+                String handoff=queryParameter(attempt.path("approvalUri").asText(),"handoffToken");
+                String callback=ok("POST","/merchant-auth/attempts/"+attempt.path("attemptId").asText()+"/approve",
+                        merchantOwnerAccess,null,Map.of("handoffToken",handoff,"pin","0427"),200).path("callbackUri").asText();
+                merchantExchange=Map.of("attemptId",attempt.path("attemptId").asText(),"code",queryParameter(callback,"code"),
+                        "codeVerifier",verifier,"attemptSecret",secret,"exchangeKey",randomCredential(),"state",state,
+                        "clientId","kesor-merchant-android","redirectUri","kesormerchant://auth/callback");
+                merchantTokens=ok("POST","/merchant-auth/exchange",null,null,merchantExchange,200);
+                // Keep the original failure-persistence assertion in the restart test.
+                assertThat(call("POST","/auth/pin/unlock",null,null,Map.of("ticket",durablePinTicket,"pin","9999")).statusCode()).isEqualTo(403);
             }
 
             JsonNode renewed;
@@ -135,8 +158,11 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(16);
+                assertThat(flyway.info().applied()).hasSize(17);
                 assertThat(flyway.info().pending()).isEmpty();
+                assertThat(ok("POST","/merchant-auth/exchange",null,null,merchantExchange,200)).isEqualTo(merchantTokens);
+                assertThat(ok("GET","/merchant-auth/session",merchantTokens.path("accessToken").asText(),null,null,200)
+                        .path("onboardingState").asText()).isEqualTo("SHOP_REQUIRED");
                 JsonNode pinState = ok("POST", "/auth/pin/status", null, null, Map.of("ticket", durablePinTicket), 200);
                 assertThat(pinState.path("configured").asBoolean()).isTrue();
                 assertThat(pinState.path("attemptsRemaining").asInt()).isEqualTo(4);
@@ -210,6 +236,14 @@ class FoundationHandoffTests {
                 // Restart/replay is the subject here; PIN proofs (and proof-free replays) are covered by TransferPinAndExchangeTests.
                 "--app.transfer.pin-proof-required=false",
                 "--app.ai.enabled=false", "--spring.main.banner-mode=off", "--logging.level.root=WARN");
+    }
+    private String randomCredential() {
+        byte[] bytes=new byte[32]; new java.security.SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+    private String queryParameter(String uri,String key) {
+        return java.util.Arrays.stream(URI.create(uri).getRawQuery().split("&")).map(p->p.split("=",2))
+                .filter(p->p[0].equals(key)).findFirst().orElseThrow()[1];
     }
 
     private void use(ConfigurableApplicationContext app) {

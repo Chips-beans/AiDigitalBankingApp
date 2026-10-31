@@ -37,6 +37,9 @@ public class RequestAuditFilter extends OncePerRequestFilter {
         String correlation = UUID.randomUUID().toString();
         request.setAttribute(AuditTrail.CORRELATION, correlation);
         response.setHeader("X-Correlation-ID", correlation);
+        if (request.getRequestURI().startsWith("/api/v1/merchant-auth/")
+                || request.getRequestURI().startsWith("/api/v1/auth/merchant-sessions"))
+            response.setHeader("Cache-Control", "no-store");
         // Retain request metadata until after Spring Security and MVC have unwound.
         var previous = RequestContextHolder.getRequestAttributes();
         var buffered = new ContentCachingResponseWrapper(response);
@@ -79,6 +82,7 @@ public class RequestAuditFilter extends OncePerRequestFilter {
         String[] path = request.getRequestURI().split("/");
         return switch (path.length > 3 ? path[3] : "") {
             case "auth" -> "AUTH";
+            case "merchant-auth" -> "MERCHANT_AUTH";
             case "accounts" -> "ACCOUNT";
             case "transactions" -> "TRANSACTION";
             case "merchants" -> "MERCHANT";

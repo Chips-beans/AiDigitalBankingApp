@@ -109,6 +109,13 @@ void main() {
             await tester.pumpAndSettle();
             expect(tester.takeException(), isNull);
             await save('$stem-bottom');
+          } else {
+            // Income series in gold, on a past month with Next available.
+            await model.selectMonth(-1);
+            model.selectSeries(true);
+            await tester.pumpAndSettle();
+            expect(tester.takeException(), isNull);
+            await save('$stem-income-previous-month');
           }
           await tester.pumpWidget(const SizedBox.shrink());
           model.dispose();

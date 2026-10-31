@@ -26,6 +26,8 @@ import '../features/assistant/assistant_store.dart';
 import '../core/network/api_client.dart';
 import '../shared/widgets/app_states.dart';
 import 'app_theme.dart';
+import '../features/merchant/merchant_approval.dart';
+import '../features/merchant/merchant_approval_screen.dart';
 
 class BankingApp extends StatefulWidget {
   const BankingApp({
@@ -41,6 +43,7 @@ class BankingApp extends StatefulWidget {
     this.assistantGateway,
     this.assistantStore,
     this.preferences,
+    this.merchantApproval,
     super.key,
   });
   final SessionController session;
@@ -55,6 +58,7 @@ class BankingApp extends StatefulWidget {
   final AssistantGateway? assistantGateway;
   final AssistantPendingStore? assistantStore;
   final AppPreferences? preferences;
+  final MerchantApproval? merchantApproval;
   @override
   State<BankingApp> createState() => _BankingAppState();
 }
@@ -90,6 +94,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     widget.session.addListener(_phaseChanged);
+    widget.merchantApproval?.addListener(_merchantChanged);
     _idleTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => widget.session.checkIdle(),
@@ -156,10 +161,15 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
   }
 
+  void _merchantChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _idleTimer?.cancel();
     widget.session.removeListener(_phaseChanged);
+    widget.merchantApproval?.removeListener(_merchantChanged);
     assistantClient?.close();
     if (widget.preferences == null) preferences.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -203,6 +213,33 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
         darkTheme: AppTheme.build(Brightness.dark, locale: preferences.locale),
         builder: (context, child) => Column(
           children: [
+            if (widget.merchantApproval?.hasRequest == true &&
+                widget.session.phase == SessionPhase.signedOut)
+              Material(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tr(
+                              context,
+                              'Merchant sign-in is waiting. Sign in to Kesor Bank to review it.',
+                              'ការចូល Merchant កំពុងរង់ចាំ។ សូមចូលធនាគារកេសរ ដើម្បីពិនិត្យ។',
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: widget.merchantApproval!.discard,
+                          child: Text(tr(context, 'Close', 'បិទ')),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (widget.config.isDemo)
               Material(
                 color: Theme.of(context).colorScheme.tertiaryContainer,
@@ -271,7 +308,9 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                       session.pinStage == PinStage.checking) &&
                   session.pinChallenge?.recoveryRequired != true &&
                   !session.pinResetting;
-              if (enterOnly && !_pinRequested) {
+              if (enterOnly &&
+                  !_pinRequested &&
+                  widget.merchantApproval?.hasRequest != true) {
                 return LockedHomePage(
                   onUnlock: () => setState(() => _pinRequested = true),
                 );
@@ -291,6 +330,12 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
               }
               if (!session.identity!.profileComplete) {
                 return InformationPage(session);
+              }
+              if (widget.merchantApproval?.hasRequest == true) {
+                return MerchantApprovalScreen(
+                  approval: widget.merchantApproval!,
+                  session: session,
+                );
               }
               return AccountsShell(
                 session: session,

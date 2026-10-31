@@ -32,6 +32,14 @@ class AnalyticsScale {
       ((amount * BigInt.from(1000000)) ~/ maximum).toDouble() / 1000000;
 }
 
+/// Income is gold and Expense is navy blue, for the bars and the series dot.
+Color analyticsSeriesColor(BuildContext context, {required bool income}) {
+  final dark = Theme.of(context).brightness == Brightness.dark;
+  return income
+      ? (dark ? AppPalette.gold400 : AppPalette.gold500)
+      : (dark ? AppPalette.navy200 : AppPalette.navy500);
+}
+
 class DailyAnalyticsChart extends StatefulWidget {
   const DailyAnalyticsChart({
     required this.snapshot,
@@ -128,11 +136,17 @@ class _DailyAnalyticsChartState extends State<DailyAnalyticsChart> {
                                 showIncome: widget.showIncome,
                                 scale: scale,
                                 selected: selected,
-                                color:
-                                    Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? AppPalette.navy200
-                                    : AppPalette.navy500,
+                                color: analyticsSeriesColor(
+                                  context,
+                                  income: widget.showIncome,
+                                ),
+                                // The selected bar must stand out from gold bars.
+                                highlight: !widget.showIncome
+                                    ? AppPalette.gold500
+                                    : Theme.of(context).brightness ==
+                                          Brightness.dark
+                                    ? AppPalette.gold100
+                                    : AppPalette.gold700,
                                 grid: colors.border,
                                 text: TextStyle(
                                   fontFamily: 'Poppins',
@@ -188,6 +202,7 @@ class _DailyPainter extends CustomPainter {
     required this.scale,
     required this.selected,
     required this.color,
+    required this.highlight,
     required this.grid,
     required this.text,
   });
@@ -195,7 +210,7 @@ class _DailyPainter extends CustomPainter {
   final bool showIncome;
   final AnalyticsScale scale;
   final int? selected;
-  final Color color, grid;
+  final Color color, highlight, grid;
   final TextStyle text;
   @override
   void paint(Canvas canvas, Size size) {
@@ -258,12 +273,15 @@ class _DailyPainter extends CustomPainter {
       final width = math.min(6.57, slot * .66);
       final x = left + slot * (i + .5);
       if (height > 0) {
+        // Rounded top, flat base on the axis.
+        final corner = Radius.circular(math.min(width / 2, height));
         canvas.drawRRect(
-          RRect.fromRectAndRadius(
+          RRect.fromRectAndCorners(
             Rect.fromLTWH(x - width / 2, baseline - height, width, height),
-            const Radius.circular(8),
+            topLeft: corner,
+            topRight: corner,
           ),
-          Paint()..color = selected == i ? AppPalette.gold500 : color,
+          Paint()..color = selected == i ? highlight : color,
         );
       }
       final number = i + 1;
@@ -316,6 +334,7 @@ class _DailyPainter extends CustomPainter {
       old.showIncome != showIncome ||
       old.selected != selected ||
       old.color != color ||
+      old.highlight != highlight ||
       old.grid != grid ||
       old.text != text;
 }

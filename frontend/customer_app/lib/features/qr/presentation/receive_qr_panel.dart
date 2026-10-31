@@ -106,8 +106,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
       if (money.minorUnits <= BigInt.zero) throw const FormatException();
       return money;
     } catch (_) {
-      amountError =
-          'Enter a positive amount within the currency precision and supported range.';
+      amountError = 'Enter a positive amount within the currency precision and supported range.';
       return null;
     }
   }
@@ -203,7 +202,10 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
       final data = await image?.toByteData(format: ui.ImageByteFormat.png);
       image?.dispose();
       if (data == null) {
-        throw const ApiFailure('UNAVAILABLE', 'The QR image could not be prepared.');
+        throw const ApiFailure(
+          'UNAVAILABLE',
+          'The QR image could not be prepared.',
+        );
       }
       final png = data.buffer.asUint8List();
       final name = 'kesor-qr-${code.currency.toLowerCase()}';
@@ -233,13 +235,12 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
     return parts.join(' ');
   }
 
-  TextStyle _text(double size, {Color color = Colors.white, FontWeight? weight}) =>
-      AppTextStyles.of(context).body.copyWith(
-        fontSize: size,
-        height: 1.4,
-        color: color,
-        fontWeight: weight,
-      );
+  TextStyle _text(
+    double size, {
+    Color color = Colors.white,
+    FontWeight? weight,
+  }) => AppTextStyles.of(context).body
+      .copyWith(fontSize: size, height: 1.4, color: color, fontWeight: weight);
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -258,9 +259,15 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _header(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            if (eligible.isNotEmpty) ...[
+              _walletPicker(eligible, current),
+              const SizedBox(height: 12),
+            ],
             if (eligible.isEmpty)
-              NoticePanel(tx(context, 'Open an account before receiving money.'))
+              NoticePanel(
+                tx(context, 'Open an account before receiving money.'),
+              )
             else if (current == null)
               NoticePanel(
                 tx(context, 'Choose an active account to receive money.'),
@@ -276,14 +283,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
               ),
             ],
             if (code != null) _card(code),
-            if (current != null) ...[
-              const SizedBox(height: 12),
-              _amountRow(),
-            ],
-            for (final account in eligible) ...[
-              const SizedBox(height: 10),
-              _walletRow(account, account.number == current?.number),
-            ],
+            if (current != null) ...[const SizedBox(height: 12), _amountRow()],
             if (widget.accounts.hasMore)
               TextButton(
                 onPressed: widget.accounts.loadingMore
@@ -291,7 +291,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                     : widget.accounts.loadMore,
                 child: Text(tx(context, 'Load more accounts')),
               ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -376,19 +376,19 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
           children: [
             Container(
               color: _qrRed,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
               child: Text(
                 tx(context, 'Kesor Bank QR Code'),
                 style: _text(18, weight: FontWeight.w600),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: Text(code.name, style: _text(15, color: _muted)),
             ),
             const Divider(height: 1, color: Color(0x22FFFFFF)),
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
               child: Center(
                 child: Semantics(
                   label: tx(context, 'My QR'),
@@ -403,7 +403,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                     child: LayoutBuilder(
                       builder: (context, box) => QrImageView(
                         data: code.payload,
-                        size: box.maxWidth.clamp(140, 250),
+                        size: box.maxWidth.clamp(140, 200),
                         padding: const EdgeInsets.all(6),
                         backgroundColor: Colors.white,
                         eyeStyle: const QrEyeStyle(
@@ -421,7 +421,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
               child: Column(
                 children: [
                   Text(
@@ -469,7 +469,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
       borderRadius: BorderRadius.circular(16),
       onTap: model.busy ? null : _enterAmount,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             const Icon(Icons.add_circle_outline, color: AppPalette.gold500),
@@ -477,7 +477,11 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
             Expanded(
               child: Text(
                 tx(context, 'Enter amount'),
-                style: _text(15, color: AppPalette.gold500, weight: FontWeight.w600),
+                style: _text(
+                  15,
+                  color: AppPalette.gold500,
+                  weight: FontWeight.w600,
+                ),
               ),
             ),
             Text(
@@ -492,56 +496,95 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
     ),
   );
 
-  Widget _walletRow(BankAccount account, bool active) {
-    final khr = account.currency == 'KHR';
-    return Material(
-      color: _tile,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: active ? AppPalette.gold500 : Colors.transparent,
-          width: 1.5,
+  /// Receiving wallet as a single drop-down instead of a list of rows.
+  Widget _walletPicker(List<BankAccount> eligible, BankAccount? current) =>
+      Container(
+        decoration: BoxDecoration(
+          color: _tile,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: current == null ? Colors.transparent : AppPalette.gold500,
+          ),
         ),
-      ),
-      child: InkWell(
-        key: ValueKey('qr-wallet-${account.number}'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _select(account),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: khr ? AppPalette.gold500 : AppPalette.navy500,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            key: const ValueKey('qr-wallet-select'),
+            value: current?.number,
+            isExpanded: true,
+            itemHeight: null,
+            dropdownColor: _tile,
+            borderRadius: BorderRadius.circular(16),
+            iconEnabledColor: AppPalette.gold500,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            hint: Text(
+              tx(context, 'Select account'),
+              style: _text(14, color: _muted),
+            ),
+            onChanged: model.busy
+                ? null
+                : (number) {
+                    final account = eligible
+                        .where((a) => a.number == number)
+                        .firstOrNull;
+                    if (account != null) _select(account);
+                  },
+            selectedItemBuilder: (context) => [
+              for (final account in eligible) _walletLabel(account),
+            ],
+            items: [
+              for (final account in eligible)
+                DropdownMenuItem(
+                  key: ValueKey('qr-wallet-${account.number}'),
+                  value: account.number,
+                  child: _walletLabel(account),
                 ),
-                child: Text(
-                  khr ? '៛' : r'$',
-                  style: _text(16, weight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tx(context, khr ? 'KHR Wallet' : 'USD Wallet'),
-                      style: _text(15, weight: FontWeight.w600),
-                    ),
-                    Text(grouped(account.number), style: _text(12, color: _muted)),
-                  ],
-                ),
-              ),
-              if (active)
-                const Icon(Icons.check_circle, color: AppPalette.gold500),
             ],
           ),
         ),
+      );
+
+  Widget _walletLabel(BankAccount account) {
+    final khr = account.currency == 'KHR';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: khr ? AppPalette.gold500 : AppPalette.navy500,
+            ),
+            child: Text(
+              khr ? '៛' : r'$',
+              style: _text(16, weight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tx(context, khr ? 'KHR Wallet' : 'USD Wallet'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(15, weight: FontWeight.w600),
+                ),
+                Text(
+                  grouped(account.number),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(12, color: _muted),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

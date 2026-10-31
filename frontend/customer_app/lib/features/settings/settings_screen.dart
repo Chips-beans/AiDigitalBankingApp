@@ -264,6 +264,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 64,
                     disabled: true,
                   ),
+                  _row(
+                    context,
+                    'merchant-sessions',
+                    'lock-keyhole',
+                    tr(context, 'Merchant sessions', 'វគ្គប្រើប្រាស់ Merchant'),
+                    height: 64,
+                  ),
                 ],
               ),
               const SizedBox(height: 20),

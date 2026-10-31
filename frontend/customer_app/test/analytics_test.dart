@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:customer_app/app/app_preferences.dart';
 import 'package:customer_app/app/app_theme.dart';
+import 'package:customer_app/app/design_system/design_system.dart';
 import 'package:customer_app/app/banking_app.dart';
 import 'package:customer_app/core/config/app_config.dart';
 import 'package:customer_app/core/network/api_client.dart';
@@ -514,6 +515,57 @@ void main() {
       await tester.tap(find.text('KHR').last);
       await tester.pumpAndSettle();
       expect(model.currency, 'KHR');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Income is gold, Expense is blue, and Next turns gold only when available',
+    (tester) async {
+      await loadAnalyticsFonts(tester);
+      tester.view.physicalSize = const Size(440, 956);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final session = await analyticsSession();
+      addTearDown(session.dispose);
+      final model = AnalyticsController(
+        session,
+        DemoAnalyticsGateway(),
+        clock: () => month,
+      );
+      addTearDown(model.dispose);
+      await model.refresh();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.build(Brightness.light),
+          home: Scaffold(body: AnalyticsScreen(controller: model)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Color? dot() => tester
+          .widget<AnalyticsAsset>(
+            find.byKey(const ValueKey('analytics-series-dot')),
+          )
+          .tint;
+      String nextIcon() => tester
+          .widget<AnalyticsAsset>(
+            find.descendant(
+              of: find.byKey(const ValueKey('analytics-next')),
+              matching: find.byType(AnalyticsAsset),
+            ),
+          )
+          .name;
+
+      expect(model.showIncome, isFalse);
+      expect(dot(), AppPalette.navy500);
+      expect(nextIcon(), 'next', reason: 'The future month stays disabled');
+
+      model.selectSeries(true);
+      await model.selectMonth(-1);
+      await tester.pumpAndSettle();
+      expect(dot(), AppPalette.gold500);
+      expect(nextIcon(), 'previous', reason: 'Gold chevron, like Previous');
       expect(tester.takeException(), isNull);
     },
   );

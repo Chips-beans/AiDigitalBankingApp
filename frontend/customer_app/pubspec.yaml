@@ -28,6 +28,10 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  kesor_auth_handoff:
+    path: ../packages/kesor_auth_handoff
+  kesor_design_system:
+    path: ../packages/kesor_design_system
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -68,6 +72,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/fonts/GoogleSans-OFL.txt
+    - assets/fonts/NotoSansKhmer-OFL.txt
+    - assets/fonts/Poppins-OFL.txt
     - assets/auth/
     - assets/home/
     - assets/analytics/

@@ -19,12 +19,16 @@ class MainActivity : FlutterActivity() {
         // developer "Don't keep activities" setting enabled). Reuse the same
         // engine/bridge, and deliver the callback from the initial Intent too.
         kesor.telegram.handleIntent(intent)
+        kesor.merchant.handleIntent(intent)
+        setIntent(Intent(intent).setData(null))
         kesor.imagePicker.activity = this
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         kesor.telegram.handleIntent(intent)
+        kesor.merchant.handleIntent(intent)
+        setIntent(Intent(intent).setData(null))
     }
 
     override fun onResume() {

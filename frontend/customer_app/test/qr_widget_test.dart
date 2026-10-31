@@ -25,6 +25,8 @@ import 'transactions_test.dart' show funded, FakeTransactions;
 
 class FakeCamera extends MobileScannerPlatform {
   final captures = StreamController<BarcodeCapture?>.broadcast();
+  final torch = StreamController<TorchState>.broadcast();
+  bool torchOn = false;
   int starts = 0, stops = 0, analyses = 0;
   bool denied = false;
   BarcodeCapture? imageResult = const BarcodeCapture(
@@ -33,7 +35,7 @@ class FakeCamera extends MobileScannerPlatform {
   @override
   Stream<BarcodeCapture?> get barcodesStream => captures.stream;
   @override
-  Stream<TorchState> get torchStateStream => const Stream.empty();
+  Stream<TorchState> get torchStateStream => torch.stream;
   @override
   Stream<double> get zoomScaleStateStream => const Stream.empty();
   @override
@@ -64,6 +66,12 @@ class FakeCamera extends MobileScannerPlatform {
 
   @override
   Future<void> dispose() async {}
+  @override
+  Future<void> toggleTorch() async {
+    torchOn = !torchOn;
+    torch.add(torchOn ? TorchState.on : TorchState.off);
+  }
+
   @override
   Future<void> updateScanWindow(Rect? window) async {}
   @override
@@ -143,6 +151,7 @@ void main() {
     transfers.dispose();
     session.dispose();
     await camera.captures.close();
+    await camera.torch.close();
     MobileScannerPlatform.instance = previous;
     MobileScannerController.resetPlatformSessionOwner();
   });
@@ -202,8 +211,39 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('Camera access is denied.'), findsWidgets);
-    expect(find.text('Choose QR image'), findsOneWidget);
+    expect(find.text('Upload QR'), findsOneWidget);
     expect(find.text('Scan again'), findsOneWidget);
+    camera.denied = false;
+    await tester.tap(find.text('Scan again'));
+    await tester.pumpAndSettle();
+    expect(camera.starts, 2);
+    expect(find.textContaining('Camera access is denied.'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+  testWidgets('flash reflects native torch state without restarting capture', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(
+        ScanQrPanel(
+          session: session,
+          gateway: gateway,
+          accounts: accounts,
+          transfers: transfers,
+          enabled: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Flash'));
+    await tester.pumpAndSettle();
+    expect(camera.torchOn, isTrue);
+    expect(find.byIcon(Icons.flashlight_on), findsOneWidget);
+    await tester.tap(find.text('Flash'));
+    await tester.pumpAndSettle();
+    expect(camera.torchOn, isFalse);
+    expect(camera.starts, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   });
@@ -223,7 +263,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose QR image'));
+      await tester.tap(find.text('Upload QR'));
       await tester.pumpAndSettle();
       expect(session.trustedImageSelection, false);
       expect(gateway.scans, 0);
@@ -257,7 +297,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.runAsync(() async {
-      await tester.tap(find.text('Choose QR image'));
+      await tester.tap(find.text('Upload QR'));
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pumpAndSettle();
@@ -285,7 +325,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Choose QR image'));
+    await tester.tap(find.text('Upload QR'));
     await tester.pumpAndSettle();
     expect(
       find.text('Choose a JPG or PNG containing one QR code, up to 5 MB.'),
@@ -322,7 +362,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
-        await tester.tap(find.text('Choose QR image'));
+        await tester.tap(find.text('Upload QR'));
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
       await tester.pumpAndSettle();
@@ -404,7 +444,10 @@ void main() {
   testWidgets('My QR lists wallets, requests an amount and closes', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(440, 1400); // mockup width, room for the sheet
+    tester.view.physicalSize = const Size(
+      440,
+      1400,
+    ); // mockup width, room for the sheet
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -422,19 +465,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Kesor Bank QR Code'), findsOneWidget);
     expect(find.text('USD Wallet'), findsOneWidget);
+    // Wallets are chosen from a drop-down; opening it lists both.
+    await tester.tap(find.byKey(const ValueKey('qr-wallet-select')));
+    await tester.pumpAndSettle();
     expect(find.text('KHR Wallet'), findsOneWidget);
-    expect(find.text('100 0000 001'), findsOneWidget, reason: 'grouped like the mockup');
+    await tester.tap(find.text('USD Wallet').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('100 0000 001'),
+      findsOneWidget,
+      reason: 'grouped like the mockup',
+    );
     expect(find.text('Optional'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('qr-enter-amount')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('qr-request-amount')), '0');
+    await tester.enterText(
+      find.byKey(const ValueKey('qr-request-amount')),
+      '0',
+    );
     await tester.tap(find.byKey(const ValueKey('qr-request-create')));
     await tester.pumpAndSettle();
     expect(find.textContaining('positive amount'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('qr-request-amount')), '12.50');
+    await tester.enterText(
+      find.byKey(const ValueKey('qr-request-amount')),
+      '12.50',
+    );
     await tester.tap(find.byKey(const ValueKey('qr-request-create')));
     await tester.pumpAndSettle();
-    expect(find.text('USD 12.50'), findsOneWidget, reason: 'the requested amount replaces Optional');
+    expect(
+      find.text('USD 12.50'),
+      findsOneWidget,
+      reason: 'the requested amount replaces Optional',
+    );
     expect(find.text('Waiting for payment'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('qr-close')));
     expect(closed, isTrue);

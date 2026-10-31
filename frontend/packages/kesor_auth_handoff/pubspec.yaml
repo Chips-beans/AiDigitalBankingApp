@@ -1,0 +1,12 @@
+name: kesor_auth_handoff
+description: Private Kesor Android handoff protocol and secure journal primitives.
+publish_to: none
+version: 0.1.0
+environment:
+  sdk: ^3.13.4
+dependencies:
+  flutter:
+    sdk: flutter
+  crypto: ^3.0.7
+  http: ^1.6.0
+  flutter_secure_storage: ^11.2.0

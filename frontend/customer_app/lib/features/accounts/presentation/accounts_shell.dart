@@ -1,12 +1,17 @@
 import 'dart:async';
+
+import '../../merchant/merchant_sessions_screen.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/app_labels.dart';
+import '../../../core/network/api_client.dart';
 import '../pair_opening.dart';
 import 'pair_opening_panel.dart';
+import 'wallet_accounts_screen.dart';
 import '../../qr/qr_gateway.dart';
 import '../../qr/presentation/receive_qr_panel.dart';
 import '../../qr/presentation/scan_qr_panel.dart';
@@ -95,6 +100,9 @@ class _AccountsShellState extends State<AccountsShell> {
   QrGateway? qrGateway;
   RecipientDirectory? recipients;
 
+  /// Home's Recipients section: the customer's saved favorites only.
+  List<HomeRecipient> savedRecipients = const [];
+
   /// Receiver handed to the transfer screen by Home or a QR scan.
   TransferPrefill? transferPrefill;
   late final Listenable changes;
@@ -173,7 +181,96 @@ class _AccountsShellState extends State<AccountsShell> {
     ]);
     unawaited(transfers.initialize());
     unawaited(model.initialize());
-    if (!widget.designPreview) unawaited(home.refresh());
+    if (!widget.designPreview) {
+      unawaited(home.refresh());
+      unawaited(_loadSavedRecipients());
+    }
+  }
+
+  Future<void> _loadSavedRecipients() async {
+    final user = widget.session.identity?.userId;
+    if (widget.designPreview || user == null) return;
+    final List<FavoriteRecipient> saved;
+    try {
+      // Only people added through the form; one entry per account number.
+      final seen = <String>{};
+      saved = (await recipientFavorites.read(user))
+          .where((r) => r.manual && seen.add(r.number))
+          .toList();
+    } catch (_) {
+      return;
+    }
+    final people = await Future.wait(
+      saved.map((favorite) async {
+        String? known;
+        try {
+          known = (await recipients?.lookup(favorite.number))?.name;
+        } catch (_) {}
+        return HomeRecipient(
+          favorite.name ?? known ?? favorite.number,
+          accountNumber: favorite.number,
+          knownName: known,
+        );
+      }),
+    );
+    if (mounted && widget.session.identity?.userId == user) {
+      setState(() => savedRecipients = people);
+    }
+  }
+
+  /// Verifies the number belongs to another active Kesor account, then saves it.
+  Future<String?> _saveRecipient(String number, String? name) async {
+    final unavailable = tr(
+      context,
+      'Recipients cannot be verified right now. Try again later.',
+      'មិនអាចផ្ទៀងផ្ទាត់អ្នកទទួលបានទេឥឡូវនេះ។ សូមព្យាយាមម្ដងទៀតពេលក្រោយ។',
+    );
+    final notFound = tr(
+      context,
+      'No Kesor account uses this number.',
+      'គ្មានគណនី Kesor ណាប្រើលេខនេះទេ។',
+    );
+    final own = tr(
+      context,
+      'This is your own account.',
+      'នេះជាគណនីរបស់អ្នកផ្ទាល់។',
+    );
+    final user = widget.session.identity?.userId;
+    final directory = recipients;
+    if (user == null || directory == null) return unavailable;
+    if (model.accounts.any((a) => a.number == number)) return own;
+    final Recipient? found;
+    try {
+      found = await directory.lookup(number);
+    } on ApiFailure catch (e) {
+      return e.message;
+    } catch (_) {
+      return unavailable;
+    }
+    if (found == null) return notFound;
+    try {
+      await recipientFavorites.add(
+        user,
+        FavoriteRecipient(number, found.currency, name: name, manual: true),
+      );
+    } catch (_) {
+      return FavoriteRecipient.unavailable.message;
+    }
+    await _loadSavedRecipients();
+    return null;
+  }
+
+  Future<void> _removeSavedRecipient(HomeRecipient person) async {
+    final user = widget.session.identity?.userId;
+    if (user == null) return;
+    try {
+      for (final favorite in await recipientFavorites.read(user)) {
+        if (favorite.number == person.accountNumber) {
+          await recipientFavorites.remove(user, favorite);
+        }
+      }
+    } catch (_) {}
+    await _loadSavedRecipients();
   }
 
   @override
@@ -194,6 +291,9 @@ class _AccountsShellState extends State<AccountsShell> {
     builder: (context, _) {
       if (page == null) return _root(context);
       if (page!.startsWith('settings:')) {
+        if (page == 'settings:merchant-sessions') {
+          return MerchantSessionsScreen(session: widget.session, onBack: _back);
+        }
         return SettingsDetailScreen(
           key: ValueKey(page),
           page: page!.substring(9),
@@ -242,6 +342,42 @@ class _AccountsShellState extends State<AccountsShell> {
           ),
         );
       }
+      if (page == 'scanQr' && qrGateway != null) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: Scaffold(
+            body: ScanQrPanel(
+              session: widget.session,
+              gateway: qrGateway!,
+              accounts: model,
+              transfers: transfers,
+              enabled: widget.transfersEnabled,
+              onClose: _back,
+              onScanned: (preview) => _openTransfer(
+                TransferPrefill(
+                  preview.destination,
+                  name: preview.name,
+                  qrString: preview.payload,
+                  fixedAmount: preview.dynamic ? preview.amount : null,
+                  qrRemark: preview.remark,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+      if (page == 'accounts') {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: _wallet(context),
+        );
+      }
       final title = page == 'receiveQr'
           ? 'My QR'
           : page == 'scanQr'
@@ -254,8 +390,6 @@ class _AccountsShellState extends State<AccountsShell> {
           ? 'Internal transfer'
           : page == 'transaction'
           ? 'Transaction details'
-          : page == 'accounts'
-          ? 'Your accounts'
           : page == 'history'
           ? 'Activity'
           : page == 'profile'
@@ -317,57 +451,14 @@ class _AccountsShellState extends State<AccountsShell> {
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: page == 'receiveQr'
+                        children: page == 'receiveQr' || page == 'scanQr'
                             ? [
-                                if (qrGateway != null)
-                                  ReceiveQrPanel(
-                                    session: widget.session,
-                                    gateway: qrGateway!,
-                                    accounts: model,
-                                    onPaid: () async {
-                                      await model.refresh();
-                                      await home.refresh();
-                                      await history.refresh();
-                                      await analytics?.invalidate();
-                                    },
-                                  )
-                                else
-                                  NoticePanel(
-                                    tx(
-                                      context,
-                                      'QR features require the API app.',
-                                    ),
+                                NoticePanel(
+                                  tx(
+                                    context,
+                                    'QR features require the API app.',
                                   ),
-                              ]
-                            : page == 'scanQr'
-                            ? [
-                                if (qrGateway != null)
-                                  ScanQrPanel(
-                                    session: widget.session,
-                                    gateway: qrGateway!,
-                                    accounts: model,
-                                    transfers: transfers,
-                                    enabled: widget.transfersEnabled,
-                                    // A verified scan continues in the normal transfer screen.
-                                    onScanned: (preview) => _openTransfer(
-                                      TransferPrefill(
-                                        preview.destination,
-                                        name: preview.name,
-                                        qrString: preview.payload,
-                                        fixedAmount: preview.dynamic
-                                            ? preview.amount
-                                            : null,
-                                        qrRemark: preview.remark,
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  NoticePanel(
-                                    tx(
-                                      context,
-                                      'QR features require the API app.',
-                                    ),
-                                  ),
+                                ),
                               ]
                             : page == 'open'
                             ? _opening(context)
@@ -380,8 +471,6 @@ class _AccountsShellState extends State<AccountsShell> {
                                   reference: transactionReference!,
                                 ),
                               ]
-                            : page != 'history' && page != 'profile'
-                            ? _home(context)
                             : page == 'history'
                             ? [
                                 HistoryPanel(
@@ -534,11 +623,12 @@ class _AccountsShellState extends State<AccountsShell> {
                               setState(() => _homeBalanceVisible = visible),
                           data: widget.designPreview
                               ? KesorHomeData.designPreview
-                              : home.snapshot?.presentation(locale) ??
-                                    const KesorHomeData(
-                                      khrBalance: '—',
-                                      usdBalance: r'$—',
-                                    ),
+                              : (home.snapshot?.presentation(locale) ??
+                                        const KesorHomeData(
+                                          khrBalance: '—',
+                                          usdBalance: r'$—',
+                                        ))
+                                    .withRecipients(savedRecipients),
                           loading: !widget.designPreview && home.loading,
                           errorMessage: home.error == null
                               ? null
@@ -549,8 +639,13 @@ class _AccountsShellState extends State<AccountsShell> {
                                 ),
                           onAccounts: () => setState(() => page = 'accounts'),
                           onTransfer: () => _openTransfer(null),
-                          onRecipient: (number, name) =>
-                              _openTransfer(TransferPrefill(number, name: name)),
+                          onRecipient: (number, name) => _openTransfer(
+                            TransferPrefill(number, name: name),
+                          ),
+                          onSaveRecipient: widget.designPreview
+                              ? null
+                              : _saveRecipient,
+                          onRemoveRecipient: _removeSavedRecipient,
                           directory: recipients,
                           onMyQr: () => setState(() => page = 'receiveQr'),
                           onScanQr: () => setState(() => page = 'scanQr'),
@@ -652,6 +747,8 @@ class _AccountsShellState extends State<AccountsShell> {
       } else if (page == 'details' || page == 'open') {
         page = 'accounts';
       } else if (page != null) {
+        // A transfer may have bookmarked its recipient.
+        if (page == 'transfer') unawaited(_loadSavedRecipients());
         page = null;
       } else {
         tab = 0;
@@ -668,11 +765,6 @@ class _AccountsShellState extends State<AccountsShell> {
       await model.refresh();
     }
   }
-
-  Widget _heading(BuildContext context, String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Text(text, style: Theme.of(context).textTheme.headlineSmall),
-  );
 
   List<Widget> _errors() => [
     if (model.detailError != null && model.selected == null)
@@ -730,91 +822,41 @@ class _AccountsShellState extends State<AccountsShell> {
     if (approved == true && mounted) await model.allowNewAccount();
   }
 
-  List<Widget> _home(BuildContext context) => [
-    _heading(
-      context,
-      'Hello, ${widget.session.identity?.firstName ?? widget.session.identity?.username ?? ''}',
+  Widget _wallet(BuildContext context) => WalletAccountsScreen(
+    model: model,
+    greetingName:
+        widget.session.identity?.firstName ??
+        widget.session.identity?.username ??
+        '',
+    notices: _errors(),
+    savedTransfer: transfers.saved == null
+        ? null
+        : transfers.saved!.unresolved
+        ? 'A saved transfer has an unknown outcome. Open Transfer to recover it before starting another.'
+        : 'A saved transfer result is ready to review.',
+    balanceVisible: _homeBalanceVisible,
+    onBalanceVisibilityChanged: (visible) =>
+        setState(() => _homeBalanceVisible = visible),
+    onBack: _back,
+    onProfile: () => setState(() => page = 'profile'),
+    onRefresh: _refresh,
+    onTransfer: () => _openTransfer(null),
+    onMyQr: () => setState(() => page = 'receiveQr'),
+    onOpenAccounts:
+        !model.ready ||
+            model.opening ||
+            model.uncertain ||
+            model.storageError != null
+        ? null
+        : () => setState(() => page = 'open'),
+    onDetails: () => setState(() => page = 'details'),
+    onActivity: () => setState(() => page = 'history'),
+    bottomBar: KesorBottomBar(
+      selectedIndex: tab,
+      onSelected: _selectTab,
+      onAssistant: () => _selectTab(3),
     ),
-    const Text('Your accounts'),
-    const SizedBox(height: 16),
-    ..._errors(),
-    if (transfers.saved != null)
-      NoticePanel(
-        transfers.saved!.unresolved
-            ? 'A saved transfer has an unknown outcome. Open Transfer to recover it before starting another.'
-            : 'A saved transfer result is ready to review.',
-      ),
-    FilledButton.icon(
-      onPressed: () => setState(() => page = 'transfer'),
-      icon: const Icon(Icons.send_outlined),
-      label: Text(
-        transfers.saved == null ? 'Transfer' : 'Review saved transfer',
-      ),
-    ),
-    const SizedBox(height: 16),
-    if (model.notice != null) NoticePanel(model.notice!),
-    if (model.loading)
-      const LinearProgressIndicator(semanticsLabel: 'Refreshing accounts'),
-    if (!model.loading && model.accounts.isEmpty && model.listError == null)
-      const NoticePanel(
-        'You have no accounts yet. Open accounts to get started.',
-      ),
-    if (model.accountsUpdatedAt != null)
-      Text(
-        'Accounts last updated ${displayDate(model.accountsUpdatedAt!)}${model.listError == null ? '' : ' · Refresh failed'}',
-      ),
-    const SizedBox(height: 16),
-    for (final account in model.accounts)
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Card(
-          child: ListTile(
-            selected: model.selected?.number == account.number,
-            title: Text(account.label),
-            subtitle: Text('${account.balance.formatted}\n${account.status}'),
-            isThreeLine: true,
-            trailing: model.selected?.number == account.number
-                ? const Icon(
-                    Icons.check_circle,
-                    semanticLabel: 'Selected account',
-                  )
-                : null,
-            onTap: () => model.select(account),
-          ),
-        ),
-      ),
-    if (model.hasMore)
-      TextButton(
-        onPressed: model.loading || model.loadingMore ? null : model.loadMore,
-        child: Text(model.loadingMore ? 'Loading more…' : 'Load more accounts'),
-      ),
-    if (model.selected != null) ...[
-      const SizedBox(height: 16),
-      ..._balance(context),
-      TextButton(
-        onPressed: () => setState(() => page = 'details'),
-        child: const Text('View account details'),
-      ),
-      TextButton(
-        onPressed: () => setState(() => tab = 1),
-        child: const Text('View recent activity'),
-      ),
-    ],
-    const SizedBox(height: 24),
-    FilledButton.icon(
-      onPressed:
-          !model.ready ||
-              model.opening ||
-              model.uncertain ||
-              model.storageError != null
-          ? null
-          : () => setState(() {
-              page = 'open';
-            }),
-      icon: const Icon(Icons.add),
-      label: Text(tx(context, 'Open accounts')),
-    ),
-  ];
+  );
 
   List<Widget> _balance(BuildContext context) => [
     if (model.loadingDetail)

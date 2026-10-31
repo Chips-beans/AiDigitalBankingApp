@@ -2,6 +2,22 @@
 
 Updated 31 October 2026, Asia/Phnom_Penh (UTC+07:00).
 
+Latest M3 checkpoint: COMPLETE for development. Both apps installed; user
+privately approved Customer sign-in and confirmed return to the expected Merchant
+screen, including after reopening. Customer 247 and Merchant 28 tests pass;
+analysis clean; 24 Customer and 90 Merchant render combinations. Read
+`MERCHANT_M3_HANDOFF.md` and the newest session-brief section for artifacts and
+limits. Development is V18 (8080/Java 2036); both APKs use the Wi-Fi API origin.
+M4 registration is next. Release domain/certificate associations remain separate.
+This supersedes the historical M2 runtime/milestone statements below.
+
+Latest Merchant checkpoint (10:42): M0-M2 source/verification complete; full
+backend suite **191/191**. Read `MERCHANT_APP_PROGRESS.md` and
+`MERCHANT_M2_SECURITY.md` for approval/session security, test evidence and M3
+continuation. The active Customer Wi-Fi backend was left unchanged; new V18 has
+only been applied to isolated test databases. M3 native approval and app integration
+are next. This supersedes historical test/runtime statements below.
+
 ## Start here: consolidated current state
 
 Read [NEXT_SESSION_BRIEF.md](NEXT_SESSION_BRIEF.md) first for the project summary,

@@ -32,7 +32,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return PUBLIC_AUTH.contains(path) || "OPTIONS".equals(request.getMethod())
+        boolean publicMerchant = "POST".equals(request.getMethod()) &&
+                (Set.of("/api/v1/merchant-auth/attempts", "/api/v1/merchant-auth/exchange", "/api/v1/merchant-auth/refresh").contains(path)
+                 || path.matches("/api/v1/merchant-auth/attempts/[0-9a-fA-F-]{36}/(status|cancel)"));
+        return PUBLIC_AUTH.contains(path) || publicMerchant || "OPTIONS".equals(request.getMethod())
                 || path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui");
     }
 
@@ -45,10 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 if (!header.startsWith("Bearer ") || header.length() <= 7)
                     throw new com.bank.digital_banking.common.exception.AuthenticationFailedException("TOKEN_INVALID", "A Bearer access token is required");
                 AuthSession session = sessions.authenticate(header.substring(7));
+                SessionPurposePolicy.requireRoute(session, request.getMethod(), request.getServletPath());
                 if (sessions.isPinLocked(session.getId()) && !request.getServletPath().startsWith("/api/v1/auth/pin/")
                         && !request.getServletPath().equals("/api/v1/auth/logout"))
                     throw new ApiException(org.springframework.http.HttpStatus.FORBIDDEN, "PIN_REQUIRED", "Unlock the app with your PIN");
-                var authorities = session.getUser().getRoles().stream()
+                var authorities = "MERCHANT".equals(session.getPurpose())
+                        ? java.util.List.of(new SimpleGrantedAuthority("MERCHANT_SESSION"))
+                        : session.getUser().getRoles().stream()
                         .filter(r -> session.getUser().isProfileComplete())
                         .map(r -> new SimpleGrantedAuthority(r.getName().name())).toList();
                 var auth = UsernamePasswordAuthenticationToken.authenticated(session.getUser(), null, authorities);

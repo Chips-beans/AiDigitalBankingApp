@@ -3,7 +3,12 @@ import 'package:flutter/foundation.dart';
 /// Presentation values only. The Home screen has no network dependencies.
 @immutable
 class HomeRecipient {
-  const HomeRecipient(this.name, {this.avatarAsset, this.accountNumber, this.knownName});
+  const HomeRecipient(
+    this.name, {
+    this.avatarAsset,
+    this.accountNumber,
+    this.knownName,
+  });
   final String name;
   final String? avatarAsset;
 
@@ -85,6 +90,15 @@ class KesorHomeData {
   );
 
   final String khrBalance, usdBalance;
+
+  /// People the customer saved to Favorites; never derived from history.
   final List<HomeRecipient> recipients;
   final List<HomeTransaction> transactions;
+
+  KesorHomeData withRecipients(List<HomeRecipient> recipients) => KesorHomeData(
+    khrBalance: khrBalance,
+    usdBalance: usdBalance,
+    recipients: recipients,
+    transactions: transactions,
+  );
 }

@@ -77,6 +77,8 @@ void main() {
           km: true,
         ),
         (name: 'narrow', size: const Size(320, 640), scale: 1.0, km: false),
+        // TECNO LJ6 viewport minus its status and gesture bars.
+        (name: 'tecno', size: const Size(392.7, 846), scale: 1.0, km: false),
         (
           name: 'large-text-km',
           size: const Size(375, 812),
@@ -203,16 +205,15 @@ void main() {
             );
             await tester.pumpAndSettle();
             if (mode == 'fixed') {
-              await tester.ensureVisible(find.byType(SwitchListTile));
-              await tester.tap(find.byType(SwitchListTile));
+              final enter = find.byKey(const ValueKey('qr-enter-amount'));
+              await tester.ensureVisible(enter);
+              await tester.tap(enter);
               await tester.pumpAndSettle();
               await tester.enterText(
                 find.byKey(const ValueKey('qr-request-amount')),
                 '10',
               );
-              final button = find.byType(FilledButton);
-              await tester.ensureVisible(button);
-              await tester.tap(button);
+              await tester.tap(find.byKey(const ValueKey('qr-request-create')));
               await tester.pumpAndSettle();
               await tester.drag(
                 find.byType(SingleChildScrollView).first,

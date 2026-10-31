@@ -43,6 +43,7 @@ public class AppPinService {
         return new ApiException(HttpStatus.UNAUTHORIZED, "PIN_TICKET_INVALID", "Sign in again to continue");
     }
     private AuthSession valid(AuthSession session) {
+        sessionService.requirePurpose(session, "CUSTOMER");
         if (session.getRevokedAt() != null || !session.getExpiresAt().isAfter(OffsetDateTime.now())
                 || !session.getUser().isEnabled() || session.getDevice().getStatus() != DeviceStatus.ACTIVE) throw invalidTicket();
         continuation.requireCustomer(session.getUser());
@@ -122,6 +123,7 @@ public class AppPinService {
         if (existing != null) {
             jdbc.update("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=? AND id<>? AND revoked_at IS NULL",
                     session.getUser().getId(), session.getId());
+            invalidateMerchantApprovals(session.getUser().getId());
         }
         audit.successAs(session.getUser(), "AUTH", existing == null ? "PIN_CREATED" : "PIN_RESET", session.getId().toString());
         return unlockSession(session);
@@ -169,10 +171,37 @@ public class AppPinService {
         jdbc.update("UPDATE customer_app_pins SET pin_hash=?,failed_attempts=0,updated_at=CURRENT_TIMESTAMP WHERE user_id=?",
                 encoder.encode(secret(user.getId(), replacement)), user.getId());
         jdbc.update("UPDATE auth_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE user_id=? AND id<>? AND revoked_at IS NULL", user.getId(), sessionId);
+        invalidateMerchantApprovals(user.getId());
         audit.successAs(user, "AUTH", "PIN_CHANGED", sessionId.toString());
+    }
+    private void invalidateMerchantApprovals(long userId) {
+        jdbc.update("""
+            UPDATE merchant_auth_attempts SET status=CASE WHEN status='APPROVED' THEN 'CANCELLED' ELSE status END,
+                recovery_ciphertext=NULL,recovery_expires_at=NULL WHERE approved_by=?
+            """,userId);
     }
     public record TransferProof(String proof, int expiresInSeconds) {}
     public static final int TRANSFER_PROOF_SECONDS = 120;
+
+    /** A distinct approval purpose: verifies fresh digits without minting a transfer proof. */
+    @Transactional(noRollbackFor = PinRejected.class)
+    public void verifyForMerchantApproval(User user, UUID sessionId, String pin) {
+        users.findLockedById(user.getId()).orElseThrow(this::invalidTicket);
+        AuthSession session = valid(sessions.findLockedById(sessionId).orElseThrow(this::invalidTicket));
+        if (!user.isProfileComplete() || !session.getUser().getId().equals(user.getId())
+                || sessionService.isPinLocked(sessionId))
+            throw new PinRejected("PIN_REQUIRED", "Unlock the Customer App before approving sign-in");
+        Pin saved = pin(user.getId());
+        if (saved == null) throw new PinRejected("PIN_SETUP_REQUIRED", "Create your PIN first");
+        if (saved.failures() >= 5) throw new PinRejected("PIN_RECOVERY_REQUIRED", "Verify your identity to reset your PIN");
+        if (!encoder.matches(secret(user.getId(), pin), saved.hash())) {
+            int failures = saved.failures() + 1;
+            jdbc.update("UPDATE customer_app_pins SET failed_attempts=? WHERE user_id=?", failures, user.getId());
+            if (failures >= 5) jdbc.update("UPDATE app_pin_locks SET locked=TRUE WHERE session_id IN (SELECT id FROM auth_sessions WHERE user_id=?)", user.getId());
+            throw new PinRejected(failures >= 5 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID", "The PIN did not match");
+        }
+        jdbc.update("UPDATE customer_app_pins SET failed_attempts=0 WHERE user_id=?", user.getId());
+    }
 
     /** Verifies the PIN for one upcoming transfer; failures share the persistent five-attempt counter. */
     @Transactional(noRollbackFor = PinRejected.class)

@@ -39,10 +39,16 @@ public class JwtTokenProvider {
     public String generateRefreshToken(Long userId, UUID sessionId) {
         return token(userId, sessionId, "refresh", refreshMs).compact();
     }
+    public String generateMerchantToken(Long userId, UUID sessionId, String type) {
+        long lifetime = type.equals("access") ? Math.min(accessMs, 300000) : refreshMs;
+        return token(userId, sessionId, type, lifetime).audience().clear().add("kesor-merchant").and()
+                .claim("purpose", "MERCHANT").claim("client_id", "kesor-merchant-android").compact();
+    }
     private JwtBuilder token(Long userId, UUID sessionId, String type, long lifetime) {
         Instant now = Instant.now();
         return Jwts.builder().issuer(issuer).subject(userId.toString()).id(UUID.randomUUID().toString())
                 .claim("sid", sessionId.toString()).claim("type", type)
+                .audience().add("kesor-customer").and().claim("purpose", "CUSTOMER").claim("client_id", "kesor-customer")
                 .issuedAt(Date.from(now)).expiration(Date.from(now.plusMillis(lifetime)))
                 .signWith(key, Jwts.SIG.HS256);
     }

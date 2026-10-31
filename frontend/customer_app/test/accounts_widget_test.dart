@@ -68,7 +68,7 @@ void main() {
         }
 
         await tap('View accounts');
-        expect(find.text('Status: FROZEN'), findsOneWidget);
+        expect(find.text('Frozen'), findsWidgets);
         await tap('View account details');
         expect(find.text('Currency: USD'), findsOneWidget);
         await tester.binding.handlePopRoute();
@@ -132,7 +132,7 @@ void main() {
       await tester.tap(find.text('Confirm open accounts'));
       await tester.pumpAndSettle();
       expect(gateway.opens, 2);
-      expect(find.text('USD 0.00'), findsWidgets);
+      expect(find.text(r'$0.00'), findsWidgets);
       await tester.pumpWidget(const SizedBox.shrink());
       semantics.dispose();
     },

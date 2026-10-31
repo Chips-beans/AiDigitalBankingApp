@@ -18,7 +18,12 @@ public interface AuthSessionRepository extends JpaRepository<AuthSession, UUID> 
     Optional<AuthSession> findLockedById(@Param("id") UUID id);
 
     @Modifying
-    @Query("update AuthSession s set s.revokedAt = :now where s.user.id = :userId and s.device.id = :deviceId and s.revokedAt is null")
+    @Query("update AuthSession s set s.revokedAt = :now where s.user.id = :userId and s.device.id = :deviceId and s.purpose = 'CUSTOMER' and s.revokedAt is null")
     int revokeForDevice(@Param("userId") Long userId, @Param("deviceId") Long deviceId,
                         @Param("now") OffsetDateTime now);
+
+    @Modifying
+    @Query("update AuthSession s set s.revokedAt = :now where s.user.id = :userId and s.device.id = :deviceId and s.purpose = 'MERCHANT' and s.clientId = 'kesor-merchant-android' and s.revokedAt is null")
+    int revokeMerchantForDevice(@Param("userId") Long userId, @Param("deviceId") Long deviceId,
+                               @Param("now") OffsetDateTime now);
 }

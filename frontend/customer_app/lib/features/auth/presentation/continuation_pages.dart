@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../app/design_system/design_system.dart';
@@ -135,249 +138,283 @@ class ContinueWelcomePage extends StatelessWidget {
     final colors = AppColors.of(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final khmer = AppPreferences.of(context).isKhmer;
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, viewport) => SingleChildScrollView(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: KesorLayout.frameWidth,
-                  minHeight: viewport.maxHeight,
-                ),
-                child: LayoutBuilder(
-                  builder: (context, box) {
-                    final scale = box.maxWidth / KesorLayout.frameWidth;
-                    return Stack(
-                      children: [
-                        Positioned(
-                          top: dark ? -2 * scale : 0,
-                          left: -6 * scale,
-                          child: Image.asset(
-                            'assets/auth/${dark ? 'auth-night' : 'auth-day'}.png',
-                            width: 447 * scale,
-                            height: 447 * scale,
-                            fit: BoxFit.cover,
-                            excludeFromSemantics: true,
-                          ),
-                        ),
-                        Positioned(
-                          top: 268.2 * scale,
-                          left: 0,
-                          right: 0,
-                          height: (dark ? 160.68 : 178.55) * scale,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  colors.background.withValues(alpha: 0),
-                                  colors.background,
-                                ],
+    // The artwork runs under a transparent status bar; only the bottom keeps
+    // its system inset.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+          .copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: colors.background,
+          ),
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, viewport) => SingleChildScrollView(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: KesorLayout.frameWidth,
+                    minHeight: viewport.maxHeight,
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      final scale = box.maxWidth / KesorLayout.frameWidth;
+                      // The 440x956 reference fits exactly. Shorter screens crop
+                      // the artwork's lower edge instead of pushing the footer
+                      // off-screen; the content below moves up by the same amount.
+                      final needed = 956 - (1 - scale) * 415;
+                      final cut = (needed - viewport.maxHeight).clamp(
+                        0.0,
+                        200 * scale,
+                      );
+                      return Stack(
+                        children: [
+                          Positioned(
+                            top: dark ? -2 * scale : 0,
+                            left: -6 * scale,
+                            child: SizedBox(
+                              width: 447 * scale,
+                              height: 447 * scale - cut,
+                              child: ClipRect(
+                                child: OverflowBox(
+                                  alignment: Alignment.topCenter,
+                                  maxHeight: 447 * scale,
+                                  child: Image.asset(
+                                    'assets/auth/${dark ? 'auth-night' : 'auth-day'}.png',
+                                    width: 447 * scale,
+                                    height: 447 * scale,
+                                    fit: BoxFit.cover,
+                                    excludeFromSemantics: true,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: viewport.maxHeight,
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                children: [
-                                  SizedBox(height: 428.2 * scale - 4),
-                                  const Padding(
-                                    padding: EdgeInsets.only(right: 19),
-                                    child: Align(
-                                      alignment: Alignment.centerRight,
-                                      child: PreferenceControls(),
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 126 * scale,
-                                    height: 126 * scale,
-                                    child: Padding(
-                                      padding: EdgeInsets.only(top: 12 * scale),
-                                      child: Align(
-                                        alignment: Alignment.topCenter,
-                                        child: SvgPicture.asset(
-                                          'assets/auth/auth-logo-${dark ? 'dark' : 'light'}.svg',
-                                          width: 84 * scale,
-                                          height: 105 * scale,
-                                          semanticsLabel: 'Kesor Bank',
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: 12 * scale),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                    child: Text.rich(
-                                      TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: khmer
-                                                ? 'ភាពប្រណីតក្នុង '
-                                                : 'Elegance in ',
-                                          ),
-                                          TextSpan(
-                                            text: khmer
-                                                ? 'ភាពសាមញ្ញ។'
-                                                : 'Simplicity.',
-                                            style: TextStyle(
-                                              color: dark
-                                                  ? colors.primary500
-                                                  : colors.primary700,
-                                            ),
-                                          ),
-                                          TextSpan(
-                                            text: khmer
-                                                ? '\nធនាគារគ្មាន '
-                                                : '\nBanking without ',
-                                          ),
-                                          TextSpan(
-                                            text: khmer
-                                                ? 'ភាពស្មុគស្មាញ។'
-                                                : 'Complexity.',
-                                            style: TextStyle(
-                                              color: dark
-                                                  ? colors.primary500
-                                                  : colors.primary700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      style:
-                                          (khmer
-                                                  ? AppTypography.khmer.titleXL
-                                                  : AppTypography
-                                                        .english
-                                                        .titleXL)
-                                              .copyWith(
-                                                fontSize: box.maxWidth < 400
-                                                    ? 22
-                                                    : 24,
-                                                color: colors.foreground,
-                                              ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 44),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        if (session.failure != null)
-                                          NoticePanel(
-                                            session.failure!.message,
-                                            error: true,
-                                          ),
-                                        if (session.notice != null)
-                                          NoticePanel(session.notice!),
-                                        _welcomeAction(
-                                          key: const ValueKey(
-                                            'welcome-telegram',
-                                          ),
-                                          background: colors.primary500,
-                                          foreground: Colors.white,
-                                          icon:
-                                              'assets/auth/auth-telegram-${dark ? 'dark' : 'light'}.svg',
-                                          onPressed: session.busy
-                                              ? null
-                                              : session.continueTelegram,
-                                          label: session.telegramPending
-                                              ? tr(
-                                                  context,
-                                                  'Waiting for Telegram…',
-                                                  'កំពុងរង់ចាំ Telegram…',
-                                                )
-                                              : tr(
-                                                  context,
-                                                  'Continue with Telegram',
-                                                  'បន្តជាមួយ Telegram',
-                                                ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _welcomeAction(
-                                          key: const ValueKey('welcome-email'),
-                                          background: colors.surface,
-                                          foreground: colors.foreground,
-                                          icon:
-                                              'assets/auth/auth-email-${dark ? 'dark' : 'light'}.svg',
-                                          onPressed: session.busy
-                                              ? null
-                                              : session.openEmail,
-                                          label: tr(
-                                            context,
-                                            'Continue with Email',
-                                            'បន្តជាមួយអ៊ីមែល',
-                                          ),
-                                        ),
-                                        if (session.telegramPending) ...[
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            tr(
-                                              context,
-                                              'Approve in the Telegram window, then return here.',
-                                              'យល់ព្រមក្នុងផ្ទាំង Telegram រួចត្រឡប់មកទីនេះ។',
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          TextButton(
-                                            onPressed: session.cancelTelegram,
-                                            child: Text(
-                                              tr(
-                                                context,
-                                                'Cancel Telegram approval',
-                                                'បោះបង់ការយល់ព្រម Telegram',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  24,
-                                  20,
-                                  18,
-                                ),
-                                child: Column(
-                                  children: [
-                                    _policyLinks(context),
-                                    Text(
-                                      '© 2026 Kesor Bank Plc. All rights reserved.',
-                                      textAlign: TextAlign.center,
-                                      style: AppTypography.english.caption
-                                          .copyWith(
-                                            fontWeight: FontWeight.w300,
-                                            height: 18 / 12,
-                                            color: colors.disabledBackground,
-                                          ),
-                                    ),
+                          Positioned(
+                            top: math.max(0, 268.2 * scale - cut),
+                            left: 0,
+                            right: 0,
+                            height: (dark ? 160.68 : 178.55) * scale,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    colors.background.withValues(alpha: 0),
+                                    colors.background,
                                   ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  },
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: viewport.maxHeight,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  children: [
+                                    SizedBox(height: 428.2 * scale - 4 - cut),
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 19),
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: PreferenceControls(),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 126 * scale,
+                                      height: 126 * scale,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          top: 12 * scale,
+                                        ),
+                                        child: Align(
+                                          alignment: Alignment.topCenter,
+                                          child: SvgPicture.asset(
+                                            'assets/auth/auth-logo-${dark ? 'dark' : 'light'}.svg',
+                                            width: 84 * scale,
+                                            height: 105 * scale,
+                                            semanticsLabel: 'Kesor Bank',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 12 * scale),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: khmer
+                                                  ? 'ភាពប្រណីតក្នុង '
+                                                  : 'Elegance in ',
+                                            ),
+                                            TextSpan(
+                                              text: khmer
+                                                  ? 'ភាពសាមញ្ញ។'
+                                                  : 'Simplicity.',
+                                              style: TextStyle(
+                                                color: dark
+                                                    ? colors.primary500
+                                                    : colors.primary700,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: khmer
+                                                  ? '\nធនាគារគ្មាន '
+                                                  : '\nBanking without ',
+                                            ),
+                                            TextSpan(
+                                              text: khmer
+                                                  ? 'ភាពស្មុគស្មាញ។'
+                                                  : 'Complexity.',
+                                              style: TextStyle(
+                                                color: dark
+                                                    ? colors.primary500
+                                                    : colors.primary700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        style:
+                                            (khmer
+                                                    ? AppTypography
+                                                          .khmer
+                                                          .titleXL
+                                                    : AppTypography
+                                                          .english
+                                                          .titleXL)
+                                                .copyWith(
+                                                  fontSize: box.maxWidth < 400
+                                                      ? 22
+                                                      : 24,
+                                                  color: colors.foreground,
+                                                ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 44),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (session.failure != null)
+                                            NoticePanel(
+                                              session.failure!.message,
+                                              error: true,
+                                            ),
+                                          if (session.notice != null)
+                                            NoticePanel(session.notice!),
+                                          _welcomeAction(
+                                            key: const ValueKey(
+                                              'welcome-telegram',
+                                            ),
+                                            background: colors.primary500,
+                                            foreground: Colors.white,
+                                            icon:
+                                                'assets/auth/auth-telegram-${dark ? 'dark' : 'light'}.svg',
+                                            onPressed: session.busy
+                                                ? null
+                                                : session.continueTelegram,
+                                            label: session.telegramPending
+                                                ? tr(
+                                                    context,
+                                                    'Waiting for Telegram…',
+                                                    'កំពុងរង់ចាំ Telegram…',
+                                                  )
+                                                : tr(
+                                                    context,
+                                                    'Continue with Telegram',
+                                                    'បន្តជាមួយ Telegram',
+                                                  ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          _welcomeAction(
+                                            key: const ValueKey(
+                                              'welcome-email',
+                                            ),
+                                            background: colors.surface,
+                                            foreground: colors.foreground,
+                                            icon:
+                                                'assets/auth/auth-email-${dark ? 'dark' : 'light'}.svg',
+                                            onPressed: session.busy
+                                                ? null
+                                                : session.openEmail,
+                                            label: tr(
+                                              context,
+                                              'Continue with Email',
+                                              'បន្តជាមួយអ៊ីមែល',
+                                            ),
+                                          ),
+                                          if (session.telegramPending) ...[
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              tr(
+                                                context,
+                                                'Approve in the Telegram window, then return here.',
+                                                'យល់ព្រមក្នុងផ្ទាំង Telegram រួចត្រឡប់មកទីនេះ។',
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            TextButton(
+                                              onPressed: session.cancelTelegram,
+                                              child: Text(
+                                                tr(
+                                                  context,
+                                                  'Cancel Telegram approval',
+                                                  'បោះបង់ការយល់ព្រម Telegram',
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    24,
+                                    20,
+                                    18,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _policyLinks(context),
+                                      Text(
+                                        '© 2026 Kesor Bank Plc. All rights reserved.',
+                                        textAlign: TextAlign.center,
+                                        style: AppTypography.english.caption
+                                            .copyWith(
+                                              fontWeight: FontWeight.w300,
+                                              height: 18 / 12,
+                                              color: colors.disabledBackground,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

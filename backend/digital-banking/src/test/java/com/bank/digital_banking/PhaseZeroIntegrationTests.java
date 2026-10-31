@@ -36,6 +36,9 @@ class PhaseZeroIntegrationTests extends PostgresIntegrationTest {
     final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
     @BeforeEach void reset() {
+        // Approval attempts reference Customer and Merchant sessions. Clear the
+        // isolated fixture's dependents before deleting its session history.
+        new org.springframework.jdbc.core.JdbcTemplate(dataSource).update("DELETE FROM merchant_auth_attempts");
         sessions.deleteAll();
         otps.deleteAll();
         limits.deleteAll();

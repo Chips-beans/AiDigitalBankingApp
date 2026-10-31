@@ -93,31 +93,10 @@ class HomeSnapshot {
         : !numbers.contains(p.source) && numbers.contains(p.destination)
         ? p.source
         : null;
-    // Most recent first; the name comes from the server's transaction record.
-    final recipients = <String, String?>{};
-    for (final p in postings) {
-      final number = counterpart(p);
-      if (p.type == 'TRANSFER' && p.status == 'SUCCESS' && number != null) {
-        recipients.putIfAbsent(
-          number,
-          () => number == p.source ? p.sourceName : p.destinationName,
-        );
-      }
-    }
     return KesorHomeData(
       khrBalance: khr,
       usdBalance:
           '\$${usd ~/ BigInt.from(100)}.${(usd % BigInt.from(100)).toString().padLeft(2, '0')}',
-      recipients: recipients.entries
-          .take(3)
-          .map(
-            (e) => HomeRecipient(
-              e.value ?? e.key,
-              accountNumber: e.key,
-              knownName: e.value,
-            ),
-          )
-          .toList(),
       transactions: postings.map((p) {
         final date = p.createdAt.toLocal();
         final day = DateTime(date.year, date.month, date.day);

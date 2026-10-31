@@ -51,6 +51,11 @@ public class SecurityConfig {
                 }))
             .authorizeHttpRequests(a -> a
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/merchant-auth/attempts", "/api/v1/merchant-auth/exchange",
+                        "/api/v1/merchant-auth/refresh", "/api/v1/merchant-auth/attempts/*/status",
+                        "/api/v1/merchant-auth/attempts/*/cancel").permitAll()
+                .requestMatchers("/api/v1/merchant-auth/session", "/api/v1/merchant-auth/logout").hasAuthority("MERCHANT_SESSION")
+                .requestMatchers("/api/v1/merchant-auth/attempts/**", "/api/v1/auth/merchant-sessions/**").hasRole("CUSTOMER")
                 .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/request-otp", "/api/v1/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/request", "/api/v1/auth/email/verify",
@@ -88,7 +93,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).toList());
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization","Content-Type","Idempotency-Key"));
+        config.setAllowedHeaders(List.of("Authorization","Content-Type","Idempotency-Key","X-Merchant-Handoff"));
         config.setExposedHeaders(List.of("Retry-After", "X-Correlation-ID"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

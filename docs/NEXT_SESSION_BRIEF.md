@@ -1,5 +1,189 @@
 # Kesor Bank — next session brief
 
+## Merchant M3 complete - 31 October 2026
+
+M3 development sign-in is complete. Both final APKs are installed on Samsung
+`R9TXB0G1VKT`. The user privately approved Customer sign-in and confirmed:
+**"Register Shop or my existing shop opens, including after reopening."**
+This verifies the native approval/return path, expected routing and session
+restore with the tablet's existing Don't keep activities setting.
+
+Read `MERCHANT_M3_HANDOFF.md` for exact protocol/native behavior, artifacts,
+hashes and acceptance limits. M0-M3 are complete for the adopted development
+scope; M4-M9 are not started and M10-M13 remain deferred. M4 registration is next.
+
+Customer full regression: **247 passed**; focused + visual: **14 passed**;
+final visual fixture: **24** combinations and reachable lower controls.
+Merchant final full run: **28 passed**, including **90** visual combinations,
+failed-storage revocation and cancellation/logout versus new-sign-in overlap.
+Analysis is clean in both apps. Prior M2 backend **191/191** log was confirmed;
+M3 made no backend Java/migration source changes and claims no new full rerun.
+
+Backend: **8080 / Java 2036**, launcher 10272. Controlled restart applied **V18
+over V17** at 11:30 local; private environment preserved. Live OpenAPI has all 12
+Merchant paths. Samsung reached the session endpoint over Wi-Fi (401/no-store).
+Both APKs use `http://172.16.128.192:8080/api/v1`; installed hashes match
+verified outputs. No private environment files are packaged.
+
+New source: shared `frontend/packages/kesor_auth_handoff`, Merchant API gateway/
+secure journal and retained Android engine; separate Customer approval bridge,
+fresh-PIN page and Settings > Merchant sessions. Exact callback/state and peer
+package/signer checks; explicit same-body 60-second exchange recovery; durable
+cancellation, Merchant rotation/logout and owner revocation. Customer PINs/tokens
+never cross the Merchant link. Registration/financial capabilities remain M4+.
+
+Device Don't keep activities=1 and text scale=1.3 were preserved. The agent
+entered no personal PIN/OTP. The user performed personal approval privately.
+Source remains uncommitted on `kesor-phase4-fixes` / `e1a9da2`; prior Customer
+work is preserved. Release HTTPS links still require a supplied domain/release
+certificate. Other native edge cases have automated coverage; do not claim every
+physical scenario was personally tested from this successful round trip.
+Usage/quota tool unavailable in this session; unavailable is not zero.
+
+Outputs: `C:\Users\User\Documents\Codex\2026-10-31\kesor-bank-is-a-digital-banking\outputs`.
+Merchant: `KesorMerchant-M3-SignIn.apk` (SHA-256
+`128df250e8b82c42429f34254cb9c3ad55265aed4323c60df3d4b533d617c8c8`).
+Customer: `KesorBank-M3-Approval.apk` (SHA-256
+`a3e2d16993680337f829944c4f8eccf8712555c152cfe58b87c1f780f8937c74`).
+
+## Home Favorite Recipients — 31 October 2026
+
+The Home section is now titled "Favorite Recipients" (អ្នកទទួលពេញចិត្ត). It no
+longer lists counterparties from transfer history; it shows only favorites the
+customer added manually through its form (`FavoriteRecipient.manual`, stored in
+the device-local, per-user `RecipientFavoritesStore`), one per account number.
+Transfer-screen "Save to Favorites" bookmarks do not appear on Home.
+Empty state: "Add people you transfer to often."
+The Add button opens an "Add to favorites" form: Account/Wallet number required
+(10-20 digits), Name optional and customizable (max 40; empty uses the
+server account name). The shell verifies the number with `RecipientDirectory`
+(must be another active Kesor account; own accounts refused) and stores its
+currency. `FavoriteRecipient` gained an optional `name` (JSON stays version 1,
+old entries load unchanged); a transfer's "Save to Favorites" keeps an existing
+custom name, and the Transfer saved-recipients sheet shows it. "All" lists
+favorites with remove. Locked Home's Add asks to unlock. Tests: 234 passing
+(new `test/home_recipients_test.dart`), analysis clean, Home visual QA passing.
+No backend/database changes.
+
+## Merchant M2 — backend security implementation, 31 October 2026
+
+M2 approval/session code is complete: full backend regression passes **191 tests,
+0 failures/errors/skips**, finished 10:42 Asia/Phnom_Penh on 31 October 2026.
+Read `MERCHANT_M2_SECURITY.md` for the exact twelve API routes and M3 integration
+contract, and `MERCHANT_APP_PROGRESS.md` for current evidence. V18 adds Customer
+session backfill/purpose-scoped uniqueness, durable approval attempts and budgets.
+Fresh Customer PIN approval shares the existing persistent attempt limit; codes
+are S256/state/secret/client/callback-bound. Merchant sessions have a distinct
+audience/purpose, rotating refresh credentials, owner revocation, race-safe
+cancellation and 60-second encrypted response-loss recovery. Existing Customer
+sessions retain their behavior; PIN security changes also cancel unexchanged codes.
+
+The suite includes 30 new M2 checks plus all 161 existing backend tests. Actual
+restart recovery, V17 Customer-session upgrade, purpose/audience isolation,
+concurrent approval/exchange/cancellation/revocation, PIN budget, refresh reuse,
+shop scope/status, audit secrecy, budgets, cleanup and API contracts pass. Older
+fixture session cleanup now removes approval dependents first; assertions and
+database foreign-key guards are preserved. `git diff --check` passes.
+All migration tests use isolated PostgreSQL. The active Wi-Fi backend (observed
+PID 16248 / 8080) is left unchanged; V18 has not been applied to development by
+this task. No `.env`, Flutter source, APK, live customer data or financial rows
+were changed. M3 app approval/native handoff is next after M2; the installed M1
+Merchant gateway still intentionally reports unavailable. M0-M2 are complete;
+M3-M9 are not started and M10-M13 remain deferred. Latest usage check: 78%
+five-hour, 29% weekly remaining; neither crossed the 10% reporting threshold.
+Detailed continuation steps and exact log/file boundaries are saved in the
+progress report and copied to this chat's outputs. No commit/push/merge was made.
+
+## Customer Home + Wallet & Accounts UI — 31 October 2026
+
+Home balance card now has exactly three equal-width actions (Transfer, Scan QR,
+My QR; tooltips `Transfer`, `Scan QR`, `Receive`) instead of a six-item
+horizontal scroller. Balance and transaction amounts stay on one line and scale
+down instead of wrapping. The `accounts` page (opened from the balance card) is
+now `WalletAccountsScreen` (`lib/features/accounts/presentation/wallet_accounts_screen.dart`):
+navy total-balance card with KHR/USD totals and hide toggle, three actions
+(Transfer, My QR, Open accounts), wallet tiles with status chips, and a selected
+wallet card (copyable number, details, activity). Activity now opens History.
+Tests: 230 passing, analysis clean. Render QA: `flutter test tool/home_wallet_visual_qa.dart`
+(output `.local/qa/home-wallet`) — 48 Home and 16 Wallet variants, no overflow.
+Welcome/login: artwork now draws under a transparent status bar (bottom inset
+kept) and the hero crops its lower edge on short screens so the footer fits
+without scrolling; the 440x956 reference geometry is unchanged. Wi-Fi API/dev
+debug APK (`http://172.16.128.192:8080/api/v1`) installed with `adb install -r`
+on TECNO LJ6 `1429155557104952`; backend started on 8080 via `mvnw spring-boot:run`.
+My QR: the receiving wallet is a drop-down (`qr-wallet-select`, items keep
+`qr-wallet-<number>` keys) above the QR card instead of a list of rows; QR max
+size 250 -> 200 with tighter card padding so it fits the TECNO viewport without
+scrolling. `tool/qr_visual_qa.dart` gained a `tecno` variant and its fixed-amount
+step now uses the Enter amount dialog.
+No backend/database changes were made.
+
+## Customer Wi-Fi APK — 31 October 2026
+
+User requested firewall setup and a Customer APK for same-network access without
+USB debugging. `KesorBank-WiFi-Test.apk` is built for
+`http://172.16.128.192:8080/api/v1`. Five configuration tests passed; APK build,
+embedded URL, signing certificate and absence of `.env` files were verified.
+The connected TECNO phone (`172.16.128.213`) reached the backend through wlan0 and
+received the expected unauthenticated 401. Existing enabled Public Java firewall
+rules already allow this connection, so no firewall/profile changes or elevation
+were necessary. No APK installation or customer authentication was performed in
+this task. Backend PID 18612/port 8080 and database were left unchanged.
+
+See `frontend/customer_app/docs/WIFI_DEVELOPMENT.md` for installation, hash,
+firewall scope and network evidence. The APK/setup notes are in this chat's outputs.
+An API-origin change may require a new sign-in because secure storage is scoped
+by API URL. Use existing account identity; server-side accounts/data are unchanged.
+Merchant milestones remain M0/M1 complete, M2 next.
+
+## Merchant implementation checkpoint — 31 October 2026
+
+Implementation is authorized from M0. Read `MERCHANT_APP_PROGRESS.md` for the
+current checkpoint and usage-reporting rule, and `MERCHANT_M0_CONTRACTS.md` for
+audited decisions/API/session/data contracts. M0 is complete: 161 backend tests,
+230 Customer Flutter tests and clean analysis; read-only live schema V17, zero
+shops/merchant accounts, three unchanged legacy personal-wallet duplicate groups.
+M1 app/shared-theme foundation is complete. Post-extraction Customer regression
+also passed 230 tests; Merchant passed 11 foundation checks plus the 78-render
+visual fixture, with clean analysis in both apps. Both normal API/dev Android APKs
+built successfully. `KesorMerchant-M1-Foundation.apk` is installed alongside the
+unchanged Customer Scanner APK, and its native welcome screen was visually
+verified. APK/hash/output locations and exact M2 continuation steps are in the
+progress report. Gradle daemon stopped; backend/USB forwarding left available.
+
+M2/M3 sign-in approval and backend integration are not implemented. The normal
+Merchant entrypoint fails closed with service unavailable; shop/financial screens
+are test fixtures only. There is no local/demo login, payment or new live migration.
+Existing scanner changes remain preserved on `kesor-phase4-fixes` at `e1a9da2`.
+
+## Merchant App planning — 31 October 2026
+
+The user requested an implementation plan for a separate Android-first Merchant
+App. Its only sign-in is approval in Customer App via deep link, followed by shop
+registration and exactly two business wallets (KHR/USD). Shop name/logo are its
+profile. See [MERCHANT_APP_IMPLEMENTATION_PLAN.md](MERCHANT_APP_IMPLEMENTATION_PLAN.md)
+for agreed requirements, proposed defaults, M0-M9 first-release milestones and
+M10-M13 deferred work. At that planning checkpoint no implementation had started;
+the implementation checkpoint above supersedes that status. Preserve scanner work.
+
+## Latest UI update — scanner, 31 October 2026
+
+The scanner now follows the user's image layout with a full camera area, gold
+rounded viewfinder, Kesor Scan title/close, Flash and Upload QR pills, and a Kesor
+brand footer. It retains verified QR-to-Transfer handoff and local image decoding.
+See `frontend/customer_app/docs/SCANNER_SCREEN.md`. Full Flutter suite: 230 passing;
+analysis clean; 12 scanner visual variants passed. Changes are on
+`kesor-phase4-fixes`, based on `e1a9da2`, and remain uncommitted/unpushed.
+No backend or database changes were made for this scanner UI update.
+
+The normal API/dev Android debug build succeeded and `KesorBank-Scanner-Test.apk`
+was installed on Samsung `R9TXB0G1VKT` with `adb install -r`, preserving app data.
+APK and sample renders are in
+`C:\Users\User\Documents\Codex\2026-10-31\kesor-bank-is-a-digital-banking\outputs`.
+APK SHA-256: `134d3334707d52ae1f8755ba2da3cf9eea3f441fd7c6d1b78416aa800a85cca4`.
+Gradle daemon stopped after packaging. Backend 8080 and USB forwarding were left
+available. Hardware camera/gallery acceptance of the new UI remains pending.
+
 Updated 31 October 2026, Asia/Phnom_Penh. This is the consolidated current state;
 older entries in `CURRENT_PROJECT_HANDOFF.md` are chronological snapshots.
 

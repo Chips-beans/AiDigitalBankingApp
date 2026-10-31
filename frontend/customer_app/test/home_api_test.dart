@@ -153,7 +153,8 @@ void main() {
     expect(ui.transactions[1].internal, isTrue);
     expect(ui.transactions[1].amount, '↔ \$10.25');
     expect(ui.transactions[2].amount, '-100000 ៛');
-    expect(ui.recipients.map((r) => r.name), ['9000000001', '9000000002']);
+    // Home recipients are saved favorites only, never transfer history.
+    expect(ui.recipients, isEmpty);
   });
 
   test('recent activity shows Kesor Bank and profile names, never remarks', () {
@@ -205,8 +206,7 @@ void main() {
     expect(ui.transactions[1].name, 'Seng Sovanreach');
     expect(ui.transactions[1].counterpartyNumber, '9000000009');
     expect(ui.transactions.map((t) => t.name), isNot(contains('Lunch')));
-    expect(ui.recipients.single.name, 'Seng Sovanreach');
-    expect(ui.recipients.single.accountNumber, '9000000009');
+    expect(ui.recipients, isEmpty);
   });
 
   test('failed history rejects an incomplete Home snapshot; no sample-data fallback', () async {

@@ -13,6 +13,9 @@ import 'features/auth/data/auth_gateway.dart';
 import 'features/auth/data/app_pin_gateway.dart';
 import 'features/auth/session_controller.dart';
 import 'features/accounts/account_gateway.dart';
+import 'features/merchant/merchant_approval.dart';
+
+import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,10 +37,20 @@ Future<void> main() async {
         : HttpAppPinGateway(client),
     deviceType: kIsWeb ? 'WEB' : defaultTargetPlatform.name.toUpperCase(),
   );
+  final approval = config.isDemo || kIsWeb || config.environment != 'dev'
+      ? null
+      : MerchantApproval(
+          session,
+          HandoffApi(config.apiBaseUrl),
+          SecureHandoffStore(
+            'kesor.customer.approval.v1|${config.apiBaseUrl}|${config.environment}',
+          ),
+        );
   runApp(
     BankingApp(
       preferences: preferences,
       session: session,
+      merchantApproval: approval,
       config: config,
       accountGateway: config.isDemo
           ? DemoAccountGateway()
@@ -45,4 +58,5 @@ Future<void> main() async {
     ),
   );
   unawaited(session.initialize());
+  if (approval != null) unawaited(approval.initialize());
 }

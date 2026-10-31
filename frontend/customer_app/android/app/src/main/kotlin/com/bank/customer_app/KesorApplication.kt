@@ -10,6 +10,8 @@ import io.flutter.plugin.common.MethodChannel
  * persists pending login secrets or accepts an unsolicited cold-start callback.
  */
 class KesorApplication : Application() {
+    lateinit var merchant: MerchantLinkBridge
+        private set
     lateinit var telegram: TelegramLoginBridge
         private set
     lateinit var imagePicker: ImagePickerBridge
@@ -19,6 +21,9 @@ class KesorApplication : Application() {
 
     val flutterEngine: FlutterEngine by lazy {
         FlutterEngine(this).also { engine ->
+            merchant = MerchantLinkBridge(this)
+            MethodChannel(engine.dartExecutor.binaryMessenger, "kesor/merchant_links")
+                .setMethodCallHandler(merchant)
             telegram = TelegramLoginBridge(this)
             imagePicker = ImagePickerBridge(this)
             MethodChannel(engine.dartExecutor.binaryMessenger, "com.bank.customer_app/image_picker")

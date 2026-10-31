@@ -5,21 +5,46 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/network/api_client.dart';
 
 class FavoriteRecipient {
-  const FavoriteRecipient(this.number, this.currency);
+  const FavoriteRecipient(
+    this.number,
+    this.currency, {
+    this.name,
+    this.manual = false,
+  });
   factory FavoriteRecipient.fromJson(Object? value) {
+    final name = value is Map ? value['name'] : null;
     if (value is! Map<String, dynamic> ||
         value['number'] is! String ||
         !RegExp(r'^[0-9]{10,20}$').hasMatch(value['number'] as String) ||
-        !{'USD', 'KHR'}.contains(value['currency'])) {
+        !{'USD', 'KHR'}.contains(value['currency']) ||
+        (value['manual'] != null && value['manual'] is! bool) ||
+        (name != null &&
+            (name is! String ||
+                name.trim().isEmpty ||
+                name.length > maxName))) {
       throw unavailable;
     }
     return FavoriteRecipient(
       value['number'] as String,
       value['currency'] as String,
+      name: name as String?,
+      manual: value['manual'] == true,
     );
   }
   final String number, currency;
-  Map<String, String> toJson() => {'number': number, 'currency': currency};
+
+  /// The customer's own label; null shows the server-reported account name.
+  final String? name;
+
+  /// Added through Home's Add to favorites form; only these are listed on Home.
+  final bool manual;
+  static const maxName = 40;
+  Map<String, Object> toJson() => {
+    'number': number,
+    'currency': currency,
+    'name': ?name,
+    if (manual) 'manual': true,
+  };
   bool same(FavoriteRecipient other) =>
       number == other.number && currency == other.currency;
   static const unavailable = ApiFailure(
@@ -97,19 +122,27 @@ class RecipientFavoritesStore {
     }
   }
 
-  Future<void> add(int user, FavoriteRecipient recipient) =>
-      _serial(user, (key) async {
-        FavoriteRecipient.fromJson(recipient.toJson());
-        final current = await _read(user, key);
-        await _write(
-          user,
-          key,
-          [
-            recipient,
-            ...current.where((r) => !r.same(recipient)),
-          ].take(50).toList(),
-        );
-      });
+  Future<void> add(int user, FavoriteRecipient recipient) => _serial(user, (
+    key,
+  ) async {
+    FavoriteRecipient.fromJson(recipient.toJson());
+    final current = await _read(user, key);
+    // A transfer bookmark never demotes or renames a favorite the customer added.
+    final previous = current.where((r) => r.same(recipient)).firstOrNull;
+    final saved = recipient.manual || previous == null
+        ? recipient
+        : FavoriteRecipient(
+            recipient.number,
+            recipient.currency,
+            name: recipient.name ?? previous.name,
+            manual: previous.manual,
+          );
+    await _write(
+      user,
+      key,
+      [saved, ...current.where((r) => !r.same(recipient))].take(50).toList(),
+    );
+  });
   Future<void> remove(int user, FavoriteRecipient recipient) => _serial(user, (
     key,
   ) async {

@@ -9,6 +9,11 @@ String tx(BuildContext context, String english) =>
     : english;
 
 const _khmer = <String, String>{
+  'Kesor Scan': 'កេសរ ស្កេន',
+  'Flash': 'ពិល',
+  'Upload QR': 'បញ្ចូលរូប QR',
+  'Reading QR code…': 'កំពុងអានកូដ QR…',
+  'Kesor account QR · USD / KHR': 'កូដ QR គណនីកេសរ · USD / KHR',
   'Transfer': 'ផ្ទេរប្រាក់',
   'Back': 'ត្រឡប់ក្រោយ',
   'Kesor Transfer': 'ការផ្ទេរប្រាក់ កេសរ',
@@ -56,6 +61,9 @@ const _khmer = <String, String>{
       'សូមបើកគណនីពីទំព័រដើម មុនពេលផ្ទេរប្រាក់។',
   'Sending transfers is available in the native app with the real API. This preview does not send payments.': 'ការផ្ញើប្រាក់មានក្នុងកម្មវិធីដែលភ្ជាប់ API ពិតប្រាកដ។ ការមើលសាកល្បងនេះមិនផ្ញើប្រាក់ទេ។',
   'Open accounts': 'បើកគណនី',
+  'Select account': 'ជ្រើសរើសគណនី',
+  'View account details': 'មើលព័ត៌មានគណនី',
+  'View recent activity': 'មើលប្រតិបត្តិការថ្មីៗ',
   'Account opening is unavailable. Try again later.':
       'មិនអាចបើកគណនីបានទេ។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',
   'Account type': 'ប្រភេទគណនី',

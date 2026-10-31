@@ -391,10 +391,16 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                         directory: widget.directory,
                         number: recipient.number,
                       ),
-                      title: RecipientName(
-                        directory: widget.directory,
-                        number: recipient.number,
-                      ),
+                      title: recipient.name != null
+                          ? Text(
+                              recipient.name!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : RecipientName(
+                              directory: widget.directory,
+                              number: recipient.number,
+                            ),
                       subtitle: Text('${recipient.number} · ${recipient.currency}'),
                       onTap: () {
                         if (!current || model.busy) return;

@@ -41,6 +41,7 @@ class LockedHomePage extends StatelessWidget {
                 onProfile: onUnlock,
                 onTransaction: (_) => onUnlock(),
                 onRecipient: (_, _) => onUnlock(),
+                onAddRecipient: onUnlock,
               ),
             ),
             Positioned(

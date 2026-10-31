@@ -255,14 +255,21 @@ class AnalyticsScreen extends StatelessWidget {
                                       onPressed: controller.canNext
                                           ? () => controller.selectMonth(1)
                                           : null,
-                                      icon: Opacity(
-                                        opacity: controller.canNext ? 1 : .45,
-                                        child: const AnalyticsAsset(
-                                          'next',
-                                          width: 32,
-                                          height: 32,
-                                        ),
-                                      ),
+                                      // Gold like Previous; a future month stays disabled grey.
+                                      icon: controller.canNext
+                                          ? const AnalyticsAsset(
+                                              'previous',
+                                              width: 32,
+                                              height: 32,
+                                            )
+                                          : const Opacity(
+                                              opacity: .45,
+                                              child: AnalyticsAsset(
+                                                'next',
+                                                width: 32,
+                                                height: 32,
+                                              ),
+                                            ),
                                     ),
                                   ],
                                 ),
@@ -562,11 +569,10 @@ class _ChartCard extends StatelessWidget {
               children: [
                 AnalyticsAsset(
                   'series-dot',
+                  key: const ValueKey('analytics-series-dot'),
                   width: 8,
                   height: 8,
-                  tint: Theme.of(context).brightness == Brightness.dark
-                      ? AppPalette.navy200
-                      : null,
+                  tint: analyticsSeriesColor(context, income: showIncome),
                 ),
                 const SizedBox(width: 6),
                 Flexible(

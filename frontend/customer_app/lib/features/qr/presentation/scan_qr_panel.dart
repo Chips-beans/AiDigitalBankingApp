@@ -15,6 +15,7 @@ import '../../transactions/transfer_controller.dart';
 import '../../transactions/presentation/transfer_panel.dart';
 import '../qr_controller.dart';
 import '../qr_gateway.dart';
+import 'scan_qr_screen.dart';
 
 class ScanQrPanel extends StatefulWidget {
   const ScanQrPanel({
@@ -25,6 +26,7 @@ class ScanQrPanel extends StatefulWidget {
     required this.enabled,
     this.chooseImage,
     this.onScanned,
+    this.onClose,
     super.key,
   });
   final SessionController session;
@@ -37,6 +39,7 @@ class ScanQrPanel extends StatefulWidget {
   /// When set, a verified scan is handed to the normal transfer screen instead of
   /// continuing in this panel.
   final ValueChanged<QrPreview>? onScanned;
+  final VoidCallback? onClose;
   @override
   State<ScanQrPanel> createState() => _ScanQrPanelState();
 }
@@ -118,10 +121,7 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
   Future<void> _resumed() async {
     if (foreground || !mounted) return;
     _resume ??= Completer<void>();
-    await _resume!.future.timeout(
-      const Duration(seconds: 5),
-      onTimeout: () {},
-    );
+    await _resume!.future.timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
   @override
@@ -256,6 +256,20 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
     }
   }
 
+  void _retry() {
+    model.clearPreview();
+    widget.transfers.edit();
+    setState(() {
+      captured = false;
+      inputError = null;
+      amount.clear();
+      source = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _start();
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -297,78 +311,74 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
                 a.number != preview?.destination,
           )
           .toList();
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (model.busy || importing) const LinearProgressIndicator(),
-          if (model.error != null)
-            NoticePanel(tx(context, model.error!.message), error: true),
-          if (inputError != null)
-            NoticePanel(tx(context, inputError!), error: true),
-          if (preview == null) ...[
-            if (!supported)
-              NoticePanel(
-                tx(
-                  context,
-                  'Camera and image scanning are available in the Android and iOS app.',
-                ),
-              )
-            else if (!widget.enabled)
-              NoticePanel(tx(context, 'QR features require the API app.'))
-            else ...[
-              Text(tx(context, 'Point your camera at a Kesor account QR.')),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: SizedBox(
-                  height: 280,
-                  child: MobileScanner(
+      if (preview == null) {
+        final available = supported && widget.enabled;
+        return ValueListenableBuilder<MobileScannerState>(
+          valueListenable: camera,
+          builder: (context, state, _) => ScanQrScreen(
+            onClose: widget.onClose ?? () => Navigator.of(context).maybePop(),
+            cameraBuilder: (window) => available
+                ? MobileScanner(
                     controller: camera,
+                    scanWindow: window,
                     onDetect: _capture,
-                    errorBuilder: (context, error) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            tx(
-                              context,
-                              error.errorCode ==
-                                      MobileScannerErrorCode.permissionDenied
-                                  ? 'Camera access is denied. Enable it in device settings, or choose a QR image.'
-                                  : 'Camera is unavailable. Retry or choose a QR image.',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  TextButton.icon(
-                    onPressed: importing || model.busy ? null : _import,
-                    icon: const Icon(Icons.image_outlined),
-                    label: Text(tx(context, 'Choose QR image')),
-                  ),
-                  TextButton.icon(
-                    onPressed: () async {
-                      try {
-                        await camera.toggleTorch();
-                      } catch (_) {
-                        /* Torch is optional on devices without one. */
-                      }
-                    },
-                    icon: const Icon(Icons.flashlight_on_outlined),
-                    label: Text(tx(context, 'Torch')),
-                  ),
-                ],
-              ),
-            ],
-          ] else ...[
+                    errorBuilder: (context, error) => const SizedBox.expand(),
+                  )
+                : const SizedBox.expand(),
+            busy: model.busy || importing,
+            flashOn: state.torchState == TorchState.on,
+            onFlash:
+                available &&
+                    !importing &&
+                    !model.busy &&
+                    state.isRunning &&
+                    state.torchState != TorchState.unavailable
+                ? () async {
+                    try {
+                      await camera.toggleTorch();
+                    } catch (_) {
+                      // Torch hardware is optional.
+                    }
+                  }
+                : null,
+            onUpload: available && !importing && !model.busy ? _import : null,
+            message: !widget.enabled
+                ? tx(context, 'QR features require the API app.')
+                : !supported
+                ? tx(
+                    context,
+                    'Camera and image scanning are available in the Android and iOS app.',
+                  )
+                : model.error != null
+                ? tx(context, model.error!.message)
+                : inputError != null
+                ? tx(context, inputError!)
+                : state.error != null
+                ? tx(
+                    context,
+                    state.error!.errorCode ==
+                            MobileScannerErrorCode.permissionDenied
+                        ? 'Camera access is denied. Enable it in device settings, or choose a QR image.'
+                        : 'Camera is unavailable. Retry or choose a QR image.',
+                  )
+                : null,
+            onRetry:
+                available &&
+                    !model.busy &&
+                    !importing &&
+                    (inputError != null ||
+                        model.error != null ||
+                        state.error != null)
+                ? _retry
+                : null,
+          ),
+        );
+      }
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -488,28 +498,14 @@ class _ScanQrPanelState extends State<ScanQrPanel> with WidgetsBindingObserver {
                       );
                     },
             ),
+            const SizedBox(height: 16),
+            if (supported && widget.enabled)
+              TextButton(
+                onPressed: model.busy || importing ? null : _retry,
+                child: Text(tx(context, 'Scan again')),
+              ),
           ],
-          const SizedBox(height: 16),
-          if (supported && widget.enabled)
-            TextButton(
-              onPressed: model.busy || importing
-                  ? null
-                  : () async {
-                      model.clearPreview();
-                      widget.transfers.edit();
-                      setState(() {
-                        captured = false;
-                        inputError = null;
-                        amount.clear();
-                        source = null;
-                      });
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _start();
-                      });
-                    },
-              child: Text(tx(context, 'Scan again')),
-            ),
-        ],
+        ),
       );
     },
   );
