@@ -13,6 +13,7 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   http: ^1.6.0
   crypto: ^3.0.7
+  file_selector: ^1.1.0
   kesor_design_system:
     path: ../packages/kesor_design_system
   kesor_auth_handoff:

@@ -1,6 +1,7 @@
 package com.bank.digital_banking.module.auth.service;
 
 import com.bank.digital_banking.common.exception.ApiException;
+import com.bank.digital_banking.common.util.ImageNormalizer;
 import com.bank.digital_banking.module.auth.entity.User;
 import com.bank.digital_banking.module.auth.repository.UserRepository;
 import com.bank.digital_banking.module.audit.service.AuditTrail;
@@ -11,12 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.MemoryCacheImageInputStream;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.io.*;
 import java.util.Base64;
 
 @Service @RequiredArgsConstructor
@@ -40,38 +35,11 @@ public class ProfilePhotoService {
     @Transactional
     public Photo save(User authenticated, MultipartFile file) {
         continuation.requireCustomer(authenticated);
-        if (file.isEmpty() || file.getSize() > MAX_BYTES) throw invalid();
-        byte[] normalized;
-        String contentType;
-        // Dimensions are checked before decoding; input metadata is never stored.
-        try (var input = new MemoryCacheImageInputStream(file.getInputStream())) {
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) throw invalid();
-            ImageReader reader = readers.next();
-            try {
-                String format = reader.getFormatName().toLowerCase(java.util.Locale.ROOT);
-                if (!format.equals("png") && !format.equals("jpeg")) throw invalid();
-                reader.setInput(input, true, true);
-                int width = reader.getWidth(0), height = reader.getHeight(0);
-                if (width < 1 || height < 1 || (long) width * height > 16_000_000) throw invalid();
-                BufferedImage decoded = reader.read(0);
-                double scale = Math.min(1.0, 1024.0 / Math.max(width, height));
-                var image = new BufferedImage(Math.max(1, (int) (width * scale)), Math.max(1, (int) (height * scale)),
-                        format.equals("png") ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
-                var graphics = image.createGraphics();
-                try {
-                    graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    graphics.drawImage(decoded, 0, 0, image.getWidth(), image.getHeight(), null);
-                } finally { graphics.dispose(); decoded.flush(); }
-                var output = new ByteArrayOutputStream();
-                try {
-                    if (!ImageIO.write(image, format, output)) throw invalid();
-                    normalized = output.toByteArray();
-                } finally { image.flush(); }
-                contentType = format.equals("png") ? "image/png" : "image/jpeg";
-            } finally { reader.dispose(); }
-        } catch (IOException | IllegalArgumentException ex) { throw invalid(); }
-        if (normalized.length == 0 || normalized.length > MAX_BYTES) throw invalid();
+        ImageNormalizer.Image image;
+        try { image = ImageNormalizer.normalize(file, 1024); }
+        catch (IllegalArgumentException ex) { throw invalid(); }
+        byte[] normalized = image.data();
+        String contentType = image.contentType();
         User user = users.findLockedById(authenticated.getId()).orElseThrow(this::invalid);
         continuation.requireCustomer(user);
         jdbc.update("""

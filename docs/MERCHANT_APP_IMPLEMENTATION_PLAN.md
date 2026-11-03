@@ -1,7 +1,7 @@
 # Kesor Merchant — implementation plan and milestones
 
 Date: 31 October 2026, Asia/Phnom_Penh.
-Status: M0-M3 complete for development; M4-M9 not started; M10-M13 deferred.
+Status: M0-M3 complete for development; M4 source/automated complete (device acceptance pending); M5-M9 not started; M10-M13 deferred.
 Audit decisions and contracts: [MERCHANT_M0_CONTRACTS.md](MERCHANT_M0_CONTRACTS.md).
 Current evidence/checkpoint: [MERCHANT_APP_PROGRESS.md](MERCHANT_APP_PROGRESS.md).
 This plan does not authorize production deployment. Milestone evidence and acceptance limits are recorded in the progress/handoff documents.
@@ -83,7 +83,7 @@ the approval/session gap; remaining shop/payment gaps belong to later milestones
 | M1 | Merchant Flutter shell and shared foundations | M0 | Complete |
 | M2 | Backend sign-in approval and Merchant sessions | M0 | Complete (source and isolated verification) |
 | M3 | Customer approval and complete app-to-app sign-in | M1, M2 | Complete: automated/APK checks and user-confirmed native round trip + restore |
-| M4 | Shop registration, logo/profile and paired wallets | M3 | Not started |
+| M4 | Shop registration, logo/profile and paired wallets | M3 | Source + automated complete; V19 live apply and device acceptance pending ([details](MERCHANT_M4_SHOP.md)) |
 | M5 | Dashboard, wallets and navigation | M4 | Not started |
 | M6 | QR collection and verified payment confirmation | M5 | Not started |
 | M7 | Sales, receipts and collection reports | M6 | Not started |

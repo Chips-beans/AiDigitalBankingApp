@@ -30,4 +30,35 @@ class MerchantSessionMigrationTests {
             }
         }
     }
+
+    @Test void v19PreservesLegacyShopsAndHaltsOnDuplicateMerchantWallets() throws Exception {
+        for (boolean duplicate : new boolean[]{false, true}) {
+            try(var pg=EmbeddedPostgres.builder().setPort(0).start()) {
+                String url=pg.getJdbcUrl("postgres","postgres");
+                Flyway.configure().dataSource(url,"postgres","postgres").target("18").load().migrate();
+                try(var c=pg.getPostgresDatabase().getConnection();var s=c.createStatement()) {
+                    s.executeUpdate("INSERT INTO users(username) VALUES ('m4.upgrade')");
+                    for (int i=0;i<2;i++) s.executeUpdate("INSERT INTO merchants(merchant_id,store_name,bakong_account_id,merchant_city,status,owner_user_id) "
+                            +"SELECT 'LEGACY-"+i+"','Legacy "+i+"','legacy"+i+"@bank','Phnom Penh','ACTIVE',id FROM users WHERE username='m4.upgrade'");
+                    for (String number : duplicate ? new String[]{"9000000001","9000000002"} : new String[]{"9000000001"})
+                        s.executeUpdate("INSERT INTO accounts(user_id,account_number,account_type,currency,balance,status,account_category,merchant_id) "
+                                +"SELECT u.id,'"+number+"','CHECKING','USD',12.50,'ACTIVE','MERCHANT',m.id FROM users u JOIN merchants m ON m.owner_user_id=u.id "
+                                +"WHERE u.username='m4.upgrade' AND m.merchant_id='LEGACY-0'");
+                }
+                var upgrade=Flyway.configure().dataSource(url,"postgres","postgres").load();
+                if (duplicate) {
+                    assertThatThrownBy(upgrade::migrate).hasMessageContaining("V19 preflight");
+                    continue;
+                }
+                upgrade.migrate(); upgrade.validate();
+                try(var c=pg.getPostgresDatabase().getConnection();var s=c.createStatement();
+                    var r=s.executeQuery("SELECT onboarding,profile_version,(SELECT sum(balance) FROM accounts) FROM merchants ORDER BY id")) {
+                    int count=0; while(r.next()) {
+                        assertThat(r.getString(1)).isEqualTo("LEGACY"); assertThat(r.getLong(2)).isZero();
+                        assertThat(r.getBigDecimal(3)).isEqualByComparingTo("12.50"); count++;
+                    } assertThat(count).isEqualTo(2);
+                }
+            }
+        }
+    }
 }

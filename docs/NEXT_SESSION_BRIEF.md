@@ -1,5 +1,18 @@
 # Kesor Bank — next session brief
 
+## Merchant M4 source complete - 3 November 2026
+
+Shop registration, shop profile/logo and the two business wallets are implemented
+(source + automated verification). Read `MERCHANT_M4_SHOP.md` for routes, V19,
+app behaviour and evidence. Full backend **203/203**, Merchant Flutter **42/42**,
+**106** Merchant renders, analysis clean. Customer App source is unchanged.
+**Pending:** V19 is not applied to the development database (backend was stopped),
+no APK was built/installed (no device connected) and no device acceptance exists.
+Next: restart the backend (applies V19), build/install the Merchant APK, let the
+user register a shop privately, then M5 dashboard. Work is uncommitted on `main`
+(`a88b061`); earlier statements about `kesor-phase4-fixes`/`e1a9da2` are stale.
+Usage tool unavailable in this session; unavailable is not zero.
+
 ## Merchant M3 complete - 31 October 2026
 
 M3 development sign-in is complete. Both final APKs are installed on Samsung

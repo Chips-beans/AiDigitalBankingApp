@@ -1,6 +1,11 @@
 # Current project handoff — Kesor Bank
 
-Updated 31 October 2026, Asia/Phnom_Penh (UTC+07:00).
+Updated 3 November 2026, Asia/Phnom_Penh (UTC+07:00).
+
+Latest M4 checkpoint: shop registration/profile/logo and KHR+USD business wallets
+implemented with migration V19. Backend 203/203, Merchant Flutter 42/42, 106
+renders. V19 not yet applied to development; no APK/device acceptance yet. Read
+`MERCHANT_M4_SHOP.md`. Git: `main` at `a88b061`, M4 uncommitted.
 
 Latest M3 checkpoint: COMPLETE for development. Both apps installed; user
 privately approved Customer sign-in and confirmed return to the expected Merchant

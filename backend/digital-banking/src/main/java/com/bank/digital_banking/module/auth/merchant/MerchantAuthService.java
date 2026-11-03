@@ -195,7 +195,9 @@ public class MerchantAuthService {
         return response;
     }
 
-    private AuthSession merchant(User user, UUID sid) {
+    /** Locks the owner row, then checks the current Merchant session. Shop APIs call this first. */
+    @Transactional(propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public AuthSession merchant(User user, UUID sid) {
         config.requireEnabled(); locks.apply(); owner(user.getId());
         var session=sessions.findLockedById(sid).orElseThrow(this::invalid);
         valid(session); sessionService.requirePurpose(session,"MERCHANT");

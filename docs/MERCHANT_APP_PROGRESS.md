@@ -1,19 +1,33 @@
 # Kesor Merchant — progress and handoff
 
-Updated: 31 October 2026, 11:59 Asia/Phnom_Penh.
+Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
 
 ## Current checkpoint
 
 - User authorized implementation beginning at M0 and requested usage-aware reports.
 - M0-M3 are COMPLETE for the adopted development scope. The user confirmed
-  native approval/return and restore. M4-M9 are not started; M10-M13 deferred.
-- Branch: `kesor-phase4-fixes`; HEAD: `e1a9da2`. No commit, push or merge requested.
+  native approval/return and restore. M4 source and automated checks are complete;
+  its live V19/APK/device acceptance is pending. M5-M9 not started; M10-M13 deferred.
+- Branch: `main`; HEAD: `a88b061` (M3 committed). M4 changes are uncommitted.
 - Preserve the existing uncommitted scanner implementation and planning documents.
 - Last usage snapshot for M2: 78% remaining in five-hour window, 29% in weekly window.
   Check before milestones and during long work. If either available remaining
   percentage falls below 10%, immediately save a detailed checkpoint here and in
   `NEXT_SESSION_BRIEF.md`, copy the report to this chat's outputs, and notify user.
   Periodic checks are not continuous background monitoring; unavailable is not zero.
+
+## Merchant M4 source complete - 3 November 2026
+
+Shop registration, shop profile/logo and the two business wallets are implemented
+(source + automated verification). Read `MERCHANT_M4_SHOP.md` for routes, V19,
+app behaviour and evidence. Full backend **203/203**, Merchant Flutter **42/42**,
+**106** Merchant renders, analysis clean. Customer App source is unchanged.
+**Pending:** V19 is not applied to the development database (backend was stopped),
+no APK was built/installed (no device connected) and no device acceptance exists.
+Next: restart the backend (applies V19), build/install the Merchant APK, let the
+user register a shop privately, then M5 dashboard. Work is uncommitted on `main`
+(`a88b061`); earlier statements about `kesor-phase4-fixes`/`e1a9da2` are stale.
+Usage tool unavailable in this session; unavailable is not zero.
 
 ## Merchant M3 complete - 31 October 2026
 

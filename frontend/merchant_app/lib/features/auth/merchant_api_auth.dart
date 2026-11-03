@@ -7,7 +7,7 @@ import '../../core/merchant_config.dart';
 import 'merchant_session.dart';
 
 /// One durable journal per installation/API origin. Credentials never enter UI or links.
-class MerchantApiAuth implements RestorableMerchantAuth {
+class MerchantApiAuth implements RestorableMerchantAuth, MerchantAccess {
   MerchantApiAuth(
     this.config, {
     HandoffApi? api,
@@ -431,6 +431,29 @@ class MerchantApiAuth implements RestorableMerchantAuth {
     journal['tokens'] = _tokenResponse(data);
     journal.remove('refreshing');
     await _save();
+  }
+
+  @override
+  Future<String> accessToken() async {
+    // Share the single-flight guard so a rotation never races another rotation.
+    for (var waited = 0; _active; waited++) {
+      if (waited >= 300) throw const MerchantAuthUnavailable();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return _guard(() async {
+      await _load();
+      if (_tokens == null ||
+          journal['refreshing'] == true ||
+          journal['logout'] == true ||
+          _pending != null) {
+        throw const MerchantAuthFailure(MerchantAuthIssue.expired);
+      }
+      if (!DateTime.parse(_tokens!['until'])
+          .isAfter(clock().add(const Duration(seconds: 10)))) {
+        await _refresh(_generation);
+      }
+      return _tokens!['access'] as String;
+    });
   }
 
   @override

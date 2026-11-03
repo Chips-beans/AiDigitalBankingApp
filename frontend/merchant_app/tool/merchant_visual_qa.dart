@@ -10,11 +10,17 @@ import 'package:merchant_app/app/merchant_app.dart';
 import 'package:merchant_app/core/merchant_preferences.dart';
 import 'package:merchant_app/features/auth/merchant_session.dart';
 
+import 'dart:convert';
+
+import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
+import 'package:merchant_app/features/shop/merchant_shop.dart';
+
 import '../test/merchant_foundation_test.dart' show ControlledMerchantAuth;
+import '../test/merchant_shop_test.dart' show FakeShopGateway, readyProfile;
 
 void main() {
   testWidgets(
-    'M1 screens adapt across language, theme, size and accessibility',
+    'Merchant screens adapt across language, theme, size and accessibility',
     (tester) async {
       await tester.runAsync(() async {
         for (final entry in {
@@ -74,9 +80,12 @@ void main() {
             'sales',
             'more',
             'recovery',
+            'shop-profile',
             if (variant.name == 'phone') ...[
               'waiting',
               'restricted',
+              'pending-review',
+              'registration-saved',
               'unavailable',
             ],
           ]) {
@@ -102,23 +111,57 @@ void main() {
                   MerchantIdentity(
                     ownerId: 1,
                     recoveryRequired: screen == 'recovery',
-                    shop: screen == 'registration' || screen == 'recovery'
+                    shop:
+                        screen.startsWith('registration') ||
+                            screen == 'recovery'
                         ? null
                         : MerchantShop(
                             id: 'fixture',
                             name: variant.km ? 'ហាងកាហ្វេកេសរ' : 'Kesor Coffee',
-                            active: screen != 'restricted',
+                            active:
+                                screen != 'restricted' &&
+                                screen != 'pending-review',
                           ),
                   ),
                 );
                 await pending;
               }
             }
+            final name = variant.km ? 'ហាងកាហ្វេកេសរ' : 'Kesor Coffee';
+            final gateway = FakeShopGateway();
+            if (!screen.startsWith('registration') && screen != 'recovery') {
+              gateway.profile = readyProfile(
+                name: name,
+                status: switch (screen) {
+                  'restricted' => 'SUSPENDED',
+                  'pending-review' => 'PENDING',
+                  _ => 'ACTIVE',
+                },
+              );
+            }
+            final store = MemoryHandoffStore();
+            if (screen == 'registration-saved') {
+              store.values['registration-1'] = jsonEncode({
+                'key': 'k' * 43,
+                'draft': ShopDraft(
+                  storeName: name,
+                  categoryCode: 'FOOD_DRINK',
+                  phone: '012 345 678',
+                  city: 'Phnom Penh',
+                  address: variant.km ? 'ផ្លូវ ៥១ ដូនពេញ' : 'St. 51, Daun Penh',
+                ).toJson(),
+              });
+            }
             final key = GlobalKey();
             await tester.pumpWidget(
               RepaintBoundary(
                 key: key,
-                child: MerchantApp(preferences: prefs, session: session),
+                child: MerchantApp(
+                  preferences: prefs,
+                  session: session,
+                  shopGateway: screen == 'unavailable' ? null : gateway,
+                  shopStore: store,
+                ),
               ),
             );
             if (screen == 'waiting') {
@@ -127,7 +170,12 @@ void main() {
               await tester.pumpAndSettle();
             }
             final tab = ['home', 'collect', 'sales', 'more'].indexOf(screen);
-            if (tab > 0) {
+            if (screen == 'shop-profile') {
+              await tester.tap(find.byType(NavigationDestination).at(3));
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('open-shop-profile')));
+              await tester.pumpAndSettle();
+            } else if (tab > 0) {
               await tester.tap(find.byType(NavigationDestination).at(tab));
               await tester.pumpAndSettle();
             }
@@ -145,7 +193,7 @@ void main() {
                 format: ui.ImageByteFormat.png,
               );
               final file = File(
-                '.local/qa/m1/$screen-${variant.name}-${brightness.name}.png',
+                '.local/qa/m4/$screen-${variant.name}-${brightness.name}.png',
               );
               await file.parent.create(recursive: true);
               await file.writeAsBytes(data!.buffer.asUint8List());

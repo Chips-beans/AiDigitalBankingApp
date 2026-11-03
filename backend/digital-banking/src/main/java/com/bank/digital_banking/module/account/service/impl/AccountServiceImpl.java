@@ -190,6 +190,30 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<AccountResponseDto> openMerchantWallets(User owner, long merchantId) {
+        // Self-service shops open KHR then USD at zero. Merchant wallets never receive
+        // the customer development opening credit; the database index prevents duplicates.
+        List<AccountResponseDto> created = new ArrayList<>();
+        for (String currency : new String[]{"KHR", "USD"}) {
+            String number = generateUniqueAccountNumber();
+            Account account = accountRepository.saveAndFlush(Account.builder()
+                    .user(owner)
+                    .accountNumber(number)
+                    .accountType(AccountType.CHECKING)
+                    .currency(currency)
+                    .balance(BigDecimal.ZERO)
+                    .status(AccountStatus.ACTIVE)
+                    .accountCategory(AccountCategory.MERCHANT)
+                    .merchantId(merchantId)
+                    .build());
+            audit.successAs(owner, "ACCOUNT", "MERCHANT_ACCOUNT_CREATED", number);
+            created.add(AccountResponseDto.fromEntity(account));
+        }
+        return created;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public AccountResponseDto getAccountByNumber(User user, String accountNumber) {
         Account account = accountRepository.findByAccountNumber(accountNumber)

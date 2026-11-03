@@ -213,7 +213,8 @@ class MerchantAuthTests extends PostgresIntegrationTest {
         jdbc.update("INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE name='ROLE_MERCHANT'",c.id());
         var a=start(); String token=data(exchange(a,approve(c,a))).path("accessToken").asText();
         for(String path:List.of("/auth/me","/accounts/me","/transactions/search","/analytics/monthly-overview",
-                "/ai/conversations","/merchants/me","/merchants","/payments/qr/status/anything","/auth/merchant-sessions")) {
+                // /merchants/me itself became the M4 Merchant-session shop route; the legacy accounts route stays closed.
+                "/ai/conversations","/merchants/me/accounts","/merchants","/payments/qr/status/anything","/auth/merchant-sessions")) {
             var r=call("GET",path,token,null);
             assertThat(r.statusCode()).as(path+": "+r.body()).isEqualTo(403);
             assertThat(error(r)).isEqualTo("CUSTOMER_SESSION_REQUIRED");

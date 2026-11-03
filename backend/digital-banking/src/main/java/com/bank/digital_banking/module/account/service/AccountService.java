@@ -20,6 +20,7 @@ public interface AccountService {
     List<AccountResponseDto> createDefaultUserWallets(User user);
 
     List<AccountResponseDto> createDefaultMerchantAccounts(User owner, com.bank.digital_banking.module.merchant.entity.Merchant merchant);
+    List<AccountResponseDto> openMerchantWallets(User owner, long merchantId);
 
     AccountResponseDto getAccountByNumber(User user, String accountNumber);
 

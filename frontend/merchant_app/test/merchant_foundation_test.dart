@@ -256,7 +256,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Lotus Coffee'), findsOneWidget);
-      expect(find.text('Balance unavailable'), findsNWidgets(2));
+      // Without the shop service nothing is invented: no wallets or balances.
+      expect(
+        find.text('Shop details are currently unavailable.'),
+        findsOneWidget,
+      );
       expect(find.text('200.00'), findsNothing);
       await tester.tap(find.byType(NavigationDestination).at(1));
       await tester.pumpAndSettle();
