@@ -6,6 +6,8 @@ import '../../core/merchant_strings.dart';
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
 import '../sales/receipt_page.dart';
+import '../transfer/owner_transfer_controller.dart';
+import '../transfer/owner_transfer_page.dart';
 import 'collect_view.dart' show shortTime;
 import 'merchant_collect.dart';
 
@@ -15,11 +17,17 @@ class WalletDetailPage extends StatefulWidget {
     required this.gateway,
     required this.wallet,
     this.onExpired,
+    this.transfer,
+    this.shopActive = false,
     super.key,
   });
   final MerchantCollectGateway gateway;
   final ShopWallet wallet;
   final VoidCallback? onExpired;
+
+  /// Owner transfers (M8); null hides the action.
+  final OwnerTransferController? transfer;
+  final bool shopActive;
   @override
   State<WalletDetailPage> createState() => _WalletDetailPageState();
 }
@@ -62,6 +70,27 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
     } finally {
       if (mounted) setState(() => loading = false);
     }
+  }
+
+  Future<void> _openTransfer() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            OwnerTransferPage(controller: widget.transfer!, wallet: wallet),
+      ),
+    );
+    // The balance and activity may have changed while the owner approved in Kesor Bank.
+    if (mounted) await _load(reset: true);
+  }
+
+  bool get _canTransfer {
+    final transfer = widget.transfer;
+    if (transfer == null) return false;
+    // An open transfer can always be reopened to finish or cancel it.
+    if (transfer.transfer != null) return true;
+    return widget.shopActive &&
+        wallet.status == 'ACTIVE' &&
+        moneyUnits(wallet.balance, wallet.currency) > BigInt.zero;
   }
 
   @override
@@ -125,7 +154,7 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
-                          child: Text(
+                          child: AmountText(
                             shopAmount(wallet.balance, wallet.currency),
                             key: const ValueKey('wallet-detail-balance'),
                             style: mText(
@@ -186,6 +215,26 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
                       ],
                     ),
                   ),
+                  if (widget.transfer != null) ...[
+                    const SizedBox(height: 16),
+                    ListenableBuilder(
+                      listenable: widget.transfer!,
+                      builder: (context, _) => FilledButton.icon(
+                        key: const ValueKey('wallet-transfer'),
+                        onPressed: _canTransfer ? _openTransfer : null,
+                        icon: const Icon(Icons.swap_horiz_rounded),
+                        label: Text(
+                          widget.transfer!.waiting
+                              ? t(context, 'Continue transfer', 'បន្តការផ្ទេរ')
+                              : t(
+                                  context,
+                                  'Transfer to my wallet',
+                                  'ផ្ទេរទៅកាបូបខ្ញុំ',
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SectionTitle(t(context, 'Activity', 'សកម្មភាព')),
                   const SizedBox(height: 8),
@@ -310,7 +359,7 @@ class ActivityRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Flexible(
-            child: Text(
+            child: AmountText(
               '${item.incoming ? '+' : '−'}${shopAmount(item.amount, item.currency)}',
               textAlign: TextAlign.end,
               style: mText(

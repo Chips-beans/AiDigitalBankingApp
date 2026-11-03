@@ -16,7 +16,11 @@ class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCal
     private val target = if (customer) "com.bank.merchant_app" else "com.bank.customer_app"
     private val incoming = if (customer) "kesorbank://merchant/approve" else "kesormerchant://auth/callback"
     private val outgoing = if (customer) "kesormerchant://auth/callback" else "kesorbank://merchant/approve"
+    // Owner transfers (M8): their own exact links and slot, so sign-in links are never confused with them.
+    private val incomingTransfer = if (customer) "kesorbank://merchant/transfer" else "kesormerchant://transfer/callback"
+    private val outgoingTransfer = if (customer) "kesormerchant://transfer/callback" else "kesorbank://merchant/transfer"
     private var pending: String? = null
+    private var pendingTransfer: String? = null
     private val debugCertificate = "ae861749ac17ba744e16064146dc0320e27bdde8b5f61b55939c90baf1cbc2b4"
 
     private fun development() = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -28,10 +32,12 @@ class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCal
     fun handleIntent(intent: Intent?) {
         if (!development() || intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
-        if (!exact(uri, incoming)) return
         val value = uri.toString()
         // Do not replace a request awaiting Dart. Server + Dart enforce authorization.
-        if (pending == null) pending = value
+        when {
+            exact(uri, incoming) -> if (pending == null) pending = value
+            exact(uri, incomingTransfer) -> if (pendingTransfer == null) pendingTransfer = value
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -55,7 +61,21 @@ class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCal
                     pending = null
                     result.success(value)
                 }
+                "takeTransfer" -> {
+                    val value = pendingTransfer
+                    pendingTransfer = null
+                    result.success(value)
+                }
                 "verify" -> { verifyTarget(); result.success(null) }
+                "openTransfer" -> {
+                    val value = call.argument<String>("uri") ?: error("Invalid link")
+                    check(exact(Uri.parse(value), outgoingTransfer))
+                    verifyTarget()
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value))
+                        .setClassName(target, "$target.MainActivity")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                    result.success(null)
+                }
                 "open" -> {
                     val value = call.argument<String>("uri") ?: error("Invalid link")
                     check(exact(Uri.parse(value), outgoing))

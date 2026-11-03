@@ -31,6 +31,53 @@ public class FinancialPostingService {
     private final TransactionLockPolicy locks;
     private final ExchangeRates rates;
 
+    /**
+     * The only path that may debit a business wallet (M8): a shop's wallet to the same owner's own
+     * active personal wallet in the same currency. Returns the posted transaction, or empty when the
+     * business wallet cannot cover the amount; nothing is changed then, and no exception is thrown,
+     * so the caller can commit the failed intent. Locks both accounts in id order, like {@link #post}.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Transaction> postOwnerTransfer(User owner, long merchantId, String sourceNumber,
+                                                   String destinationNumber, BigDecimal amount, String currency) {
+        if (owner == null || owner.getId() == null || owner.getRoles().stream()
+                .noneMatch(role -> role.getName() == com.bank.digital_banking.module.auth.entity.ERole.ROLE_CUSTOMER))
+            throw new org.springframework.security.access.AccessDeniedException("Operation is not permitted for this role");
+        currency = CurrencyUtils.currency(currency);
+        amount = CurrencyUtils.amount(amount, currency, false);
+        if (sourceNumber == null || destinationNumber == null || sourceNumber.equals(destinationNumber))
+            throw new IllegalArgumentException("Owner transfer requires different source and destination accounts");
+        locks.apply();
+        var locked = new HashMap<String, Account>();
+        for (Long id : accounts.findIdsByNumbers(List.of(sourceNumber, destinationNumber))) {
+            Account account = accounts.findLockedById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Account not available"));
+            entities.refresh(account, LockModeType.PESSIMISTIC_WRITE);
+            locked.put(account.getAccountNumber(), account);
+        }
+        Account source = locked.get(sourceNumber), destination = locked.get(destinationNumber);
+        if (source == null || destination == null || !source.getUser().getId().equals(owner.getId())
+                || !destination.getUser().getId().equals(owner.getId())
+                || source.getAccountCategory() != AccountCategory.MERCHANT || !Long.valueOf(merchantId).equals(source.getMerchantId())
+                || destination.getAccountCategory() != AccountCategory.WALLET)
+            throw new ResourceNotFoundException("Account not available");
+        if (source.getStatus() != AccountStatus.ACTIVE || destination.getStatus() != AccountStatus.ACTIVE)
+            throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_INACTIVE", "Account is not active");
+        if (!source.getCurrency().equals(currency) || !destination.getCurrency().equals(currency))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENCY_MISMATCH", "Account currency does not match the request");
+        if (source.getBalance().compareTo(amount) < 0) return Optional.empty();
+        source.setBalance(source.getBalance().subtract(amount));
+        destination.setBalance(CurrencyUtils.amount(destination.getBalance().add(amount), currency, true));
+        Transaction transaction = transactions.saveAndFlush(Transaction.builder()
+                .referenceNumber("TXN-" + UUID.randomUUID().toString().replace("-", ""))
+                .sourceAccount(source).destinationAccount(destination).amount(amount).fee(BigDecimal.ZERO)
+                .currency(currency).transactionType(TransactionType.TRANSFER).status(TransactionStatus.SUCCESS)
+                .remark("Transfer to owner wallet").initiatedByUserId(owner.getId())
+                .operation("OWNER_TRANSFER").correlationId(AuditTrail.correlation()).build());
+        audit.posting(owner, "OWNER_TRANSFER", transaction.getReferenceNumber(), transaction.getCorrelationId());
+        return Optional.of(transaction);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public Transaction post(User actor, TransactionType type, String sourceNumber, String destinationNumber,
                             BigDecimal amount, String currency, String remark) {

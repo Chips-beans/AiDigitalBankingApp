@@ -42,6 +42,9 @@ class MerchantPreferences extends ChangeNotifier {
   final MerchantPreferenceStore _store;
   Locale locale = const Locale('en');
   ThemeMode themeMode = ThemeMode.system;
+
+  /// In-app payment alerts. Both default on; this device only.
+  bool alertSound = true, alertVibration = true;
   bool get isKhmer => locale.languageCode == 'km';
   Future<void> _writes = Future.value();
 
@@ -57,6 +60,8 @@ class MerchantPreferences extends ChangeNotifier {
                   .where((v) => v.name == value['theme'])
                   .firstOrNull ??
               ThemeMode.system;
+          alertSound = value['alertSound'] != false;
+          alertVibration = value['alertVibration'] != false;
         }
       }
     } catch (_) {
@@ -76,10 +81,22 @@ class MerchantPreferences extends ChangeNotifier {
     _changed();
   }
 
+  void setAlertSound(bool enabled) {
+    alertSound = enabled;
+    _changed();
+  }
+
+  void setAlertVibration(bool enabled) {
+    alertVibration = enabled;
+    _changed();
+  }
+
   void _changed() {
     final value = jsonEncode({
       'locale': locale.languageCode,
       'theme': themeMode.name,
+      'alertSound': alertSound,
+      'alertVibration': alertVibration,
     });
     _writes = _writes
         .then((_) => _store.write(value))

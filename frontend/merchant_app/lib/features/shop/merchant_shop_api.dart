@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../core/merchant_config.dart';
 import '../auth/merchant_session.dart';
 import '../collect/merchant_collect.dart';
+import '../transfer/owner_transfer.dart';
 import 'merchant_shop.dart';
 
 /// Merchant-session shop APIs. No retry or redirect; callers own recovery.
@@ -193,6 +194,46 @@ class MerchantShopApi implements MerchantShopGateway {
       ),
     ),
   );
+
+  @override
+  Future<OwnerTransfer> createOwnerTransfer(
+    String idempotencyKey, {
+    required String sourceAccountNumber,
+    required String amount,
+  }) async {
+    if (!RegExp(r'^[0-9]{10,20}$').hasMatch(sourceAccountNumber)) {
+      throw const ShopFailure('RESOURCE_NOT_FOUND', status: 404);
+    }
+    // The destination is never sent: the server chooses the owner's own wallet.
+    final request = http.Request('POST', _uri('/merchants/me/owner-transfers'))
+      ..headers['Content-Type'] = 'application/json'
+      ..headers['Idempotency-Key'] = idempotencyKey
+      ..body = jsonEncode({
+        'sourceAccountNumber': sourceAccountNumber,
+        'amount': amount,
+      });
+    return _transfer(await _send(request));
+  }
+
+  @override
+  Future<OwnerTransfer> ownerTransferStatus(String id) async => _transfer(
+    await _send(
+      http.Request('GET', _uri('/merchants/me/owner-transfers/${_id(id)}')),
+    ),
+  );
+
+  @override
+  Future<OwnerTransfer> cancelOwnerTransfer(String id) async => _transfer(
+    await _send(
+      http.Request(
+        'POST',
+        _uri('/merchants/me/owner-transfers/${_id(id)}/cancel'),
+      ),
+    ),
+  );
+
+  static OwnerTransfer _transfer(dynamic data) =>
+      _guardParse(() => OwnerTransfer.fromJson(data as Map));
 
   static String _id(String id) {
     if (!RegExp(r'^[0-9a-f-]{36}$').hasMatch(id)) {

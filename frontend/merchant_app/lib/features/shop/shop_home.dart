@@ -220,7 +220,7 @@ class TodayCard extends StatelessWidget {
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
-                          child: Text(
+                          child: AmountText(
                             dashboard == null && suppliedTotals == null
                                 ? '—'
                                 : shopAmount(
@@ -437,7 +437,7 @@ class WalletTile extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: AlignmentDirectional.centerStart,
-                  child: Text(
+                  child: AmountText(
                     shopAmount(wallet.balance, wallet.currency),
                     key: ValueKey('wallet-balance-${wallet.currency}'),
                     maxLines: 1,

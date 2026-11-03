@@ -51,7 +51,8 @@ public class MerchantAuthService {
     private void serialize(UUID id) {
         jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 827131))",id.toString());
     }
-    private void customer(User user, UUID sid) {
+    /** Requires a valid, unlocked Customer session of this owner; callers hold the owner lock. */
+    public void customer(User user, UUID sid) {
         var session = sessions.findLockedById(sid).orElseThrow(this::invalid);
         sessionService.requirePurpose(session,"CUSTOMER");
         valid(session);

@@ -7,14 +7,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.*;
 
-final class MerchantAuthCrypto {
+public final class MerchantAuthCrypto {
     private static final SecureRandom RANDOM = new SecureRandom();
     private MerchantAuthCrypto() {}
-    static String random() {
+    public static String random() {
         byte[] value = new byte[32]; RANDOM.nextBytes(value);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }
-    static boolean matches(String hash, String raw) {
+    public static boolean matches(String hash, String raw) {
         return hash != null && raw != null && MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),
                 HashUtils.sha256(raw).getBytes(StandardCharsets.US_ASCII));
     }

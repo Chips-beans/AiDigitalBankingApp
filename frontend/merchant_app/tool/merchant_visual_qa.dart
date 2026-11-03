@@ -16,9 +16,14 @@ import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
 import 'package:merchant_app/features/shop/merchant_shop.dart';
 import 'package:merchant_app/features/collect/merchant_collect.dart';
 import 'package:merchant_app/features/collect/wallet_page.dart' show ReceiptRow;
+import 'package:merchant_app/features/feed/payment_feed_controller.dart';
 
 import '../test/merchant_foundation_test.dart' show ControlledMerchantAuth;
 import '../test/merchant_shop_test.dart' show FakeShopGateway, readyProfile;
+import '../test/merchant_transfer_test.dart' show fundedProfile;
+
+import 'package:merchant_app/features/transfer/owner_transfer.dart'
+    show TransferStatus;
 
 void main() {
   testWidgets(
@@ -99,6 +104,11 @@ void main() {
               'pending-review',
               'registration-saved',
               'unavailable',
+              'alert-banner',
+              'owner-transfer-form',
+              'owner-transfer-waiting',
+              'owner-transfer-completed',
+              'owner-transfer-failed',
             ],
           ]) {
             final prefs = MerchantPreferences()
@@ -151,6 +161,9 @@ void main() {
                   _ => 'ACTIVE',
                 },
               );
+            }
+            if (screen.startsWith('owner-transfer')) {
+              gateway.profile = fundedProfile();
             }
             // Live collection screens keep second timers running; settle by time.
             final live = screen.startsWith('request-');
@@ -206,6 +219,8 @@ void main() {
                   session: session,
                   shopGateway: screen == 'unavailable' ? null : gateway,
                   shopStore: store,
+                  alertEffects: const _Silent(),
+                  transferNative: const _FixtureNative(),
                 ),
               ),
             );
@@ -213,6 +228,49 @@ void main() {
               await tester.pump(const Duration(milliseconds: 300));
             } else {
               await tester.pumpAndSettle();
+            }
+            if (screen.startsWith('owner-transfer')) {
+              await tester.ensureVisible(
+                find.byKey(const ValueKey('open-wallet-USD')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('open-wallet-USD')));
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('wallet-transfer')));
+              await tester.pumpAndSettle();
+              if (screen != 'owner-transfer-form') {
+                await tester.enterText(
+                  find.byKey(const ValueKey('transfer-amount-field')),
+                  '12.50',
+                );
+                await tester.tap(find.byKey(const ValueKey('transfer-create')));
+                await tester.pump();
+                await tester.pump(const Duration(milliseconds: 200));
+                if (screen != 'owner-transfer-waiting') {
+                  gateway.resolveTransfer(
+                    gateway.transfers.keys.single,
+                    screen == 'owner-transfer-completed'
+                        ? TransferStatus.completed
+                        : TransferStatus.failed,
+                    failureCode: screen == 'owner-transfer-completed'
+                        ? null
+                        : 'INSUFFICIENT_FUNDS',
+                  );
+                  await tester.pump(const Duration(seconds: 2));
+                  await tester.pump(const Duration(milliseconds: 200));
+                }
+              }
+            }
+            if (screen == 'alert-banner') {
+              // A payment to the reusable shop QR arrives while the app is open.
+              final made = await gateway.createRequest(
+                'qa-${'k' * 20}',
+                currency: 'KHR',
+                amount: '25000',
+              );
+              gateway.pay(made.id);
+              await tester.pump(const Duration(seconds: 10));
+              await tester.pump(const Duration(milliseconds: 300));
             }
             final tab = [
               'home',
@@ -322,7 +380,10 @@ void main() {
                 find.byType(Scrollable).first,
                 const Offset(0, -2000),
               );
-              if (live) {
+              if (live ||
+                  screen == 'owner-transfer-waiting' ||
+                  screen == 'owner-transfer-completed' ||
+                  screen == 'owner-transfer-failed') {
                 await tester.pump(const Duration(milliseconds: 500));
               } else {
                 await tester.pumpAndSettle();
@@ -336,6 +397,7 @@ void main() {
                     'reports-day',
                     'reports-month',
                     'requests',
+                    'more',
                     'collect-shop-qr',
                   }.contains(screen)) {
                 await renderFixture(
@@ -355,6 +417,23 @@ void main() {
   );
 }
 
+/// Platform channels do not answer under the test clock; the fixture has no peer app.
+class _FixtureNative extends NativeHandoff {
+  const _FixtureNative();
+  @override
+  Future<String?> takeTransfer() async => null;
+  @override
+  Future<void> openTransfer(String uri) async {}
+}
+
+class _Silent implements AlertEffects {
+  const _Silent();
+  @override
+  void chime() {}
+  @override
+  void vibrate() {}
+}
+
 Future<void> renderFixture(
   WidgetTester tester,
   GlobalKey key,
@@ -366,7 +445,7 @@ Future<void> renderFixture(
     final image = await boundary.toImage();
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      final file = File('.local/qa/m7/$name.png');
+      final file = File('.local/qa/m8/$name.png');
       await file.parent.create(recursive: true);
       await file.writeAsBytes(data!.buffer.asUint8List());
     } finally {

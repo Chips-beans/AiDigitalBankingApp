@@ -57,7 +57,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/merchant-auth/session", "/api/v1/merchant-auth/logout").hasAuthority("MERCHANT_SESSION")
                 .requestMatchers(com.bank.digital_banking.module.auth.security.SessionPurposePolicy.SHOP_ROUTES
                         .toArray(String[]::new)).hasAuthority("MERCHANT_SESSION")
-                .requestMatchers("/api/v1/merchant-auth/attempts/**", "/api/v1/auth/merchant-sessions/**").hasRole("CUSTOMER")
+                .requestMatchers("/api/v1/merchant-auth/attempts/**", "/api/v1/auth/merchant-sessions/**",
+                        "/api/v1/merchant-transfers/**").hasRole("CUSTOMER")
                 .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/request-otp", "/api/v1/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/email/request", "/api/v1/auth/email/verify",

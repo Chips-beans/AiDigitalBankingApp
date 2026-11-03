@@ -314,7 +314,7 @@ class _WalletPreview extends StatelessWidget {
                     style: mText(context, 14, 22, weight: FontWeight.w500),
                   ),
                 ),
-                Text(
+                AmountText(
                   shopAmount('0', currency),
                   style: mText(context, 14, 22, weight: FontWeight.w600),
                 ),

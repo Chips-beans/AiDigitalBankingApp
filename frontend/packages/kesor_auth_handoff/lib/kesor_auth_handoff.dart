@@ -10,6 +10,9 @@ import 'package:http/http.dart' as http;
 const merchantClient = 'kesor-merchant-android';
 const approvalBase = 'kesorbank://merchant/approve';
 const callbackBase = 'kesormerchant://auth/callback';
+/// Owner transfers (M8) have their own exact links; they never share the sign-in paths.
+const transferApprovalBase = 'kesorbank://merchant/transfer';
+const transferCallbackBase = 'kesormerchant://transfer/callback';
 const customerPackage = 'com.bank.customer_app';
 const merchantPackage = 'com.bank.merchant_app';
 
@@ -75,6 +78,16 @@ class NativeHandoff {
     }
   }
 
+  /// Transfer links use a separate native slot so a sign-in request is never confused with one.
+  Future<String?> takeTransfer() async {
+    try {
+      return await channel.invokeMethod<String>('takeTransfer');
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> openTransfer(String uri) => _invoke('openTransfer', {'uri': uri});
   Future<void> verify() => _invoke('verify');
   Future<void> open(String uri) => _invoke('open', {'uri': uri});
   Future<void> _invoke(String method, [Map<String, String>? arguments]) async {

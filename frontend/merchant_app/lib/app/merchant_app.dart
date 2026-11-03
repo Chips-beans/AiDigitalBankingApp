@@ -8,7 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart'
-    show HandoffStore, MemoryHandoffStore;
+    show HandoffStore, MemoryHandoffStore, NativeHandoff;
 
 import '../core/merchant_preferences.dart';
 import '../core/merchant_strings.dart';
@@ -16,6 +16,8 @@ import '../features/auth/merchant_session.dart';
 import '../features/collect/collect_controller.dart';
 import '../features/collect/collect_view.dart';
 import '../features/collect/wallet_page.dart';
+import '../features/feed/payment_banner.dart';
+import '../features/feed/payment_feed_controller.dart';
 import '../features/sales/sales_controller.dart';
 import '../features/sales/sales_view.dart';
 import '../features/sales/receipt_page.dart';
@@ -25,6 +27,7 @@ import '../features/shop/shop_controller.dart';
 import '../features/shop/shop_form.dart';
 import '../features/shop/shop_home.dart';
 import '../features/shop/shop_profile_page.dart';
+import '../features/transfer/owner_transfer_controller.dart';
 import '../features/shop/shop_widgets.dart';
 
 export '../core/merchant_strings.dart' show MerchantStrings;
@@ -36,6 +39,8 @@ class MerchantApp extends StatefulWidget {
     this.shopGateway,
     this.shopStore,
     this.pickLogo = pickLogoFile,
+    this.alertEffects = const SystemAlertEffects(),
+    this.transferNative = const NativeHandoff(),
     super.key,
   });
   final MerchantPreferences preferences;
@@ -45,6 +50,12 @@ class MerchantApp extends StatefulWidget {
   final MerchantShopGateway? shopGateway;
   final HandoffStore? shopStore;
   final LogoPicker pickLogo;
+
+  /// Sound and vibration for new payments; tests replace it with a silent one.
+  final AlertEffects alertEffects;
+
+  /// Return links and opening Kesor Bank for owner transfers; replaced in tests.
+  final NativeHandoff transferNative;
   @override
   State<MerchantApp> createState() => _MerchantAppState();
 }
@@ -55,6 +66,8 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
   ShopController? shop;
   CollectController? collect;
   SalesController? sales;
+  PaymentFeedController? feed;
+  OwnerTransferController? transfer;
   final navigator = GlobalKey<NavigatorState>();
   MerchantPhase? _phase;
   late final HandoffStore _shopStore = widget.shopStore ?? MemoryHandoffStore();
@@ -87,10 +100,15 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
           MerchantPhase.restricted,
         }.contains(session.phase);
     if (wanted) {
-      if (shop?.ownerId == identity.ownerId) return;
+      if (shop?.ownerId == identity.ownerId) {
+        _updateFeed();
+        return;
+      }
       shop?.dispose();
       collect?.dispose();
       sales?.dispose();
+      feed?.dispose();
+      transfer?.dispose();
       final owned = ShopController(
         widget.shopGateway!,
         _shopStore,
@@ -104,11 +122,33 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
         _shopStore,
         ownerId: identity.ownerId,
         onPaid: () => unawaited(owned.refresh()),
+        // A payment the Collect screen already confirmed must not alert again.
+        onReceipt: (receipt) => feed?.markSeen(receipt.reference),
         onExpired: session.expire,
       );
       sales = SalesController(widget.shopGateway!, onExpired: session.expire);
+      feed = PaymentFeedController(
+        widget.shopGateway!,
+        effects: widget.alertEffects,
+        soundEnabled: () => widget.preferences.alertSound,
+        vibrationEnabled: () => widget.preferences.alertVibration,
+        // New QR payments (including the reusable shop QR) refresh balances.
+        onNewPayments: (_) => unawaited(owned.refresh()),
+        onExpired: session.expire,
+      );
+      transfer = OwnerTransferController(
+        widget.shopGateway!,
+        _shopStore,
+        ownerId: identity.ownerId,
+        native: widget.transferNative,
+        // Approved in Kesor Bank: balances and activity change.
+        onCompleted: () => unawaited(owned.refresh()),
+        onExpired: session.expire,
+      );
       unawaited(owned.initialize());
       unawaited(collect!.resume());
+      unawaited(transfer!.resume());
+      _updateFeed();
     } else if (session.phase == MerchantPhase.signedOut && shop != null) {
       shop!.dispose();
       collect?.dispose();
@@ -116,7 +156,18 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
       collect = null;
       sales?.dispose();
       sales = null;
+      feed?.dispose();
+      feed = null;
+      transfer?.dispose();
+      transfer = null;
+    } else {
+      feed?.running = false;
     }
+  }
+
+  /// The feed runs only while the app is in front and the shop can collect.
+  void _updateFeed() {
+    feed?.running = !covered && widget.session.phase == MerchantPhase.ready;
   }
 
   @override
@@ -127,12 +178,15 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
     shop?.dispose();
     collect?.dispose();
     sales?.dispose();
+    feed?.dispose();
+    transfer?.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (mounted) setState(() => covered = state != AppLifecycleState.resumed);
+    _updateFeed();
     if (state == AppLifecycleState.resumed) {
       unawaited(widget.session.validate());
     }
@@ -212,6 +266,8 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
               shop: shop,
               collect: collect,
               sales: sales,
+              feed: feed,
+              transfer: transfer,
               gateway: widget.shopGateway,
               pickLogo: widget.pickLogo,
             ),
@@ -586,6 +642,8 @@ class _ShopShell extends StatefulWidget {
     required this.pickLogo,
     this.collect,
     this.sales,
+    this.feed,
+    this.transfer,
     this.gateway,
     super.key,
   });
@@ -594,6 +652,8 @@ class _ShopShell extends StatefulWidget {
   final ShopController? shop;
   final CollectController? collect;
   final SalesController? sales;
+  final PaymentFeedController? feed;
+  final OwnerTransferController? transfer;
   final MerchantShopGateway? gateway;
   final LogoPicker pickLogo;
   @override
@@ -602,6 +662,16 @@ class _ShopShell extends StatefulWidget {
 
 class _ShopShellState extends State<_ShopShell> {
   int tab = 0;
+
+  Widget _withBanner(Widget body) {
+    final feed = widget.feed;
+    if (feed == null) return body;
+    return PaymentBannerHost(
+      controller: feed,
+      onOpen: () => setState(() => tab = 2),
+      child: body,
+    );
+  }
 
   void _openProfile() {
     final controller = widget.shop;
@@ -623,6 +693,8 @@ class _ShopShellState extends State<_ShopShell> {
           gateway: gateway,
           wallet: wallet,
           onExpired: widget.session.expire,
+          transfer: widget.transfer,
+          shopActive: widget.session.identity?.shop?.active == true,
         ),
       ),
     );
@@ -646,258 +718,285 @@ class _ShopShellState extends State<_ShopShell> {
       },
       child: Scaffold(
         backgroundColor: colors.background,
-        body: SafeArea(
-          bottom: false,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: tab == 2 && widget.sales != null
-                  ? SalesView(
-                      controller: widget.sales!,
-                      onRequest: (id) async {
-                        await widget.collect?.openRequest(id);
-                        if (mounted) setState(() => tab = 1);
-                      },
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        await controller?.refresh();
-                        await widget.session.validate();
-                      },
-                      child: ListView(
-                        key: PageStorageKey('shop-tab-$tab'),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                        children: [
-                          Text(
-                            titles[tab],
-                            style: mText(
-                              context,
-                              20,
-                              28,
-                              weight: FontWeight.w600,
-                            ),
-                          ),
-                          if (tab == 0 && controller != null)
-                            ListenableBuilder(
-                              listenable: controller,
-                              builder: (context, _) {
-                                final owner =
-                                    controller.profile?.ownerName ?? '';
-                                if (owner.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Text(
-                                  _t(context, 'Hello, $owner', 'សួស្ដី $owner'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: mText(
-                                    context,
-                                    13,
-                                    20,
-                                    color: colors.disabledBackground,
-                                  ),
-                                );
-                              },
-                            ),
-                          const SizedBox(height: 16),
-                          if (tab == 0)
-                            if (controller != null)
-                              ShopHomeView(
-                                controller: controller,
-                                fallbackName: identityShop.name,
-                                onCollect: identityShop.active
-                                    ? () => setState(() => tab = 1)
-                                    : null,
-                                onSales: () => setState(() => tab = 2),
-                                onEditShop: _openProfile,
-                                onOpenWallet: widget.gateway == null
-                                    ? null
-                                    : _openWallet,
-                                onSeeSales: () => setState(() => tab = 2),
-                                onReceipt: widget.gateway == null
-                                    ? null
-                                    : (r) => openReceipt(
-                                        context,
-                                        widget.gateway!,
-                                        r.reference,
-                                        onExpired: widget.session.expire,
-                                      ),
-                              )
-                            else
-                              _Unavailable(
-                                title: identityShop.name,
-                                message: _t(
-                                  context,
-                                  'Shop details are currently unavailable.',
-                                  'ព័ត៌មានហាងមិនអាចប្រើបានបណ្ដោះអាសន្ន។',
-                                ),
-                              )
-                          else if (tab == 1 &&
-                              widget.collect != null &&
-                              widget.gateway != null)
-                            CollectView(
-                              controller: widget.collect!,
-                              gateway: widget.gateway!,
-                              storeName:
-                                  controller?.shop?.storeName ??
-                                  identityShop.name,
-                              active: identityShop.active,
-                            )
-                          else if (tab == 1)
-                            _Unavailable(
-                              title: _t(
+        body: _withBanner(
+          SafeArea(
+            bottom: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: tab == 2 && widget.sales != null
+                    ? SalesView(
+                        controller: widget.sales!,
+                        onRequest: (id) async {
+                          await widget.collect?.openRequest(id);
+                          if (mounted) setState(() => tab = 1);
+                        },
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          await controller?.refresh();
+                          await widget.session.validate();
+                        },
+                        child: ListView(
+                          key: PageStorageKey('shop-tab-$tab'),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                          children: [
+                            Text(
+                              titles[tab],
+                              style: mText(
                                 context,
-                                'Collection unavailable',
-                                'មិនអាចទទួលប្រាក់បាន',
+                                20,
+                                28,
+                                weight: FontWeight.w600,
                               ),
-                              message: _t(
-                                context,
-                                'No payment request has been created. Your business wallets are ready to receive payments once collection is enabled.',
-                                'មិនមានសំណើទូទាត់ត្រូវបានបង្កើតទេ។ កាបូបអាជីវកម្មរបស់អ្នករួចរាល់សម្រាប់ទទួលការទូទាត់ពេលការទទួលប្រាក់ត្រូវបានបើក។',
-                              ),
-                            )
-                          else if (tab == 2)
-                            _Unavailable(
-                              title: _t(
-                                context,
-                                'Sales unavailable',
-                                'ការលក់មិនអាចប្រើបាន',
-                              ),
-                              message: _t(
-                                context,
-                                'Your payment history could not be loaded.',
-                                'មិនអាចទាញយកប្រវត្តិការទូទាត់របស់អ្នកបានទេ។',
-                              ),
-                            )
-                          else ...[
-                            if (controller != null) ...[
-                              ShopProfileCard(
-                                controller: controller,
-                                fallbackName: identityShop.name,
-                                onEdit: _openProfile,
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                            SectionTitle(
-                              _t(context, 'Preferences', 'ចំណូលចិត្ត'),
                             ),
-                            const SizedBox(height: 12),
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                widget.preferences.locale.languageCode,
-                              ),
-                              initialValue:
-                                  widget.preferences.locale.languageCode,
-                              decoration: InputDecoration(
-                                labelText: _t(context, 'Language', 'ភាសា'),
-                                prefixIcon: const Icon(Icons.translate_rounded),
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'en',
-                                  child: Text('English'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'km',
-                                  child: Text('ខ្មែរ'),
-                                ),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  widget.preferences.setLanguage(v);
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            DropdownButtonFormField<ThemeMode>(
-                              key: ValueKey(widget.preferences.themeMode),
-                              initialValue: widget.preferences.themeMode,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                labelText: _t(context, 'Appearance', 'រូបរាង'),
-                                prefixIcon: const Icon(Icons.contrast_rounded),
-                              ),
-                              items: [
-                                DropdownMenuItem(
-                                  value: ThemeMode.system,
-                                  child: Text(
-                                    _t(context, 'System', 'ប្រព័ន្ធ'),
-                                  ),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.light,
-                                  child: Text(_t(context, 'Light', 'ភ្លឺ')),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.dark,
-                                  child: Text(_t(context, 'Dark', 'ងងឹត')),
-                                ),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) widget.preferences.setTheme(v);
-                              },
-                            ),
-                            const SizedBox(height: 24),
-                            SectionTitle(_t(context, 'Help', 'ជំនួយ')),
-                            const SizedBox(height: 8),
-                            Material(
-                              color: colors.surface,
-                              clipBehavior: Clip.antiAlias,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(color: colors.border),
-                              ),
-                              child: ListTile(
-                                leading: const Icon(
-                                  Icons.support_agent_outlined,
-                                ),
-                                title: Text(_t(context, 'Support', 'ជំនួយ')),
-                                subtitle: const Text('reachsteav2@gmail.com'),
-                                trailing: const Icon(
-                                  Icons.copy_rounded,
-                                  size: 20,
-                                ),
-                                onTap: () async {
-                                  await Clipboard.setData(
-                                    const ClipboardData(
-                                      text: 'reachsteav2@gmail.com',
+                            if (tab == 0 && controller != null)
+                              ListenableBuilder(
+                                listenable: controller,
+                                builder: (context, _) {
+                                  final owner =
+                                      controller.profile?.ownerName ?? '';
+                                  if (owner.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Text(
+                                    _t(
+                                      context,
+                                      'Hello, $owner',
+                                      'សួស្ដី $owner',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: mText(
+                                      context,
+                                      13,
+                                      20,
+                                      color: colors.disabledBackground,
                                     ),
                                   );
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          _t(
-                                            context,
-                                            'Support address copied',
-                                            'បានចម្លងអាសយដ្ឋានជំនួយ',
-                                          ),
+                                },
+                              ),
+                            const SizedBox(height: 16),
+                            if (tab == 0)
+                              if (controller != null)
+                                ShopHomeView(
+                                  controller: controller,
+                                  fallbackName: identityShop.name,
+                                  onCollect: identityShop.active
+                                      ? () => setState(() => tab = 1)
+                                      : null,
+                                  onSales: () => setState(() => tab = 2),
+                                  onEditShop: _openProfile,
+                                  onOpenWallet: widget.gateway == null
+                                      ? null
+                                      : _openWallet,
+                                  onSeeSales: () => setState(() => tab = 2),
+                                  onReceipt: widget.gateway == null
+                                      ? null
+                                      : (r) => openReceipt(
+                                          context,
+                                          widget.gateway!,
+                                          r.reference,
+                                          onExpired: widget.session.expire,
                                         ),
-                                      ),
-                                    );
+                                )
+                              else
+                                _Unavailable(
+                                  title: identityShop.name,
+                                  message: _t(
+                                    context,
+                                    'Shop details are currently unavailable.',
+                                    'ព័ត៌មានហាងមិនអាចប្រើបានបណ្ដោះអាសន្ន។',
+                                  ),
+                                )
+                            else if (tab == 1 &&
+                                widget.collect != null &&
+                                widget.gateway != null)
+                              CollectView(
+                                controller: widget.collect!,
+                                gateway: widget.gateway!,
+                                storeName:
+                                    controller?.shop?.storeName ??
+                                    identityShop.name,
+                                active: identityShop.active,
+                              )
+                            else if (tab == 1)
+                              _Unavailable(
+                                title: _t(
+                                  context,
+                                  'Collection unavailable',
+                                  'មិនអាចទទួលប្រាក់បាន',
+                                ),
+                                message: _t(
+                                  context,
+                                  'No payment request has been created. Your business wallets are ready to receive payments once collection is enabled.',
+                                  'មិនមានសំណើទូទាត់ត្រូវបានបង្កើតទេ។ កាបូបអាជីវកម្មរបស់អ្នករួចរាល់សម្រាប់ទទួលការទូទាត់ពេលការទទួលប្រាក់ត្រូវបានបើក។',
+                                ),
+                              )
+                            else if (tab == 2)
+                              _Unavailable(
+                                title: _t(
+                                  context,
+                                  'Sales unavailable',
+                                  'ការលក់មិនអាចប្រើបាន',
+                                ),
+                                message: _t(
+                                  context,
+                                  'Your payment history could not be loaded.',
+                                  'មិនអាចទាញយកប្រវត្តិការទូទាត់របស់អ្នកបានទេ។',
+                                ),
+                              )
+                            else ...[
+                              if (controller != null) ...[
+                                ShopProfileCard(
+                                  controller: controller,
+                                  fallbackName: identityShop.name,
+                                  onEdit: _openProfile,
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+                              SectionTitle(
+                                _t(context, 'Preferences', 'ចំណូលចិត្ត'),
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(
+                                  widget.preferences.locale.languageCode,
+                                ),
+                                initialValue:
+                                    widget.preferences.locale.languageCode,
+                                decoration: InputDecoration(
+                                  labelText: _t(context, 'Language', 'ភាសា'),
+                                  prefixIcon: const Icon(
+                                    Icons.translate_rounded,
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'en',
+                                    child: Text('English'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'km',
+                                    child: Text('ខ្មែរ'),
+                                  ),
+                                ],
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    widget.preferences.setLanguage(v);
                                   }
                                 },
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(48, 52),
-                                foregroundColor: colors.error,
-                                side: BorderSide(color: colors.border),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                              const SizedBox(height: 16),
+                              DropdownButtonFormField<ThemeMode>(
+                                key: ValueKey(widget.preferences.themeMode),
+                                initialValue: widget.preferences.themeMode,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  labelText: _t(
+                                    context,
+                                    'Appearance',
+                                    'រូបរាង',
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.contrast_rounded,
+                                  ),
+                                ),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: ThemeMode.system,
+                                    child: Text(
+                                      _t(context, 'System', 'ប្រព័ន្ធ'),
+                                    ),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: ThemeMode.light,
+                                    child: Text(_t(context, 'Light', 'ភ្លឺ')),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: ThemeMode.dark,
+                                    child: Text(_t(context, 'Dark', 'ងងឹត')),
+                                  ),
+                                ],
+                                onChanged: (v) {
+                                  if (v != null) widget.preferences.setTheme(v);
+                                },
+                              ),
+                              const SizedBox(height: 24),
+                              SectionTitle(
+                                _t(
+                                  context,
+                                  'Payment alerts',
+                                  'ការជូនដំណឹងការទូទាត់',
                                 ),
                               ),
-                              onPressed: widget.session.signOut,
-                              icon: const Icon(Icons.logout),
-                              label: Text(_t(context, 'Sign out', 'ចាកចេញ')),
-                            ),
+                              const SizedBox(height: 8),
+                              PaymentAlertSettings(
+                                preferences: widget.preferences,
+                              ),
+                              const SizedBox(height: 24),
+                              SectionTitle(_t(context, 'Help', 'ជំនួយ')),
+                              const SizedBox(height: 8),
+                              Material(
+                                color: colors.surface,
+                                clipBehavior: Clip.antiAlias,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: BorderSide(color: colors.border),
+                                ),
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.support_agent_outlined,
+                                  ),
+                                  title: Text(_t(context, 'Support', 'ជំនួយ')),
+                                  subtitle: const Text('reachsteav2@gmail.com'),
+                                  trailing: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 20,
+                                  ),
+                                  onTap: () async {
+                                    await Clipboard.setData(
+                                      const ClipboardData(
+                                        text: 'reachsteav2@gmail.com',
+                                      ),
+                                    );
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                _t(
+                                                  context,
+                                                  'Support address copied',
+                                                  'បានចម្លងអាសយដ្ឋានជំនួយ',
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(48, 52),
+                                  foregroundColor: colors.error,
+                                  side: BorderSide(color: colors.border),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: widget.session.signOut,
+                                icon: const Icon(Icons.logout),
+                                label: Text(_t(context, 'Sign out', 'ចាកចេញ')),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
         ),
