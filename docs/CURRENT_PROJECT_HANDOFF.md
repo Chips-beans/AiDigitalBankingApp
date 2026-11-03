@@ -2,6 +2,8 @@
 
 Updated 3 November 2026, Asia/Phnom_Penh (UTC+07:00).
 
+Next work: `MERCHANT_REMAINING_WORK_PLAN.md` (M7, M8, gaps, M9).
+
 Latest M5/M6 checkpoint: Merchant dashboard, wallets, fixed-amount and reusable
 QR collection plus the Customer verified-shop payment path, migration V20. Backend
 211/211. Not applied to development; no APK/device payment yet. Read

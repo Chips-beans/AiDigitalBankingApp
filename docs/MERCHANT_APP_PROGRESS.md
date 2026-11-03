@@ -17,6 +17,13 @@ Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
   `NEXT_SESSION_BRIEF.md`, copy the report to this chat's outputs, and notify user.
   Periodic checks are not continuous background monitoring; unavailable is not zero.
 
+## Next work: follow MERCHANT_REMAINING_WORK_PLAN.md
+
+The implementation plan for everything left (M7 sales/receipts/reports and QR
+sharing, M8 live payment alerts and owner transfers, small gaps, M9 pilot APKs)
+is `MERCHANT_REMAINING_WORK_PLAN.md`. Implementing agents start there. APKs are
+built only in M9 and only after the user approves.
+
 ## Merchant M5 + M6 source complete - 3 November 2026
 
 Dashboard, wallet details and QR collection (fixed-amount requests and the

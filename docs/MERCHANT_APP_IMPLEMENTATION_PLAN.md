@@ -282,6 +282,8 @@ for device integration. Exact evidence and runtime boundaries are in the progres
 
 ## 12. M7 — Sales, receipts and reports
 
+Detailed build instructions for M7–M9: [MERCHANT_REMAINING_WORK_PLAN.md](MERCHANT_REMAINING_WORK_PLAN.md).
+
 **Deliverables**
 
 - Merchant-scoped paginated Sales with date, currency, status and reference filters.
