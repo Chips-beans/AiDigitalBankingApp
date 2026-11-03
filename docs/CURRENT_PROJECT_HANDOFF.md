@@ -1,6 +1,42 @@
 # Current project handoff — Kesor Bank
 
-Updated 31 October 2026, Asia/Phnom_Penh (UTC+07:00).
+Updated 3 November 2026, Asia/Phnom_Penh (UTC+07:00).
+
+User-authorized M7 commit checkpoint: full M7 plus F1–F6, documentation and Codex
+contributor/co-author credit are included in this commit. Branch
+`merchant-m4-shop-registration`; see `git log -1` for its ID. No push/merge.
+`.claude/` is excluded and preserved. Only contributor/checkpoint documentation
+changed since the passing 220 backend / 73 Merchant / 220-render checks.
+Earlier uncommitted statements below are historical; runtime/device limits remain.
+
+M7 F1–F6 follow-up complete: timezone regression, exact human rate text, EN/KM
+payment counts, capped/effective request expiry, concurrent-update retry notices,
+Sales title and concrete OpenAPI types. Backend **220/220**, Merchant **73/73**,
+analysis clean; **220** no-overflow renders, five requested renders inspected.
+Customer source unchanged (prior 251 tests not rerun). Read the new top brief and
+`MERCHANT_M7_SALES.md`. No APK/dev runtime/database/commit; M8/M9 not started.
+This supersedes the original M7 test counts immediately below.
+
+Latest M7 checkpoint: sales/history, immutable receipts, daily/monthly collection
+reports, request history and native QR/receipt sharing are source/automated
+complete. Backend **219/219**, Merchant **66/66**, Customer **251/251**; analyses
+clean; **220** no-overflow renders, seven inspected including Khmer/dark/2x text.
+Read `MERCHANT_M7_SALES.md` and the new session-brief top section. No migration,
+development DB access/restart, APK or device acceptance. Native Android compilation
+and real gallery/share-sheet behavior remain unverified. M7 is uncommitted on
+`merchant-m4-shop-registration` / `669154d`; M4/M5/M6 are already committed.
+M8/M9 were not started; a future task may follow `MERCHANT_REMAINING_WORK_PLAN.md`.
+This note supersedes the older branch/commit/milestone statements below.
+
+Latest M5/M6 checkpoint: Merchant dashboard, wallets, fixed-amount and reusable
+QR collection plus the Customer verified-shop payment path, migration V20. Backend
+211/211. Not applied to development; no APK/device payment yet. Read
+`MERCHANT_M5_M6_COLLECTION.md`.
+
+Latest M4 checkpoint: shop registration/profile/logo and KHR+USD business wallets
+implemented with migration V19. Backend 203/203, Merchant Flutter 42/42, 106
+renders. V19 not yet applied to development; no APK/device acceptance yet. Read
+`MERCHANT_M4_SHOP.md`. Git: `main` at `a88b061`, M4 uncommitted.
 
 Latest M3 checkpoint: COMPLETE for development. Both apps installed; user
 privately approved Customer sign-in and confirmed return to the expected Merchant

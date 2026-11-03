@@ -45,6 +45,12 @@ abstract interface class RestorableMerchantAuth implements MerchantAuthGateway {
   Future<void> reopen();
 }
 
+/// Supplies the current Merchant access token to shop APIs, rotating it first
+/// when it is about to expire. Never exposes refresh credentials.
+abstract interface class MerchantAccess {
+  Future<String> accessToken();
+}
+
 enum MerchantAuthIssue {
   unavailable,
   offline,

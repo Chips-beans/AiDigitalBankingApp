@@ -36,6 +36,7 @@ public class QrPaymentServiceImpl implements QrPaymentService {
     private final TransactionLockPolicy locks;
     private final jakarta.persistence.EntityManager entities;
     private final com.bank.digital_banking.module.transaction.service.ExchangeRates rates;
+    private final com.bank.digital_banking.module.merchant.service.MerchantSettlement merchants;
 
     @Override @Transactional
     public QrGenerateResponse generateQr(User user, QrGenerateRequest request) {
@@ -44,6 +45,8 @@ public class QrPaymentServiceImpl implements QrPaymentService {
         account = accounts.findLockedByNumber(account.getAccountNumber()).orElseThrow();
         entities.refresh(account, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         active(account);
+        if (account.getAccountCategory() == AccountCategory.MERCHANT)
+            throw bad("MERCHANT_QR_IN_MERCHANT_APP", "Create business QR codes in Kesor Merchant");
         String currency = CurrencyUtils.currency(request.currency());
         if (!account.getCurrency().equals(currency)) throw bad("CURRENCY_MISMATCH", "QR currency must match its account");
         boolean dynamic = request.amount() != null && request.amount().signum() > 0;
@@ -118,9 +121,18 @@ public class QrPaymentServiceImpl implements QrPaymentService {
         var qr = engine.parse(request.qrString());
         var payment = registered(qr, false);
         var destination = destination(qr.getAccountNumber(), qr.getCurrency());
+        var payee = merchants.payee(destination);
+        merchants.requireCollecting(payee);
+        var shopRequest = qr.isDynamic() ? merchants.request(payment.getId(), false) : null;
+        boolean paid = qr.isDynamic() && payment.getStatus() == PaymentStatus.SUCCESS;
+        // A paid request still previews as paid; an expired or cancelled one cannot be paid.
+        if (!paid) merchants.requirePayable(shopRequest);
         return new QrScanResponse(true, qr.getQrString(), qr.getQrHash(), destination.getAccountNumber(),
-                name(destination.getUser()), qr.getAmount(), qr.getCurrency(), qr.isDynamic(), qr.getAcquiringBank(),
-                qr.getRemark(), qr.getBillNumber(), qr.isDynamic() && payment.getStatus() == PaymentStatus.SUCCESS);
+                payeeName(destination, payee), qr.getAmount(), qr.getCurrency(), qr.isDynamic(), qr.getAcquiringBank(),
+                qr.getRemark(), qr.getBillNumber(), paid,
+                payee == null ? null : new QrScanResponse.Merchant(payee.merchantCode(), payee.storeName(),
+                        payee.categoryCode(), payee.hasLogo(), true),
+                shopRequest == null ? null : shopRequest.expiresAt());
     }
 
     @Override @Transactional
@@ -145,6 +157,8 @@ public class QrPaymentServiceImpl implements QrPaymentService {
         var payment = registered(qr, true);
         var source = owner(user, request.sourceAccountNumber());
         var destination = destination(qr.getAccountNumber(), qr.getCurrency());
+        var payee = merchants.payee(destination);
+        merchants.requireCollecting(payee);
         active(source);
         // The request currency is the paying account's currency; a different QR currency is
         // converted at the fixed rate. A fixed request is paid with the exact equivalent debit.
@@ -160,6 +174,9 @@ public class QrPaymentServiceImpl implements QrPaymentService {
                 : CurrencyUtils.amount(request.amount(), currency, false);
         if (qr.isDynamic() && payment.getStatus() == PaymentStatus.SUCCESS)
             throw new ApiException(HttpStatus.CONFLICT, "PAYMENT_ALREADY_COMPLETED", "This request has already been paid");
+        // Locked after the payment row: serialized against the shop cancelling the request.
+        var shopRequest = qr.isDynamic() ? merchants.request(payment.getId(), true) : null;
+        merchants.requirePayable(shopRequest);
         String remark = request.remark() == null ? qr.getRemark() : request.remark();
         var transaction = commands.executeQr(user, key,
                 source.getAccountNumber(), destination.getAccountNumber(), amount, currency, remark);
@@ -168,8 +185,9 @@ public class QrPaymentServiceImpl implements QrPaymentService {
             payment.setTransactionId(transaction.getId());
             payments.save(payment);
         }
+        merchants.record(payee, shopRequest, destination, source, user, transaction);
         var response = new QrTransferResponse(transaction.getReferenceNumber(), "COMPLETED", source.getAccountNumber(),
-                destination.getAccountNumber(), name(destination.getUser()), amount, currency, remark,
+                destination.getAccountNumber(), payeeName(destination, payee), amount, currency, remark,
                 transaction.getCreatedAt().toLocalDateTime(), transaction);
         jdbc.update("UPDATE qr_transfer_requests SET response_json=? WHERE actor_user_id=? AND request_key=?",
                 json.writeValueAsString(response), user.getId(), key);
@@ -202,6 +220,9 @@ public class QrPaymentServiceImpl implements QrPaymentService {
         if (account.getStatus() != AccountStatus.ACTIVE) throw bad("ACCOUNT_INACTIVE", "Account is not active");
     }
     private static ApiException bad(String code, String message) { return new ApiException(HttpStatus.BAD_REQUEST, code, message); }
+    private static String payeeName(Account destination, com.bank.digital_banking.module.merchant.service.MerchantSettlement.Payee payee) {
+        return payee != null ? payee.storeName() : name(destination.getUser());
+    }
     private static String name(User user) {
         String name = ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim();
         return name.isEmpty() ? user.getUsername() : name;

@@ -8,7 +8,13 @@ import '../auth/session_controller.dart';
 
 /// A receiver resolved by the server from an account number.
 class Recipient {
-  const Recipient(this.accountNumber, this.currency, this.name, this.hasPhoto);
+  const Recipient(
+    this.accountNumber,
+    this.currency,
+    this.name,
+    this.hasPhoto, {
+    this.verifiedShop = false,
+  });
   factory Recipient.fromJson(Object? value) {
     final data = objectData(value);
     final number = textField(data, 'accountNumber');
@@ -28,6 +34,9 @@ class Recipient {
   }
   final String accountNumber, currency, name;
   final bool hasPhoto;
+
+  /// A Kesor Merchant shop confirmed by the server from its QR.
+  final bool verifiedShop;
 }
 
 /// Exact amounts the server will debit and credit for a transfer.
@@ -37,7 +46,10 @@ class TransferQuote {
     final data = objectData(value);
     final converted = data['converted'];
     if (converted is! bool) {
-      throw const ApiFailure('INVALID_RESPONSE', 'The quote could not be verified.');
+      throw const ApiFailure(
+        'INVALID_RESPONSE',
+        'The quote could not be verified.',
+      );
     }
     return TransferQuote(
       Money.parse(data['debitAmount'], textField(data, 'debitCurrency')),
@@ -82,7 +94,13 @@ abstract interface class TransferSupportGateway {
   Future<String> transferProof(String token, String pin);
 }
 
-class HttpTransferSupportGateway implements TransferSupportGateway {
+/// Optional: an active shop's logo for a verified Merchant QR payee.
+abstract interface class ShopLogoSource {
+  Future<Uint8List?> shopLogo(String token, String merchantId);
+}
+
+class HttpTransferSupportGateway
+    implements TransferSupportGateway, ShopLogoSource {
   HttpTransferSupportGateway(this.client);
   final ApiClient client;
 
@@ -106,6 +124,27 @@ class HttpTransferSupportGateway implements TransferSupportGateway {
           '/accounts/lookup/photo',
           accessToken: token,
           query: {'number': accountNumber},
+        ))['data'],
+      );
+      final bytes = base64Decode(textField(data, 'imageBase64'));
+      return bytes.length > 5 * 1024 * 1024 ? null : bytes;
+    } on ApiFailure catch (e) {
+      if (e.status == 404) return null;
+      rethrow;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Future<Uint8List?> shopLogo(String token, String merchantId) async {
+    if (!RegExp(r'^MCH-[A-Z0-9]{8}$').hasMatch(merchantId)) return null;
+    try {
+      final data = objectData(
+        (await client.request(
+          'GET',
+          '/payments/merchants/$merchantId/logo',
+          accessToken: token,
         ))['data'],
       );
       final bytes = base64Decode(textField(data, 'imageBase64'));
@@ -189,6 +228,21 @@ class RecipientDirectory {
           return null;
         }
       });
+
+  Future<Uint8List?> shopLogo(String merchantId) {
+    final source = gateway;
+    if (source is! ShopLogoSource) return Future.value(null);
+    return _photos.putIfAbsent('shop:$merchantId', () async {
+      try {
+        return await session.authorizedRead(
+          (token) => (source as ShopLogoSource).shopLogo(token, merchantId),
+        );
+      } catch (_) {
+        _photos.remove('shop:$merchantId');
+        return null;
+      }
+    });
+  }
 
   void clear() {
     _recipients.clear();

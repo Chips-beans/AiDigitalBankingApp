@@ -52,6 +52,11 @@ public class Account {
     @Column(name = "merchant_id")
     private Long merchantId;
 
+    /** Read-only: a business wallet is shown by its shop name, never the owner's personal name. */
+    @org.hibernate.annotations.Formula("(select m.store_name from merchants m where m.id = merchant_id)")
+    @Setter(AccessLevel.NONE)
+    private String merchantStoreName;
+
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 

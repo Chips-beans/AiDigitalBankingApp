@@ -16,11 +16,19 @@ import java.util.*;
 public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiErrorResponse> photoTooLarge(Exception ex, HttpServletRequest r) {
+        if (r.getRequestURI().startsWith("/api/v1/merchants/me/"))
+            return error(413, "MERCHANT_LOGO_TOO_LARGE", "Choose a JPG or PNG logo up to 5 MB", r);
         return error(413, "PROFILE_PHOTO_TOO_LARGE", "Choose a JPG or PNG up to 5 MB", r);
     }
     @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
     public ResponseEntity<ApiErrorResponse> missingPart(Exception ex, HttpServletRequest r) {
-        return error(400, "INVALID_REQUEST", "Choose a profile photo", r);
+        return error(400, "INVALID_REQUEST", r.getRequestURI().startsWith("/api/v1/merchants/me/")
+                ? "Choose a shop logo" : "Choose a profile photo", r);
+    }
+    @ExceptionHandler(org.springframework.web.bind.MissingRequestHeaderException.class)
+    public ResponseEntity<ApiErrorResponse> missingHeader(org.springframework.web.bind.MissingRequestHeaderException ex, HttpServletRequest r) {
+        return error(400, "Idempotency-Key".equalsIgnoreCase(ex.getHeaderName()) ? "IDEMPOTENCY_KEY_REQUIRED" : "INVALID_REQUEST",
+                "A required request header is missing", r);
     }
     @ExceptionHandler(org.springframework.jdbc.UncategorizedSQLException.class)
     public ResponseEntity<ApiErrorResponse> jdbcFailure(org.springframework.jdbc.UncategorizedSQLException ex, HttpServletRequest r) {

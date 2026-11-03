@@ -110,6 +110,18 @@ class TransferDraft {
 }
 
 /// Values carried into the transfer screen from Home recipients or a QR scan.
+/// A shop verified by the server from a scanned Kesor Merchant QR.
+class ShopPayee {
+  const ShopPayee({
+    required this.merchantId,
+    required this.storeName,
+    required this.currency,
+    required this.hasLogo,
+  });
+  final String merchantId, storeName, currency;
+  final bool hasLogo;
+}
+
 class TransferPrefill {
   const TransferPrefill(
     this.destination, {
@@ -117,9 +129,13 @@ class TransferPrefill {
     this.qrString,
     this.fixedAmount,
     this.qrRemark,
+    this.shop,
   });
   final String destination;
   final String? name, qrString, qrRemark;
+
+  /// Set when the QR pays a business wallet; its name replaces a person lookup.
+  final ShopPayee? shop;
 
   /// The QR's fixed amount in the receiving currency, if any.
   final Money? fixedAmount;

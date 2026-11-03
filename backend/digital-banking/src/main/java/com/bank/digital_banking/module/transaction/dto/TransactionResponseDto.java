@@ -60,11 +60,18 @@ public class TransactionResponseDto {
                 .creditAmount(converted ? transaction.getCreditAmount() : transaction.getAmount())
                 .creditCurrency(converted ? transaction.getCreditCurrency() : transaction.getCurrency())
                 .exchangeRate(converted ? transaction.getExchangeRate() : null)
-                .sourceName(source == null ? BANK_NAME : displayName(source.getUser()))
-                .destinationName(destination == null ? null : displayName(destination.getUser()))
+                .sourceName(source == null ? BANK_NAME : accountName(source))
+                .destinationName(destination == null ? null : accountName(destination))
                 .bankSource(source == null)
                 .operation(transaction.getOperation())
                 .build();
+    }
+
+    /** Shop name for business wallets; the holder's display name otherwise. */
+    public static String accountName(com.bank.digital_banking.module.account.entity.Account account) {
+        if (account.getAccountCategory() == com.bank.digital_banking.module.account.entity.AccountCategory.MERCHANT
+                && account.getMerchantStoreName() != null) return account.getMerchantStoreName();
+        return displayName(account.getUser());
     }
 
     public static String displayName(com.bank.digital_banking.module.auth.entity.User user) {
