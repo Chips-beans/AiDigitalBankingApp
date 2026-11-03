@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../collect/merchant_collect.dart';
+import '../collect/wallet_page.dart' show ReceiptRow;
 import 'merchant_shop.dart';
 import 'shop_controller.dart';
 import 'shop_widgets.dart';
@@ -15,6 +17,8 @@ class ShopHomeView extends StatelessWidget {
     required this.onCollect,
     required this.onSales,
     required this.onEditShop,
+    this.onOpenWallet,
+    this.onSeeSales,
     super.key,
   });
   final ShopController controller;
@@ -22,6 +26,8 @@ class ShopHomeView extends StatelessWidget {
   final VoidCallback? onCollect;
   final VoidCallback onSales;
   final VoidCallback onEditShop;
+  final ValueChanged<ShopWallet>? onOpenWallet;
+  final VoidCallback? onSeeSales;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -107,6 +113,10 @@ class ShopHomeView extends StatelessWidget {
               ],
             ),
           ),
+          if (shop != null) ...[
+            const SizedBox(height: 16),
+            TodayCard(dashboard: controller.dashboard),
+          ],
           const SizedBox(height: 24),
           SectionTitle(
             t(context, 'Business wallets', 'កាបូបអាជីវកម្ម'),
@@ -126,7 +136,10 @@ class ShopHomeView extends StatelessWidget {
               ),
             ),
           for (final wallet in profile?.wallets ?? const <ShopWallet>[]) ...[
-            WalletTile(wallet: wallet),
+            WalletTile(
+              wallet: wallet,
+              onTap: onOpenWallet == null ? null : () => onOpenWallet!(wallet),
+            ),
             const SizedBox(height: 10),
           ],
           const SizedBox(height: 6),
@@ -138,10 +151,125 @@ class ShopHomeView extends StatelessWidget {
             ),
             style: mText(context, 12, 18, color: colors.disabledBackground),
           ),
+          if (shop != null) ...[
+            const SizedBox(height: 24),
+            SectionTitle(
+              t(context, 'Recent payments', 'ការទូទាត់ថ្មីៗ'),
+              trailing: onSeeSales == null
+                  ? null
+                  : TextButton(
+                      onPressed: onSeeSales,
+                      child: Text(t(context, 'See all', 'មើលទាំងអស់')),
+                    ),
+            ),
+            const SizedBox(height: 4),
+            RecentPayments(
+              receipts: controller.dashboard?.recent ?? const [],
+              limit: 5,
+            ),
+          ],
         ],
       );
     },
   );
+}
+
+/// Today's confirmed QR collections per currency (Asia/Phnom_Penh day).
+/// Collections are sales received, kept apart from wallet balances.
+class TodayCard extends StatelessWidget {
+  const TodayCard({required this.dashboard, super.key});
+  final ShopDashboard? dashboard;
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final totals = {
+      for (final t in dashboard?.today ?? const <CurrencyTotal>[])
+        t.currency: t,
+    };
+    return SurfaceCard(
+      key: const ValueKey('today-collections'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionTitle(
+            t(context, 'Today’s collections', 'ប្រាក់ទទួលបានថ្ងៃនេះ'),
+          ),
+          const SizedBox(height: 12),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final currency in const ['KHR', 'USD']) ...[
+                  if (currency == 'USD')
+                    VerticalDivider(width: 24, color: colors.border),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text(
+                            dashboard == null
+                                ? '—'
+                                : shopAmount(
+                                    totals[currency]?.gross ?? '0',
+                                    currency,
+                                  ),
+                            key: ValueKey('today-$currency'),
+                            style: mText(
+                              context,
+                              20,
+                              28,
+                              weight: FontWeight.w600,
+                              color: merchantNavy(context),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          t(
+                            context,
+                            '${totals[currency]?.count ?? 0} payments',
+                            'ការទូទាត់ ${totals[currency]?.count ?? 0}',
+                          ),
+                          style: mText(
+                            context,
+                            12,
+                            18,
+                            color: colors.disabledBackground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RecentPayments extends StatelessWidget {
+  const RecentPayments({required this.receipts, this.limit, super.key});
+  final List<ShopReceipt> receipts;
+  final int? limit;
+  @override
+  Widget build(BuildContext context) {
+    if (receipts.isEmpty) {
+      return NoticeBanner(
+        t(
+          context,
+          'No payments yet. Show your QR from Collect to get paid.',
+          'មិនទាន់មានការទូទាត់ទេ។ បង្ហាញ QR ពីផ្ទាំងទទួលប្រាក់ដើម្បីទទួលការទូទាត់។',
+        ),
+      );
+    }
+    final shown = limit == null ? receipts : receipts.take(limit!).toList();
+    return Column(children: [for (final r in shown) ReceiptRow(r)]);
+  }
 }
 
 class _ShopCard extends StatelessWidget {
@@ -250,12 +378,13 @@ class _ShopCard extends StatelessWidget {
 }
 
 class WalletTile extends StatelessWidget {
-  const WalletTile({required this.wallet, super.key});
+  const WalletTile({required this.wallet, this.onTap, super.key});
   final ShopWallet wallet;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return SurfaceCard(
+    final card = SurfaceCard(
       key: ValueKey('wallet-${wallet.currency}'),
       padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       child: Row(
@@ -325,6 +454,17 @@ class WalletTile extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+    if (onTap == null) return card;
+    return Semantics(
+      button: true,
+      label: walletLabel(context, wallet.currency),
+      child: GestureDetector(
+        key: ValueKey('open-wallet-${wallet.currency}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: card,
       ),
     );
   }

@@ -11,8 +11,9 @@ activation state are tracked in [MERCHANT_APP_PROGRESS.md](MERCHANT_APP_PROGRESS
 The audit snapshots below remain historical evidence.
 
 M4 update: section 6 routes are implemented; see [MERCHANT_M4_SHOP.md](MERCHANT_M4_SHOP.md).
-Decision: the legacy `GET /merchants/me/accounts` keeps Customer-session behaviour
-until M5 replaces it with the Merchant-session `/merchants/me/accounts` contract.
+Decision: the legacy `GET /merchants/me/accounts` keeps Customer-session behaviour;
+M5 Merchant wallets are served at `/merchants/me/wallets/{number}` instead
+(see [MERCHANT_M5_M6_COLLECTION.md](MERCHANT_M5_M6_COLLECTION.md)).
 
 ## 1. Evidence and preservation
 

@@ -81,7 +81,12 @@ void main() {
             'more',
             'recovery',
             'shop-profile',
+            'request-waiting',
+            'request-paid',
+            'wallet',
             if (variant.name == 'phone') ...[
+              'collect-shop-qr',
+              'request-cancelled',
               'waiting',
               'restricted',
               'pending-review',
@@ -139,6 +144,17 @@ void main() {
                 },
               );
             }
+            // Live collection screens keep second timers running; settle by time.
+            final live = screen.startsWith('request-');
+            if ({'home', 'sales', 'wallet'}.contains(screen)) {
+              final made = await gateway.createRequest(
+                'qa-${'k' * 20}',
+                currency: 'KHR',
+                amount: '25000',
+                orderReference: variant.km ? 'តុលេខ ៤' : 'Table 4',
+              );
+              gateway.pay(made.id);
+            }
             final store = MemoryHandoffStore();
             if (screen == 'registration-saved') {
               store.values['registration-1'] = jsonEncode({
@@ -178,6 +194,56 @@ void main() {
             } else if (tab > 0) {
               await tester.tap(find.byType(NavigationDestination).at(tab));
               await tester.pumpAndSettle();
+            } else if (screen == 'wallet') {
+              await tester.ensureVisible(
+                find.byKey(const ValueKey('open-wallet-KHR')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('open-wallet-KHR')));
+              await tester.pumpAndSettle();
+            } else if (screen == 'collect-shop-qr') {
+              await tester.tap(find.byType(NavigationDestination).at(1));
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('collect-mode')));
+              await tester.tap(find.byIcon(Icons.qr_code_2_rounded).last);
+              await tester.pumpAndSettle();
+            } else if (live) {
+              await tester.tap(find.byType(NavigationDestination).at(1));
+              await tester.pumpAndSettle();
+              await tester.enterText(
+                find.byKey(const ValueKey('collect-amount')),
+                '25000',
+              );
+              await tester.enterText(
+                find.byKey(const ValueKey('collect-order')),
+                variant.km ? 'តុលេខ ៤' : 'Table 4',
+              );
+              await tester.ensureVisible(
+                find.byKey(const ValueKey('collect-create')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.byKey(const ValueKey('collect-create')));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 200));
+              if (screen == 'request-paid') {
+                gateway.pay(gateway.requests.keys.single);
+                await tester.pump(const Duration(seconds: 2));
+                await tester.pump(const Duration(milliseconds: 200));
+              } else if (screen == 'request-cancelled') {
+                await tester.ensureVisible(
+                  find.byKey(const ValueKey('request-cancel')),
+                );
+                await tester.pump();
+                await tester.tap(find.byKey(const ValueKey('request-cancel')));
+                await tester.pump();
+                await tester.pump(const Duration(milliseconds: 200));
+              }
+              // Back to the top without a pull-to-refresh gesture.
+              tester
+                  .state<ScrollableState>(find.byType(Scrollable).first)
+                  .position
+                  .jumpTo(0);
+              await tester.pump(const Duration(milliseconds: 500));
             }
             expect(
               tester.takeException(),
@@ -193,7 +259,7 @@ void main() {
                 format: ui.ImageByteFormat.png,
               );
               final file = File(
-                '.local/qa/m4/$screen-${variant.name}-${brightness.name}.png',
+                '.local/qa/m6/$screen-${variant.name}-${brightness.name}.png',
               );
               await file.parent.create(recursive: true);
               await file.writeAsBytes(data!.buffer.asUint8List());
@@ -206,7 +272,11 @@ void main() {
                 find.byType(Scrollable).first,
                 const Offset(0, -2000),
               );
-              await tester.pumpAndSettle();
+              if (live) {
+                await tester.pump(const Duration(milliseconds: 500));
+              } else {
+                await tester.pumpAndSettle();
+              }
               expect(tester.takeException(), isNull);
             }
             await tester.pumpWidget(const SizedBox.shrink());

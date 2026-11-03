@@ -62,6 +62,10 @@ public class FinancialPostingService {
         Account source = sourceNumber == null ? null : locked.get(sourceNumber);
         if (destination == null || (sourceNumber != null && (source == null || !source.getUser().getId().equals(actor.getId()))))
             throw new ResourceNotFoundException("Account not available");
+        // Business wallets only receive here; owner transfers need M8's approved intents.
+        if (source != null && source.getAccountCategory() == AccountCategory.MERCHANT)
+            throw new ApiException(HttpStatus.FORBIDDEN, "MERCHANT_WALLET_RESTRICTED",
+                    "Business wallet transfers are made in Kesor Merchant");
         for (Account account : locked.values()) {
             if (account.getStatus() != AccountStatus.ACTIVE)
                 throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_INACTIVE", "Account is not active");

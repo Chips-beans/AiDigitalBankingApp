@@ -1,5 +1,16 @@
 # Kesor Bank — next session brief
 
+## Merchant M5 + M6 source complete - 3 November 2026
+
+Dashboard, wallet details and QR collection (fixed-amount requests and the
+reusable shop QR) are implemented with migration V20, plus the Customer scan/pay
+side (verified shop name/logo, expiry/cancel/inactive checks, shop name on
+receipts). Read `MERCHANT_M5_M6_COLLECTION.md`. Full backend **211/211**;
+Merchant Flutter 53; Customer Flutter 251; 146 Merchant renders. **Pending:** V19+V20 not applied
+to development, no APKs built/installed, no device payment. Business-wallet
+debits are blocked until M8 owner transfers. Work is on branch
+`merchant-m4-shop-registration` (M4 committed as `7b711d5`; M5/M6 uncommitted).
+
 ## Merchant M4 source complete - 3 November 2026
 
 Shop registration, shop profile/logo and the two business wallets are implemented

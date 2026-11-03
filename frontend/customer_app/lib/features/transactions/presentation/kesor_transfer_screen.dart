@@ -138,6 +138,34 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
       lookingUp = false;
     });
     final directory = widget.directory;
+    final shop = qr?.shop;
+    if (shop != null && number == qr!.destination) {
+      // A scanned shop is verified by the QR scan; business wallets have no
+      // person lookup, so show the shop and its logo instead.
+      setState(() {
+        recipient = Recipient(
+          number,
+          shop.currency,
+          shop.storeName,
+          shop.hasLogo,
+          verifiedShop: true,
+        );
+        lookupMessage = number == selected?.number
+            ? tx(
+                context,
+                'This is your selected wallet. Choose another receiver.',
+              )
+            : null;
+      });
+      if (shop.hasLogo && directory != null) {
+        directory.shopLogo(shop.merchantId).then((logo) {
+          if (current && destination.text.trim() == number) {
+            setState(() => recipientPhoto = logo);
+          }
+        });
+      }
+      return;
+    }
     if (directory == null || !RegExp(r'^[0-9]{10,20}$').hasMatch(number)) {
       return;
     }
@@ -159,7 +187,10 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
         lookupMessage = found == null
             ? tx(context, 'No active Kesor account uses this number.')
             : found.accountNumber == selected?.number
-            ? tx(context, 'This is your selected wallet. Choose another receiver.')
+            ? tx(
+                context,
+                'This is your selected wallet. Choose another receiver.',
+              )
             : null;
       });
       if (found?.hasPhoto == true) {
@@ -401,7 +432,9 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                               directory: widget.directory,
                               number: recipient.number,
                             ),
-                      subtitle: Text('${recipient.number} · ${recipient.currency}'),
+                      subtitle: Text(
+                        '${recipient.number} · ${recipient.currency}',
+                      ),
                       onTap: () {
                         if (!current || model.busy) return;
                         model.edit();
@@ -848,6 +881,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
           : AppPalette.navy500,
     ),
   );
+
   /// The server-verified receiver for the entered number.
   Widget _recipientCard() {
     final colors = AppColors.of(context);
@@ -888,7 +922,35 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
                       : found?.name ?? lookupMessage ?? '',
                   style: _type(context, 14, 22, weight: FontWeight.w500),
                 ),
-                if (found != null)
+                if (found?.verifiedShop == true)
+                  Row(
+                    key: const ValueKey('transfer-verified-shop'),
+                    children: [
+                      const Icon(
+                        Icons.verified_rounded,
+                        size: 14,
+                        color: AppPalette.semanticSuccess,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          tr(
+                            context,
+                            'Verified Kesor shop',
+                            'ហាងកេសរដែលបានផ្ទៀងផ្ទាត់',
+                          ),
+                          style: _type(
+                            context,
+                            12,
+                            18,
+                            weight: FontWeight.w500,
+                            color: AppPalette.semanticSuccess,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else if (found != null)
                   Text(
                     '${found.accountNumber} · ${found.currency}',
                     style: _type(

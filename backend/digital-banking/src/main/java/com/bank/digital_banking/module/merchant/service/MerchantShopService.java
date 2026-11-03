@@ -177,6 +177,18 @@ public class MerchantShopService {
                 .orElseThrow(() -> new com.bank.digital_banking.common.exception.ResourceNotFoundException("Logo not available"));
     }
 
+    /** Payment preview for Customers: only an active shop's logo, never owner data. */
+    @Transactional(readOnly = true)
+    public Logo paymentPreviewLogo(String merchantCode) {
+        if (merchantCode == null || !merchantCode.matches("MCH-[A-Z0-9]{8}"))
+            throw new com.bank.digital_banking.common.exception.ResourceNotFoundException("Logo not available");
+        return jdbc.query("""
+                SELECT l.content_type,l.image_data FROM merchant_logos l JOIN merchants m ON m.id=l.merchant_id
+                WHERE m.merchant_id=? AND m.status='ACTIVE' AND l.status='ATTACHED'
+                """, (r, i) -> new Logo(r.getString(1), r.getBytes(2)), merchantCode).stream().findFirst()
+                .orElseThrow(() -> new com.bank.digital_banking.common.exception.ResourceNotFoundException("Logo not available"));
+    }
+
     @Scheduled(fixedDelay = 600000, initialDelay = 120000)
     @Transactional
     public void sweepStagedLogos() {
@@ -185,6 +197,21 @@ public class MerchantShopService {
                     AND created_at < CURRENT_TIMESTAMP - INTERVAL '1 day' LIMIT 200 FOR UPDATE SKIP LOCKED)
                 """);
     }
+
+    /** The owner's one shop; callers hold the owner lock from the Merchant session check. */
+    public record OwnedShop(long id, String code, String name, String status) {
+        public boolean active() { return "ACTIVE".equals(status); }
+    }
+
+    public OwnedShop requireShop(User owner) {
+        var shops = jdbc.query("SELECT id,merchant_id,store_name,status::text FROM merchants WHERE owner_user_id=? ORDER BY id LIMIT 2",
+                (r, i) -> new OwnedShop(r.getLong(1), r.getString(2), r.getString(3), r.getString(4)), owner.getId());
+        if (shops.isEmpty()) throw new ApiException(HttpStatus.CONFLICT, "MERCHANT_REGISTRATION_REQUIRED", "Register a shop first");
+        if (shops.size() > 1) throw new ApiException(HttpStatus.CONFLICT, "MERCHANT_RECOVERY_REQUIRED", "This shop needs support review");
+        return shops.getFirst();
+    }
+
+    public Profile profileOf(User owner) { return profile(owner(owner)); }
 
     private User owner(User user) {
         return users.findById(user.getId()).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED,

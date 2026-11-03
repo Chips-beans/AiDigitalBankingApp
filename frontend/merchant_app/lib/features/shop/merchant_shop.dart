@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../collect/merchant_collect.dart';
+
 /// Server allowlist (M4). Labels are local; only the code is sent.
 @immutable
 class ShopCategory {
@@ -159,7 +161,8 @@ class ShopFailure implements Exception {
   String toString() => code;
 }
 
-abstract interface class MerchantShopGateway {
+/// All Merchant-session shop APIs; the collection half is [MerchantCollectGateway].
+abstract interface class MerchantShopGateway implements MerchantCollectGateway {
   Future<ShopProfile> load();
   Future<ShopProfile> register(String idempotencyKey, ShopDraft draft);
   Future<ShopProfile> update(int version, Map<String, Object?> changes);

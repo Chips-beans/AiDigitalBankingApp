@@ -19,5 +19,11 @@ public record QrScanResponse(
         String acquiringBank,
         String remark,
         String billNumber,
-        boolean isAlreadyPaid
-) {}
+        boolean isAlreadyPaid,
+        /** Verified shop identity when the QR pays a business wallet; null for people. */
+        Merchant merchant,
+        /** Expiry of a shop's fixed-amount request; null otherwise. */
+        java.time.OffsetDateTime expiresAt
+) {
+    public record Merchant(String merchantId, String storeName, String categoryCode, boolean hasLogo, boolean verified) {}
+}

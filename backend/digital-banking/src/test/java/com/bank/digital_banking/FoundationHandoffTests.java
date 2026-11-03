@@ -36,7 +36,7 @@ class FoundationHandoffTests {
             }
             var upgraded = Flyway.configure().dataSource(url, "postgres", "postgres").load();
             upgraded.migrate(); upgraded.validate();
-            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("19");
+            assertThat(upgraded.info().current().getVersion().getVersion()).isEqualTo("20");
             try (var connection = java.sql.DriverManager.getConnection(url); var statement = connection.createStatement()) {
                 try (var row = statement.executeQuery("SELECT profile_complete FROM users WHERE username='native.upgrade'")) {
                     assertThat(row.next()).isTrue(); assertThat(row.getBoolean(1)).isTrue();
@@ -73,8 +73,8 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(18);
-                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("19");
+                assertThat(flyway.info().applied()).hasSize(19);
+                assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("20");
                 assertThat(flyway.info().pending()).isEmpty();
 
                 sender = signup("handoff.sender", smtp);
@@ -158,7 +158,7 @@ class FoundationHandoffTests {
                 use(app);
                 var flyway = app.getBean(Flyway.class);
                 flyway.validate();
-                assertThat(flyway.info().applied()).hasSize(18);
+                assertThat(flyway.info().applied()).hasSize(19);
                 assertThat(flyway.info().pending()).isEmpty();
                 assertThat(ok("POST","/merchant-auth/exchange",null,null,merchantExchange,200)).isEqualTo(merchantTokens);
                 assertThat(ok("GET","/merchant-auth/session",merchantTokens.path("accessToken").asText(),null,null,200)

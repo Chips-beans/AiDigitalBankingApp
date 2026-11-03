@@ -1,7 +1,7 @@
 # Kesor Merchant — implementation plan and milestones
 
 Date: 31 October 2026, Asia/Phnom_Penh.
-Status: M0-M3 complete for development; M4 source/automated complete (device acceptance pending); M5-M9 not started; M10-M13 deferred.
+Status: M0-M3 complete for development; M4-M6 source/automated complete (device acceptance pending); M7-M9 not started; M10-M13 deferred.
 Audit decisions and contracts: [MERCHANT_M0_CONTRACTS.md](MERCHANT_M0_CONTRACTS.md).
 Current evidence/checkpoint: [MERCHANT_APP_PROGRESS.md](MERCHANT_APP_PROGRESS.md).
 This plan does not authorize production deployment. Milestone evidence and acceptance limits are recorded in the progress/handoff documents.
@@ -84,8 +84,8 @@ the approval/session gap; remaining shop/payment gaps belong to later milestones
 | M2 | Backend sign-in approval and Merchant sessions | M0 | Complete (source and isolated verification) |
 | M3 | Customer approval and complete app-to-app sign-in | M1, M2 | Complete: automated/APK checks and user-confirmed native round trip + restore |
 | M4 | Shop registration, logo/profile and paired wallets | M3 | Source + automated complete; V19 live apply and device acceptance pending ([details](MERCHANT_M4_SHOP.md)) |
-| M5 | Dashboard, wallets and navigation | M4 | Not started |
-| M6 | QR collection and verified payment confirmation | M5 | Not started |
+| M5 | Dashboard, wallets and navigation | M4 | Source + automated complete; device acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
+| M6 | QR collection and verified payment confirmation | M5 | Source + automated complete; live payment acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
 | M7 | Sales, receipts and collection reports | M6 | Not started |
 | M8 | Owner transfers, security and settings | M5, M6 | Not started |
 | M9 | Integrated regression, device acceptance and pilot APKs | M7, M8 | Not started |

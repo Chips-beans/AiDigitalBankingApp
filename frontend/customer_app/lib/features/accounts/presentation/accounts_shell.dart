@@ -363,6 +363,7 @@ class _AccountsShellState extends State<AccountsShell> {
                   qrString: preview.payload,
                   fixedAmount: preview.dynamic ? preview.amount : null,
                   qrRemark: preview.remark,
+                  shop: preview.shop,
                 ),
               ),
             ),

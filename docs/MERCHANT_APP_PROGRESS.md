@@ -7,7 +7,8 @@ Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
 - User authorized implementation beginning at M0 and requested usage-aware reports.
 - M0-M3 are COMPLETE for the adopted development scope. The user confirmed
   native approval/return and restore. M4 source and automated checks are complete;
-  its live V19/APK/device acceptance is pending. M5-M9 not started; M10-M13 deferred.
+  its live V19/APK/device acceptance is pending. M5+M6 source and automated checks
+  are complete (V20; device acceptance pending). M7-M9 not started; M10-M13 deferred.
 - Branch: `main`; HEAD: `a88b061` (M3 committed). M4 changes are uncommitted.
 - Preserve the existing uncommitted scanner implementation and planning documents.
 - Last usage snapshot for M2: 78% remaining in five-hour window, 29% in weekly window.
@@ -15,6 +16,17 @@ Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
   percentage falls below 10%, immediately save a detailed checkpoint here and in
   `NEXT_SESSION_BRIEF.md`, copy the report to this chat's outputs, and notify user.
   Periodic checks are not continuous background monitoring; unavailable is not zero.
+
+## Merchant M5 + M6 source complete - 3 November 2026
+
+Dashboard, wallet details and QR collection (fixed-amount requests and the
+reusable shop QR) are implemented with migration V20, plus the Customer scan/pay
+side (verified shop name/logo, expiry/cancel/inactive checks, shop name on
+receipts). Read `MERCHANT_M5_M6_COLLECTION.md`. Full backend **211/211**;
+Merchant Flutter 53; Customer Flutter 251; 146 Merchant renders. **Pending:** V19+V20 not applied
+to development, no APKs built/installed, no device payment. Business-wallet
+debits are blocked until M8 owner transfers. Work is on branch
+`merchant-m4-shop-registration` (M4 committed as `7b711d5`; M5/M6 uncommitted).
 
 ## Merchant M4 source complete - 3 November 2026
 

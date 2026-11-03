@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
 
+import '../collect/merchant_collect.dart';
 import 'merchant_shop.dart';
 
 /// A registration intent saved with its idempotency key before sending.
@@ -31,6 +32,9 @@ class ShopController extends ChangeNotifier {
   String get _slot => 'registration-$ownerId';
 
   ShopProfile? profile;
+
+  /// Today's totals and recent payments; null until the first successful load.
+  ShopDashboard? dashboard;
   PendingRegistration? pending;
   ShopFailure? failure;
   ShopNotice notice = ShopNotice.none;
@@ -63,7 +67,9 @@ class ShopController extends ChangeNotifier {
     failure = null;
     _notify();
     try {
-      _accept(await gateway.load());
+      final loaded = await gateway.dashboard();
+      dashboard = loaded;
+      _accept(loaded.profile);
       if (profile?.shop != null && pending != null) await _savePending(null);
     } on ShopFailure catch (e) {
       _fail(e);

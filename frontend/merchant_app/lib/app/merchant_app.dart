@@ -13,6 +13,9 @@ import 'package:kesor_auth_handoff/kesor_auth_handoff.dart'
 import '../core/merchant_preferences.dart';
 import '../core/merchant_strings.dart';
 import '../features/auth/merchant_session.dart';
+import '../features/collect/collect_controller.dart';
+import '../features/collect/collect_view.dart';
+import '../features/collect/wallet_page.dart';
 import '../features/shop/merchant_shop.dart';
 import '../features/shop/register_shop_page.dart';
 import '../features/shop/shop_controller.dart';
@@ -47,6 +50,7 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
   bool covered = false;
   Timer? validation;
   ShopController? shop;
+  CollectController? collect;
   final navigator = GlobalKey<NavigatorState>();
   MerchantPhase? _phase;
   late final HandoffStore _shopStore = widget.shopStore ?? MemoryHandoffStore();
@@ -81,16 +85,29 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
     if (wanted) {
       if (shop?.ownerId == identity.ownerId) return;
       shop?.dispose();
-      shop = ShopController(
+      collect?.dispose();
+      final owned = ShopController(
         widget.shopGateway!,
         _shopStore,
         ownerId: identity.ownerId,
         onExpired: session.expire,
       );
-      unawaited(shop!.initialize());
+      shop = owned;
+      // A confirmed payment refreshes balances and today's totals.
+      collect = CollectController(
+        widget.shopGateway!,
+        _shopStore,
+        ownerId: identity.ownerId,
+        onPaid: () => unawaited(owned.refresh()),
+        onExpired: session.expire,
+      );
+      unawaited(owned.initialize());
+      unawaited(collect!.resume());
     } else if (session.phase == MerchantPhase.signedOut && shop != null) {
       shop!.dispose();
+      collect?.dispose();
       shop = null;
+      collect = null;
     }
   }
 
@@ -100,6 +117,7 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
     widget.session.removeListener(_syncShop);
     validation?.cancel();
     shop?.dispose();
+    collect?.dispose();
     super.dispose();
   }
 
@@ -183,6 +201,8 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
               preferences: prefs,
               session: widget.session,
               shop: shop,
+              collect: collect,
+              gateway: widget.shopGateway,
               pickLogo: widget.pickLogo,
             ),
           },
@@ -554,11 +574,15 @@ class _ShopShell extends StatefulWidget {
     required this.session,
     required this.shop,
     required this.pickLogo,
+    this.collect,
+    this.gateway,
     super.key,
   });
   final MerchantPreferences preferences;
   final MerchantSession session;
   final ShopController? shop;
+  final CollectController? collect;
+  final MerchantShopGateway? gateway;
   final LogoPicker pickLogo;
   @override
   State<_ShopShell> createState() => _ShopShellState();
@@ -574,6 +598,20 @@ class _ShopShellState extends State<_ShopShell> {
       MaterialPageRoute<void>(
         builder: (_) =>
             ShopProfilePage(controller: controller!, pickLogo: widget.pickLogo),
+      ),
+    );
+  }
+
+  void _openWallet(ShopWallet wallet) {
+    final gateway = widget.gateway;
+    if (gateway == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => WalletDetailPage(
+          gateway: gateway,
+          wallet: wallet,
+          onExpired: widget.session.expire,
+        ),
       ),
     );
   }
@@ -635,21 +673,6 @@ class _ShopShellState extends State<_ShopShell> {
                         },
                       ),
                     const SizedBox(height: 16),
-                    if (tab != 0 && tab != 3 && !identityShop.active) ...[
-                      _Unavailable(
-                        title: _t(
-                          context,
-                          'Shop access is restricted',
-                          'ការចូលប្រើហាងត្រូវបានកម្រិត',
-                        ),
-                        message: _t(
-                          context,
-                          'Contact support for help with your shop status.',
-                          'ទាក់ទងផ្នែកគាំទ្រសម្រាប់ជំនួយអំពីស្ថានភាពហាង។',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     if (tab == 0)
                       if (controller != null)
                         ShopHomeView(
@@ -660,6 +683,10 @@ class _ShopShellState extends State<_ShopShell> {
                               : null,
                           onSales: () => setState(() => tab = 2),
                           onEditShop: _openProfile,
+                          onOpenWallet: widget.gateway == null
+                              ? null
+                              : _openWallet,
+                          onSeeSales: () => setState(() => tab = 2),
                         )
                       else
                         _Unavailable(
@@ -670,6 +697,16 @@ class _ShopShellState extends State<_ShopShell> {
                             'ព័ត៌មានហាងមិនអាចប្រើបានបណ្ដោះអាសន្ន។',
                           ),
                         )
+                    else if (tab == 1 &&
+                        widget.collect != null &&
+                        widget.gateway != null)
+                      CollectView(
+                        controller: widget.collect!,
+                        gateway: widget.gateway!,
+                        storeName:
+                            controller?.shop?.storeName ?? identityShop.name,
+                        active: identityShop.active,
+                      )
                     else if (tab == 1)
                       _Unavailable(
                         title: _t(
@@ -681,6 +718,39 @@ class _ShopShellState extends State<_ShopShell> {
                           context,
                           'No payment request has been created. Your business wallets are ready to receive payments once collection is enabled.',
                           'មិនមានសំណើទូទាត់ត្រូវបានបង្កើតទេ។ កាបូបអាជីវកម្មរបស់អ្នករួចរាល់សម្រាប់ទទួលការទូទាត់ពេលការទទួលប្រាក់ត្រូវបានបើក។',
+                        ),
+                      )
+                    else if (tab == 2 && controller != null)
+                      ListenableBuilder(
+                        listenable: controller,
+                        builder: (context, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TodayCard(dashboard: controller.dashboard),
+                            const SizedBox(height: 24),
+                            SectionTitle(
+                              _t(context, 'Recent payments', 'ការទូទាត់ថ្មីៗ'),
+                            ),
+                            const SizedBox(height: 4),
+                            RecentPayments(
+                              receipts:
+                                  controller.dashboard?.recent ?? const [],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _t(
+                                context,
+                                'Showing your latest 10 confirmed QR payments. Full sales history and reports are coming next.',
+                                'បង្ហាញការទូទាត់ QR ចុងក្រោយ ១០ ដែលបានបញ្ជាក់។ ប្រវត្តិការលក់ពេញលេញ និងរបាយការណ៍នឹងមកដល់បន្ទាប់។',
+                              ),
+                              style: mText(
+                                context,
+                                12,
+                                18,
+                                color: colors.disabledBackground,
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     else if (tab == 2)

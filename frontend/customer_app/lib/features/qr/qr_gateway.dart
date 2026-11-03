@@ -1,6 +1,7 @@
 import '../../core/network/api_client.dart';
 import '../../shared/money.dart';
 import '../accounts/account_gateway.dart';
+import '../transactions/transfer_models.dart' show ShopPayee;
 
 class AccountQr {
   AccountQr.fromJson(Object? value) {
@@ -60,11 +61,39 @@ class QrPreview {
       throw invalidAccountData;
     }
     remark = data['remark'] as String?;
+    final merchant = data['merchant'];
+    if (merchant is Map) {
+      final id = merchant['merchantId'], store = merchant['storeName'];
+      if (merchant['verified'] != true ||
+          id is! String ||
+          !RegExp(r'^MCH-[A-Z0-9]{8}$').hasMatch(id) ||
+          store is! String ||
+          store.trim().isEmpty ||
+          store.length > 150 ||
+          store != name) {
+        throw invalidAccountData;
+      }
+      shop = ShopPayee(
+        merchantId: id,
+        storeName: store,
+        currency: currency,
+        hasLogo: merchant['hasLogo'] == true,
+      );
+    } else {
+      shop = null;
+    }
+    expiresAt = DateTime.tryParse('${data['expiresAt']}');
   }
   late final String payload, hash, destination, name, currency;
   late final bool dynamic, paid;
   late final Money? amount;
   late final String? remark;
+
+  /// The verified shop for a Kesor Merchant QR; null for personal QR codes.
+  late final ShopPayee? shop;
+
+  /// When a shop's fixed-amount request stops accepting payment.
+  late final DateTime? expiresAt;
 }
 
 abstract interface class QrGateway {

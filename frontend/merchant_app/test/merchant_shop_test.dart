@@ -12,6 +12,7 @@ import 'package:merchant_app/core/merchant_config.dart';
 import 'package:merchant_app/core/merchant_preferences.dart';
 import 'package:merchant_app/features/auth/merchant_api_auth.dart';
 import 'package:merchant_app/features/auth/merchant_session.dart';
+import 'package:merchant_app/features/collect/merchant_collect.dart';
 import 'package:merchant_app/features/shop/merchant_shop.dart';
 import 'package:merchant_app/features/shop/merchant_shop_api.dart';
 import 'package:merchant_app/features/shop/shop_controller.dart';
@@ -68,6 +69,159 @@ class FakeShopGateway implements MerchantShopGateway {
   ShopFailure? nextRegister, nextUpdate, nextLoad;
   Completer<void>? registerGate;
   int loads = 0, uploads = 0;
+
+  // ---- collection (M5/M6) ----
+  List<ShopReceipt> recent = const [];
+  final requests = <String, PaymentRequest>{};
+  final createKeys = <String>[];
+  ShopFailure? nextCreate, nextStatus;
+  DateTime serverNow = DateTime.utc(2026, 11, 3, 3);
+  int statusChecks = 0, cancels = 0;
+
+  @override
+  Future<ShopDashboard> dashboard() async {
+    final profile = await load();
+    return ShopDashboard(
+      profile: profile,
+      businessDate: '2026-11-03',
+      today: [
+        CurrencyTotal(
+          'KHR',
+          recent.where((r) => r.currency == 'KHR').length,
+          recent.isEmpty ? '0' : '25000',
+        ),
+        CurrencyTotal(
+          'USD',
+          recent.where((r) => r.currency == 'USD').length,
+          '0.00',
+        ),
+      ],
+      recent: recent,
+    );
+  }
+
+  @override
+  Future<WalletPage> wallet(String accountNumber, {int page = 0}) async =>
+      WalletPage(
+        profile.wallets.firstWhere((w) => w.accountNumber == accountNumber),
+        [
+          for (final r in recent)
+            WalletActivity(
+              reference: r.reference,
+              kind: 'QR_PAYMENT',
+              incoming: true,
+              amount: r.amount,
+              currency: r.currency,
+              payerName: r.payerName,
+              payerAccount: r.payerAccount,
+              createdAt: r.paidAt,
+            ),
+        ],
+        page,
+        false,
+      );
+
+  @override
+  Future<ShopQr> shopQr(String currency) async => ShopQr(
+    qrString: '00020101021129${currency}static',
+    currency: currency,
+    accountNumber: currency == 'KHR' ? '1234567890' : '2234567890',
+    storeName: profile.shop?.storeName ?? 'Shop',
+  );
+
+  PaymentRequest _make(
+    String id,
+    String currency,
+    String amount,
+    RequestStatus status, {
+    ShopReceipt? receipt,
+    String? order,
+  }) => PaymentRequest(
+    id: id,
+    reference: 'PRABCDEFGH23',
+    status: status,
+    currency: currency,
+    amount: amount,
+    orderReference: order,
+    qrString: status == RequestStatus.waiting ? '000201010212$id' : null,
+    expiresAt: serverNow.add(const Duration(minutes: 5)),
+    serverTime: serverNow,
+    receipt: receipt,
+  );
+
+  @override
+  Future<PaymentRequest> createRequest(
+    String key, {
+    required String currency,
+    required String amount,
+    String? orderReference,
+  }) async {
+    createKeys.add(key);
+    final failure = nextCreate;
+    nextCreate = null;
+    final id =
+        '00000000-0000-4000-8000-${createKeys.length.toString().padLeft(12, '0')}';
+    final made = _make(
+      id,
+      currency,
+      amount,
+      RequestStatus.waiting,
+      order: orderReference,
+    );
+    requests[id] = made;
+    if (failure != null) throw failure;
+    return made;
+  }
+
+  @override
+  Future<PaymentRequest> requestStatus(String id) async {
+    statusChecks++;
+    final failure = nextStatus;
+    nextStatus = null;
+    if (failure != null) throw failure;
+    final found = requests[id];
+    if (found == null) {
+      throw const ShopFailure('RESOURCE_NOT_FOUND', status: 404);
+    }
+    return found;
+  }
+
+  @override
+  Future<PaymentRequest> cancelRequest(String id) async {
+    cancels++;
+    final found = requests[id]!;
+    if (found.status != RequestStatus.waiting) return found;
+    return requests[id] = _make(
+      id,
+      found.currency,
+      found.amount,
+      RequestStatus.cancelled,
+    );
+  }
+
+  /// Simulates a customer paying a waiting request on the server.
+  void pay(String id) {
+    final found = requests[id]!;
+    final receipt = ShopReceipt(
+      reference: 'TXN-0001',
+      currency: found.currency,
+      amount: found.amount,
+      paidCurrency: 'USD',
+      paidAmount: '6.25',
+      payerName: 'Sophea',
+      payerAccount: '•••• 4321',
+      paidAt: serverNow,
+      requestReference: found.reference,
+    );
+    requests[id] = _make(
+      id,
+      found.currency,
+      found.amount,
+      RequestStatus.paid,
+      receipt: receipt,
+    );
+    recent = [receipt, ...recent];
+  }
 
   @override
   Future<ShopProfile> load() async {
@@ -604,8 +758,23 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Kesor Coffee'), findsOneWidget);
         expect(find.text('MCH-AB23CD45'), findsOneWidget);
-        expect(find.text('0 ៛'), findsOneWidget);
-        expect(find.text(r'$0.00'), findsOneWidget);
+        // Wallet balances and today's collections are shown separately.
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('wallet-balance-KHR')))
+              .data,
+          '0 ៛',
+        );
+        expect(
+          tester.widget<Text>(find.byKey(const ValueKey('today-KHR'))).data,
+          '0 ៛',
+        );
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('wallet-balance-USD')))
+              .data,
+          r'$0.00',
+        );
         expect(find.text('1234567890'), findsOneWidget);
         expect(find.text('Hello, Dara'), findsOneWidget);
 

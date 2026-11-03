@@ -2,6 +2,11 @@
 
 Updated 3 November 2026, Asia/Phnom_Penh (UTC+07:00).
 
+Latest M5/M6 checkpoint: Merchant dashboard, wallets, fixed-amount and reusable
+QR collection plus the Customer verified-shop payment path, migration V20. Backend
+211/211. Not applied to development; no APK/device payment yet. Read
+`MERCHANT_M5_M6_COLLECTION.md`.
+
 Latest M4 checkpoint: shop registration/profile/logo and KHR+USD business wallets
 implemented with migration V19. Backend 203/203, Merchant Flutter 42/42, 106
 renders. V19 not yet applied to development; no APK/device acceptance yet. Read

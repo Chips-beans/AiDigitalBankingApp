@@ -68,6 +68,8 @@ public class RecipientLookupService {
     private Account resolve(String number) {
         return accounts.findByAccountNumber(number)
                 .filter(a -> a.getStatus() == AccountStatus.ACTIVE)
+                // Shops are paid by QR; a business wallet number never reveals its owner.
+                .filter(a -> a.getAccountCategory() != com.bank.digital_banking.module.account.entity.AccountCategory.MERCHANT)
                 .orElseThrow(() -> new ResourceNotFoundException("Account not available"));
     }
 
