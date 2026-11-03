@@ -1,6 +1,6 @@
 # Digital Banking Customer App
 
-Start with the [current project handoff](../../docs/CURRENT_PROJECT_HANDOFF.md) for
+Start with the [progress and agent guide](../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md) for
 the latest progress, verification limits, next steps, and restart instructions.
 
 The Figma colors and English/Khmer typography are available through the shared
@@ -12,7 +12,7 @@ The current welcome screen offers **Continue with Telegram** and **Continue with
 Email**. Email uses a single verification-code flow for both new and returning
 customers. Telegram browser approval needs no additional app OTP. New identities
 complete their first and last names before banking access; existing profiles keep
-their data. See [unified authentication setup](../../docs/UNIFIED_AUTH_SETUP.md)
+their data. See [CUSTOMER_APP.md](../../docs/CUSTOMER_APP.md) section 2
 for browser callback configuration, identity linking, and updated API contracts.
 For a local release web build, use `flutter build web --dart-define=APP_ENV=dev`;
 production builds continue to require an HTTPS API.
@@ -21,14 +21,13 @@ The foundation implements customer registration, email OTP login, native session
 restoration, accounts, exact USD/KHR balances, internal transfer review and
 confirmation, restart-safe recovery, paginated history, read-only Profile, and
 logout using the existing Spring Boot API. Biometric authentication is excluded.
-See the [F5 handoff](../../docs/FOUNDATION_F5_HANDOFF.md),
-[setup guide](../../docs/FOUNDATION_LOCAL_SETUP.md), and
-[demo checklist](../../docs/FOUNDATION_DEMO_CHECKLIST.md).
+See the [progress and agent guide](../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md) (section 4) for setup and
+[CUSTOMER_APP.md](../../docs/CUSTOMER_APP.md) for the feature contracts.
 
 ## Run against the local backend
 
 Start one backend on port 8080 with
-[Gmail email settings](../../docs/GMAIL_EMAIL_SETUP.md). From the repository root:
+Gmail email settings (see the [guide](../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md), section 4). From the repository root:
 
 ```powershell
 cd frontend/customer_app
@@ -108,15 +107,14 @@ F3 adds Home, paginated own accounts, precise USD/KHR balances, explicit zero-ba
 opening, account details/status, recent activity, and read-only Profile. Account
 opening is never automatically replayed; uncertain outcomes are retained in secure
 storage across native restarts and require account review plus an explicit new
-decision. See [F3 delivery and QA](../../docs/FOUNDATION_F3_IMPLEMENTATION.md) for
-Gmail/native QA setup and results.
+decision. See [CUSTOMER_APP.md](../../docs/CUSTOMER_APP.md) section 4 for the current account behavior.
 
 F4 adds internal transfer entry, review and explicit confirmation, durable secure
 recovery using the original idempotency key, paginated history, and transaction
 details. Unknown outcomes require an explicit identical retry; restarting never
 sends automatically. Confirmed/rejected records remain until acknowledged, and
 unresolved records survive logout without exposing private details. Sending is
-available in native API mode. See [F4 delivery and QA](../../docs/FOUNDATION_F4_IMPLEMENTATION.md).
+available in native API mode. See [CUSTOMER_APP.md](../../docs/CUSTOMER_APP.md) section 5.
 
 ```powershell
 flutter analyze
@@ -135,7 +133,7 @@ the ordinary local Flutter tests above remain independent of email providers.
 Live tests use approved QA identities and their funded test balances, and never
 print credentials, OTPs, or tokens. Unit tests cover HTTP errors, native-storage
 contracts, renewal concurrency, privacy cleanup, validation, navigation, semantics,
-and small-screen/large-text layouts. See [F2 delivery and QA](../../docs/FOUNDATION_F2_IMPLEMENTATION.md).
+and small-screen/large-text layouts. See the [progress and agent guide](../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md) for the test conventions.
 
 ## Structure
 
@@ -158,8 +156,7 @@ Android 14/API 34 emulator `Codex_F2_API34` (port 5556), stored under
 customer/session and installation, refresh-token rotation, and persistent logout.
 The script force-stops and checks process termination between phases. Running
 without `--no-uninstall` would delete app data instead of testing persistence.
-See the [F2 QA evidence](../../docs/FOUNDATION_F2_IMPLEMENTATION.md) for the
-test-harness fixes and emulator limitations.
+Emulator limitations apply to this harness.
 
 The older `Codex_F2_QA` emulator remains under
 `D:\CodexQa\AiDigitalBankingF2\avd`; its failed system-service runs are not passing

@@ -10,8 +10,8 @@ shop/tab renders use injected test fixtures only; these are not live acceptance.
 
 The only sign-in action is **Continue with Kesor Bank**. Customer approval with
 the existing PIN and same-owner onboarding are defined in
-`../../docs/MERCHANT_M0_CONTRACTS.md`. Project progress and continuation steps are
-in `../../docs/MERCHANT_APP_PROGRESS.md`.
+`../../docs/MERCHANT_APP.md`. Project progress and continuation steps are
+in `../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md`.
 
 Shared palette, type roles and Material theme come from
 `../packages/kesor_design_system`; Customer's old imports re-export those same

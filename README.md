@@ -16,11 +16,12 @@ Shared Flutter packages live in `frontend/packages`.
 
 ## Documentation
 
-Start with [AGENTS.md](AGENTS.md), then
-[docs/NEXT_SESSION_BRIEF.md](docs/NEXT_SESSION_BRIEF.md) for the current state.
-Merchant milestones are tracked in
-[docs/MERCHANT_APP_PROGRESS.md](docs/MERCHANT_APP_PROGRESS.md), and the remaining
-work in [docs/MERCHANT_REMAINING_WORK_PLAN.md](docs/MERCHANT_REMAINING_WORK_PLAN.md).
+Start with [AGENTS.md](AGENTS.md), then the three project documents in `docs/`:
+
+- [docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md](docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md):
+  current progress, agent rules, setup, commands and open work.
+- [docs/CUSTOMER_APP.md](docs/CUSTOMER_APP.md): the Customer App and banking backend.
+- [docs/MERCHANT_APP.md](docs/MERCHANT_APP.md): the Merchant App contracts and build record.
 
 ## Built with
 

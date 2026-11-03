@@ -1,4 +1,4 @@
-// Opt-in live Gmail QA. See docs/FOUNDATION_F3_IMPLEMENTATION.md.
+// Opt-in live Gmail QA. See docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md (section 4).
 // Never reads captured inboxes or invents OTPs. Manual codes use a loopback bridge.
 import 'dart:convert';
 

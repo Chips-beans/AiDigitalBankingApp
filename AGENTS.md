@@ -2,20 +2,22 @@
 
 When interacting with Cloudflare, use the cf CLI unless the project has a Wrangler configuration file.
 
-Before continuing project work, read `docs/CURRENT_PROJECT_HANDOFF.md` and then the
-task-specific documents linked there. This handoff records the current implemented
-behavior, verification limits, intentionally stopped runtimes, and next steps.
-Read `docs/NEXT_SESSION_BRIEF.md` for the consolidated current state and unresolved
-issues before relying on the older chronological snapshots in the handoff.
+Before continuing project work, read `docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md`. It records
+the current status, agent rules, environment setup, commands, conventions, known limits and
+next steps. Then read the product document for the area you touch:
 
-The working tree contains substantial existing uncommitted and untracked work.
-Preserve it; do not reset or clean it as part of setup. Keep credentials in the
-ignored backend `.env` and out of documentation, logs, and Flutter builds.
+- `docs/CUSTOMER_APP.md` — Customer App and the shared banking backend.
+- `docs/MERCHANT_APP.md` — Merchant App decisions, contracts and the build record (M0–M8, M9 plan).
 
-For Merchant App implementation, read `docs/MERCHANT_APP_PROGRESS.md` and
-`docs/MERCHANT_M0_CONTRACTS.md` alongside the milestone plan. Keep progress and
-handoff evidence current at milestone boundaries. Check the available Codex usage
-tool before milestones and during long tasks; when either available usage window
-has less than 10% remaining, save a detailed progress/handoff report, update the
-session brief, and notify the user. Unavailable usage data is not zero. This is a
-reporting threshold, not an instruction to pause or abandon authorized work.
+Older per-milestone reports were consolidated into these three files; the last commit that
+still has them is `ccc10bd` (`git show ccc10bd:docs/<NAME>.md`). Do not recreate per-milestone
+report files; update the three documents instead.
+
+Preserve existing work in the tree; never reset or clean it as part of setup. Keep credentials
+in the ignored backend `.env` and out of documentation, logs, and Flutter builds.
+
+Keep progress and handoff evidence current at milestone boundaries (guide §2 and §8). Check the
+available usage tool before milestones and during long tasks; when either available usage window
+has less than 10% remaining, save a detailed checkpoint in the progress guide and notify the
+user. Unavailable usage data is not zero. This is a reporting threshold, not an instruction to
+pause or abandon authorized work.
