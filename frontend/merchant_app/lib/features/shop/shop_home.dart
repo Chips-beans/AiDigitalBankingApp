@@ -19,6 +19,7 @@ class ShopHomeView extends StatelessWidget {
     required this.onEditShop,
     this.onOpenWallet,
     this.onSeeSales,
+    this.onReceipt,
     super.key,
   });
   final ShopController controller;
@@ -28,6 +29,7 @@ class ShopHomeView extends StatelessWidget {
   final VoidCallback onEditShop;
   final ValueChanged<ShopWallet>? onOpenWallet;
   final VoidCallback? onSeeSales;
+  final ValueChanged<ShopReceipt>? onReceipt;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -166,6 +168,7 @@ class ShopHomeView extends StatelessWidget {
             RecentPayments(
               receipts: controller.dashboard?.recent ?? const [],
               limit: 5,
+              onReceipt: onReceipt,
             ),
           ],
         ],
@@ -177,13 +180,21 @@ class ShopHomeView extends StatelessWidget {
 /// Today's confirmed QR collections per currency (Asia/Phnom_Penh day).
 /// Collections are sales received, kept apart from wallet balances.
 class TodayCard extends StatelessWidget {
-  const TodayCard({required this.dashboard, super.key});
+  const TodayCard({
+    required this.dashboard,
+    this.title,
+    this.suppliedTotals,
+    super.key,
+  });
   final ShopDashboard? dashboard;
+  final String? title;
+  final List<CurrencyTotal>? suppliedTotals;
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final totals = {
-      for (final t in dashboard?.today ?? const <CurrencyTotal>[])
+      for (final t
+          in suppliedTotals ?? dashboard?.today ?? const <CurrencyTotal>[])
         t.currency: t,
     };
     return SurfaceCard(
@@ -192,7 +203,7 @@ class TodayCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionTitle(
-            t(context, 'Today’s collections', 'ប្រាក់ទទួលបានថ្ងៃនេះ'),
+            title ?? t(context, 'Today’s collections', 'ប្រាក់ទទួលបានថ្ងៃនេះ'),
           ),
           const SizedBox(height: 12),
           IntrinsicHeight(
@@ -210,7 +221,7 @@ class TodayCard extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
                           child: Text(
-                            dashboard == null
+                            dashboard == null && suppliedTotals == null
                                 ? '—'
                                 : shopAmount(
                                     totals[currency]?.gross ?? '0',
@@ -227,11 +238,12 @@ class TodayCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          t(
-                            context,
-                            '${totals[currency]?.count ?? 0} payments',
-                            'ការទូទាត់ ${totals[currency]?.count ?? 0}',
-                          ),
+                          dashboard == null && suppliedTotals == null
+                              ? t(context, 'Payments', 'ការទូទាត់')
+                              : paymentCount(
+                                  context,
+                                  totals[currency]?.count ?? 0,
+                                ),
                           style: mText(
                             context,
                             12,
@@ -253,9 +265,15 @@ class TodayCard extends StatelessWidget {
 }
 
 class RecentPayments extends StatelessWidget {
-  const RecentPayments({required this.receipts, this.limit, super.key});
+  const RecentPayments({
+    required this.receipts,
+    this.limit,
+    this.onReceipt,
+    super.key,
+  });
   final List<ShopReceipt> receipts;
   final int? limit;
+  final ValueChanged<ShopReceipt>? onReceipt;
   @override
   Widget build(BuildContext context) {
     if (receipts.isEmpty) {
@@ -268,7 +286,12 @@ class RecentPayments extends StatelessWidget {
       );
     }
     final shown = limit == null ? receipts : receipts.take(limit!).toList();
-    return Column(children: [for (final r in shown) ReceiptRow(r)]);
+    return Column(
+      children: [
+        for (final r in shown)
+          ReceiptRow(r, onTap: onReceipt == null ? null : () => onReceipt!(r)),
+      ],
+    );
   }
 }
 

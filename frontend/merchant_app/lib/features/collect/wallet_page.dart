@@ -5,6 +5,7 @@ import 'package:kesor_design_system/kesor_design_system.dart';
 import '../../core/merchant_strings.dart';
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
+import '../sales/receipt_page.dart';
 import 'collect_view.dart' show shortTime;
 import 'merchant_collect.dart';
 
@@ -211,7 +212,18 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
                         'មិនទាន់មានសកម្មភាពទេ។ ការទូទាត់ QR ចូលកាបូបនេះនឹងបង្ហាញនៅទីនេះ។',
                       ),
                     ),
-                  for (final item in activity) ActivityRow(item),
+                  for (final item in activity)
+                    ActivityRow(
+                      item,
+                      onTap: item.kind == 'QR_PAYMENT'
+                          ? () => openReceipt(
+                              context,
+                              widget.gateway,
+                              item.reference,
+                              onExpired: widget.onExpired,
+                            )
+                          : null,
+                    ),
                   if (hasMore)
                     TextButton(
                       onPressed: loading ? null : _load,
@@ -228,8 +240,9 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
 }
 
 class ActivityRow extends StatelessWidget {
-  const ActivityRow(this.item, {super.key});
+  const ActivityRow(this.item, {this.onTap, super.key});
   final WalletActivity item;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -252,7 +265,7 @@ class ActivityRow extends StatelessWidget {
       if (item.payerName != null) '${item.payerName} · ${item.payerAccount}',
       shortTime(item.createdAt),
     ].join('\n');
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,30 +309,41 @@ class ActivityRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            '${item.incoming ? '+' : '−'}${shopAmount(item.amount, item.currency)}',
-            style: mText(
-              context,
-              14,
-              22,
-              weight: FontWeight.w600,
-              color: item.incoming
-                  ? AppPalette.semanticSuccess
-                  : colors.foreground,
+          Flexible(
+            child: Text(
+              '${item.incoming ? '+' : '−'}${shopAmount(item.amount, item.currency)}',
+              textAlign: TextAlign.end,
+              style: mText(
+                context,
+                14,
+                22,
+                weight: FontWeight.w600,
+                color: item.incoming
+                    ? AppPalette.semanticSuccess
+                    : colors.foreground,
+              ),
             ),
           ),
         ],
       ),
     );
+    return onTap == null
+        ? row
+        : Material(
+            color: Colors.transparent,
+            child: InkWell(onTap: onTap, child: row),
+          );
   }
 }
 
 /// A confirmed payment row for Home and Sales.
 class ReceiptRow extends StatelessWidget {
-  const ReceiptRow(this.receipt, {super.key});
+  const ReceiptRow(this.receipt, {this.onTap, super.key});
   final ShopReceipt receipt;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => ActivityRow(
+    onTap: onTap,
     WalletActivity(
       reference: receipt.reference,
       kind: 'QR_PAYMENT',

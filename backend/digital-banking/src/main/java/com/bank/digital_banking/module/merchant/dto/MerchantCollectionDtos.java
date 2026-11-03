@@ -18,7 +18,7 @@ public final class MerchantCollectionDtos {
     public record Totals(String currency, long count, String gross) {}
     public record Receipt(String reference, String currency, String amount, String paidCurrency, String paidAmount,
                              String payerName, String payerAccount, String requestReference, String orderReference,
-                             OffsetDateTime paidAt) {}
+                             OffsetDateTime paidAt, String storeName, String walletAccountNumber, String exchangeRate) {}
     /** Today's totals use Asia/Phnom_Penh business days; collections are not profit. */
     public record Dashboard(Profile profile, String businessDate, List<Totals> today, List<Receipt> recent,
                             OffsetDateTime serverTime) {}

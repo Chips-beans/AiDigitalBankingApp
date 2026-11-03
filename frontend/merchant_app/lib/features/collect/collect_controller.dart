@@ -127,6 +127,16 @@ class CollectController extends ChangeNotifier {
 
   Future<void> refresh() => _check();
 
+  /// History can reopen any request; status is revalidated before showing it.
+  Future<void> openRequest(String id) async {
+    if (creating || cancelling || _disposed) {
+      throw const ShopFailure('REQUEST_BUSY');
+    }
+    final value = await gateway.requestStatus(id);
+    if (_disposed) return;
+    _accept(value);
+  }
+
   /// Clears a finished request so the next one can start.
   Future<void> reset() async {
     if (waiting) return;
@@ -165,8 +175,11 @@ class CollectController extends ChangeNotifier {
     if (current == null || _polling || _disposed) return;
     _polling = true;
     try {
-      _accept(await gateway.requestStatus(current.id));
+      final value = await gateway.requestStatus(current.id);
+      if (_disposed || request?.id != current.id) return;
+      _accept(value);
     } on ShopFailure catch (e) {
+      if (_disposed || request?.id != current.id) return;
       if (e.expired) {
         _poll?.cancel();
         onExpired?.call();

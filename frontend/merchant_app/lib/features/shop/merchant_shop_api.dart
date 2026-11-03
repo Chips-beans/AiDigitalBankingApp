@@ -17,6 +17,56 @@ class MerchantShopApi implements MerchantShopGateway {
   final MerchantAccess access;
   final http.Client client;
 
+  Future<T> _readHistory<T>(
+    String path,
+    Map<String, String> query,
+    T Function(Map) parse,
+  ) async {
+    final data = await _send(
+      http.Request('GET', _uri(path).replace(queryParameters: query)),
+    );
+    return _guardParse(() => parse(data as Map));
+  }
+
+  @override
+  Future<SalesPage> sales(SalesFilter filter, {String? cursor}) => _readHistory(
+    '/merchants/me/sales',
+    {...filter.query, 'cursor': ?cursor},
+    SalesPage.fromJson,
+  );
+  @override
+  Future<ShopReceipt> receipt(String reference) {
+    if (reference.isEmpty ||
+        reference.length > 36 ||
+        !RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(reference)) {
+      throw const ShopFailure('RESOURCE_NOT_FOUND', status: 404);
+    }
+    return _readHistory(
+      '/merchants/me/sales/$reference',
+      {},
+      ShopReceipt.fromJson,
+    );
+  }
+
+  @override
+  Future<CollectionReport> report({
+    required String period,
+    required String from,
+    required String to,
+  }) => _readHistory('/merchants/me/reports/collections', {
+    'period': period,
+    'from': from,
+    'to': to,
+  }, CollectionReport.fromJson);
+  @override
+  Future<RequestHistory> requestHistory({
+    RequestStatus? status,
+    String? cursor,
+  }) => _readHistory('/merchants/me/payment-requests', {
+    if (status != null) 'status': status.name.toUpperCase(),
+    'cursor': ?cursor,
+  }, RequestHistory.fromJson);
+
   @override
   Future<ShopProfile> load() async =>
       _profile(await _send(http.Request('GET', _uri('/merchants/me'))));

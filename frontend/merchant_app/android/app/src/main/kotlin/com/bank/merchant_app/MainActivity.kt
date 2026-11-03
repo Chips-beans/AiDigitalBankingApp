@@ -15,6 +15,14 @@ class MainActivity : FlutterActivity() {
         kesor.merchant.handleIntent(intent)
         setIntent(Intent(intent).setData(null))
     }
+    override fun onResume() {
+        super.onResume()
+        kesor.share.activity = this
+    }
+    override fun onDestroy() {
+        if (kesor.share.activity === this) kesor.share.activity = null
+        super.onDestroy()
+    }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         kesor.merchant.handleIntent(intent)

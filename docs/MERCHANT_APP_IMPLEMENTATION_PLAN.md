@@ -1,11 +1,13 @@
 # Kesor Merchant — implementation plan and milestones
 
 Date: 31 October 2026, Asia/Phnom_Penh.
-Status: M0-M3 complete for development; M4-M6 source/automated complete (device acceptance pending); M7-M9 not started; M10-M13 deferred.
+Status: M0-M3 complete for development; M4-M7 source/automated complete (device acceptance pending); M8-M9 not started; M10-M13 deferred.
 Audit decisions and contracts: [MERCHANT_M0_CONTRACTS.md](MERCHANT_M0_CONTRACTS.md).
 Current evidence/checkpoint: [MERCHANT_APP_PROGRESS.md](MERCHANT_APP_PROGRESS.md).
 This plan does not authorize production deployment. Milestone evidence and acceptance limits are recorded in the progress/handoff documents.
-Current customer-app work remains on `kesor-phase4-fixes`, based on `e1a9da2`.
+Current checkout: `merchant-m4-shop-registration`; M7/F1–F6 included in the
+user-authorized commit with Codex credit (see `git log -1`). No push/merge.
+Customer App source is unchanged by M7; older branch statements below are historical.
 
 ## 1. Agreed product requirements
 
@@ -86,7 +88,7 @@ the approval/session gap; remaining shop/payment gaps belong to later milestones
 | M4 | Shop registration, logo/profile and paired wallets | M3 | Source + automated complete; V19 live apply and device acceptance pending ([details](MERCHANT_M4_SHOP.md)) |
 | M5 | Dashboard, wallets and navigation | M4 | Source + automated complete; device acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
 | M6 | QR collection and verified payment confirmation | M5 | Source + automated complete; live payment acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
-| M7 | Sales, receipts and collection reports | M6 | Not started |
+| M7 | Sales, receipts, collection reports and QR/receipt sharing | M6 | Source + F1–F6 automated complete: backend 220, Merchant 73, 220 renders; Customer unchanged (prior 251); native/device sharing acceptance pending ([details](MERCHANT_M7_SALES.md)) |
 | M8 | Owner transfers, security and settings | M5, M6 | Not started |
 | M9 | Integrated regression, device acceptance and pilot APKs | M7, M8 | Not started |
 | M10 | Background push and optional voice | M9 | Deferred |

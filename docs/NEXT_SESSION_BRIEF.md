@@ -1,9 +1,65 @@
 # Kesor Bank — next session brief
 
+## Merchant M7 commit checkpoint — 3 November 2026
+
+The user authorized committing M7 and adding Codex as a contributor. This commit
+includes the full M7 implementation, F1–F6 fixes, verification/handoffs and
+`CONTRIBUTORS.md`, plus a Codex co-author trailer. Branch:
+`merchant-m4-shop-registration`; use `git log -1` for the commit ID. No push or
+merge; `.claude/` is excluded and preserved. Latest checks remain backend 220,
+Merchant 73, clean Merchant analysis and 220 no-overflow renders. No source
+changed after those checks; only contributor/checkpoint documentation changed.
+Native/device limits and M8/M9 scope remain unchanged. The uncommitted statements
+below are historical verification checkpoints superseded by this commit note.
+
+## Merchant M7 F1–F6 follow-up complete — 3 November 2026
+
+Receipt times are covered by the exact Phnom Penh midnight regression; receipt
+cards/shared text show exact human-form rates; all payment counts use one EN/KM
+helper. Request-history expiry work is capped at 50 total rows per call with
+effective expiry filters, page-first budgeting and ascending payment locks.
+Concurrent-update notices refresh Sales/Reports; isolation is unchanged. Sales
+title and controller OpenAPI/response types are aligned with conventions.
+
+Final backend **220/220**, Merchant **73/73**, Merchant analysis clean; visual
+fixture **220 renders** without overflow, all five requested updated renders
+inspected. See `MERCHANT_M7_SALES.md` for follow-up logs and known limits.
+Customer diff is empty; prior Customer 251/251 was not rerun for this follow-up.
+No APK, dev backend/database action, migration, credential entry or commit.
+M7 remains uncommitted on `merchant-m4-shop-registration` / `669154d`; initial
+M7 work and `.claude/` are preserved. M8/M9 remain untouched. Usage: 36% five-hour
+and 90% weekly remaining, above the reporting threshold. The original checkpoint
+below remains historical evidence of the first M7 implementation.
+
+## Merchant M7 source complete — 3 November 2026
+
+M7 sales history, snapshot receipts, collection reports, request history and
+QR/receipt save/share are implemented. Read `MERCHANT_M7_SALES.md` for files,
+routes, decisions, verification and limits. Final backend **219/219** (211 + 8),
+Merchant **66/66** (53 + 13), Customer **251/251**, both analyses clean; Merchant
+visual fixture **220 renders**, no overflow. Seven renders were inspected,
+including Khmer at 2x text and dark mode. Logs are listed in the M7 report.
+
+Only `merchant_collections` counts as a sale; totals remain separate by receiving
+currency and use Asia/Phnom_Penh boundaries. List/report reads share a database
+snapshot; history uses validated keyset cursors. Receipts preserve payment-time
+identity and share only safe card/text fields. Request lists settle expiry and
+never expose QR strings. No migration was added; V21 remains free for M8.
+
+Branch `merchant-m4-shop-registration`, HEAD `669154d` (plan commit after M5/M6).
+M7 is **uncommitted**; no commit/push/merge. Starting tree had only `.claude/`
+untracked, which is preserved. Customer source and existing migrations are
+unchanged. No APK, backend restart, development DB access or private credential
+entry occurred. Native Android compilation/gallery/share-sheet/device acceptance
+remain unverified and belong to later acceptance. V19/V20 remain unapplied to
+development by this task. M8/M9 were not started; do not continue them under the
+M7-only assignment. A future assignment can follow the remaining-work plan.
+Latest usage: 54% five-hour and 93% weekly remaining; threshold not triggered.
+
 ## Next work: follow MERCHANT_REMAINING_WORK_PLAN.md
 
-The implementation plan for everything left (M7 sales/receipts/reports and QR
-sharing, M8 live payment alerts and owner transfers, small gaps, M9 pilot APKs)
+M7 is complete in source/automated verification. The implementation plan for the
+remaining M8 alerts/owner transfers, small gaps and M9 pilot APKs
 is `MERCHANT_REMAINING_WORK_PLAN.md`. Implementing agents start there. APKs are
 built only in M9 and only after the user approves.
 

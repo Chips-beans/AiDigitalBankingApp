@@ -79,6 +79,107 @@ class FakeShopGateway implements MerchantShopGateway {
   int statusChecks = 0, cancels = 0;
 
   @override
+  Future<SalesPage> sales(SalesFilter filter, {String? cursor}) async {
+    final found = recent
+        .where(
+          (r) =>
+              (filter.currency == null || r.currency == filter.currency) &&
+              dateKey(businessTime(r.paidAt)).compareTo(filter.from) >= 0 &&
+              dateKey(businessTime(r.paidAt)).compareTo(filter.to) <= 0 &&
+              (filter.q.isEmpty ||
+                  '${r.reference} ${r.requestReference ?? ''} ${r.orderReference ?? ''}'
+                      .toLowerCase()
+                      .contains(filter.q.toLowerCase())),
+        )
+        .toList();
+    final totals = [
+      for (final c in ['KHR', 'USD'])
+        CurrencyTotal(
+          c,
+          found.where((r) => r.currency == c).length,
+          unitsMoney(
+            found
+                .where((r) => r.currency == c)
+                .fold<BigInt>(
+                  BigInt.zero,
+                  (sum, r) => sum + moneyUnits(r.amount, c),
+                ),
+            c,
+          ),
+        ),
+    ];
+    return SalesPage(found, null, totals);
+  }
+
+  @override
+  Future<ShopReceipt> receipt(String reference) async =>
+      recent.firstWhere((r) => r.reference == reference);
+  @override
+  Future<CollectionReport> report({
+    required String period,
+    required String from,
+    required String to,
+  }) async {
+    final page = await sales(SalesFilter(from: from, to: to));
+    final buckets = <ReportBucket>[];
+    final start = DateTime.parse(from), end = DateTime.parse(to);
+    for (
+      var date = period == 'DAY'
+          ? start
+          : DateTime.utc(start.year, start.month);
+      !date.isAfter(end);
+      date = period == 'DAY'
+          ? date.add(const Duration(days: 1))
+          : DateTime.utc(date.year, date.month + 1)
+    ) {
+      final key = period == 'DAY'
+          ? dateKey(date)
+          : dateKey(date).substring(0, 7);
+      for (final c in ['KHR', 'USD']) {
+        final found = page.items.where(
+          (r) =>
+              r.currency == c &&
+              dateKey(businessTime(r.paidAt)).startsWith(key),
+        );
+        buckets.add(
+          ReportBucket(
+            key,
+            c,
+            found.length,
+            unitsMoney(
+              found.fold<BigInt>(
+                BigInt.zero,
+                (n, r) => n + moneyUnits(r.amount, c),
+              ),
+              c,
+            ),
+          ),
+        );
+      }
+    }
+    return CollectionReport(period, buckets, page.totals);
+  }
+
+  @override
+  Future<RequestHistory> requestHistory({
+    RequestStatus? status,
+    String? cursor,
+  }) async => RequestHistory([
+    for (final r in requests.values)
+      if (status == null || r.status == status)
+        RequestSummary(
+          r.id,
+          r.reference,
+          r.status,
+          r.currency,
+          r.amount,
+          r.serverTime,
+          r.expiresAt,
+          orderReference: r.orderReference,
+        ),
+  ], null);
+
+  @override
   Future<ShopDashboard> dashboard() async {
     final profile = await load();
     return ShopDashboard(
@@ -212,6 +313,12 @@ class FakeShopGateway implements MerchantShopGateway {
       payerAccount: '•••• 4321',
       paidAt: serverNow,
       requestReference: found.reference,
+      orderReference: found.orderReference,
+      storeName: profile.shop?.storeName ?? 'Kesor Coffee',
+      walletAccountNumber: found.currency == 'KHR'
+          ? '1234567890'
+          : '2234567890',
+      exchangeRate: found.currency == 'KHR' ? '4000.0000' : null,
     );
     requests[id] = _make(
       id,

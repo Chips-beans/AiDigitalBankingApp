@@ -21,7 +21,9 @@ public final class SessionPurposePolicy {
             "/api/v1/merchants/me/logo-uploads", "/api/v1/merchants/me/logo",
             "/api/v1/merchants/me/dashboard", "/api/v1/merchants/me/wallets/*",
             "/api/v1/merchants/me/qr", "/api/v1/merchants/me/payment-requests",
-            "/api/v1/merchants/me/payment-requests/*", "/api/v1/merchants/me/payment-requests/*/cancel");
+            "/api/v1/merchants/me/payment-requests/*", "/api/v1/merchants/me/payment-requests/*/cancel",
+            "/api/v1/merchants/me/sales", "/api/v1/merchants/me/sales/*",
+            "/api/v1/merchants/me/reports/collections");
     private static final List<PathPattern> PATTERNS =
             SHOP_ROUTES.stream().map(PathPatternParser.defaultInstance::parse).toList();
 

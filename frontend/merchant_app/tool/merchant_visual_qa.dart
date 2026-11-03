@@ -14,6 +14,8 @@ import 'dart:convert';
 
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
 import 'package:merchant_app/features/shop/merchant_shop.dart';
+import 'package:merchant_app/features/collect/merchant_collect.dart';
+import 'package:merchant_app/features/collect/wallet_page.dart' show ReceiptRow;
 
 import '../test/merchant_foundation_test.dart' show ControlledMerchantAuth;
 import '../test/merchant_shop_test.dart' show FakeShopGateway, readyProfile;
@@ -78,6 +80,11 @@ void main() {
             'home',
             'collect',
             'sales',
+            'sales-empty',
+            'receipt',
+            'reports-day',
+            'reports-month',
+            'requests',
             'more',
             'recovery',
             'shop-profile',
@@ -133,7 +140,8 @@ void main() {
               }
             }
             final name = variant.km ? 'ហាងកាហ្វេកេសរ' : 'Kesor Coffee';
-            final gateway = FakeShopGateway();
+            final gateway = FakeShopGateway()
+              ..serverNow = businessToday().add(const Duration(hours: 3));
             if (!screen.startsWith('registration') && screen != 'recovery') {
               gateway.profile = readyProfile(
                 name: name,
@@ -146,7 +154,15 @@ void main() {
             }
             // Live collection screens keep second timers running; settle by time.
             final live = screen.startsWith('request-');
-            if ({'home', 'sales', 'wallet'}.contains(screen)) {
+            if ({
+              'home',
+              'sales',
+              'wallet',
+              'receipt',
+              'reports-day',
+              'reports-month',
+              'requests',
+            }.contains(screen)) {
               final made = await gateway.createRequest(
                 'qa-${'k' * 20}',
                 currency: 'KHR',
@@ -154,6 +170,19 @@ void main() {
                 orderReference: variant.km ? 'តុលេខ ៤' : 'Table 4',
               );
               gateway.pay(made.id);
+            }
+            if (screen == 'requests') {
+              await gateway.createRequest(
+                'wait-${'k' * 20}',
+                currency: 'USD',
+                amount: '3.50',
+              );
+              final closed = await gateway.createRequest(
+                'closed-${'k' * 20}',
+                currency: 'KHR',
+                amount: '1000',
+              );
+              await gateway.cancelRequest(closed.id);
             }
             final store = MemoryHandoffStore();
             if (screen == 'registration-saved') {
@@ -185,8 +214,39 @@ void main() {
             } else {
               await tester.pumpAndSettle();
             }
-            final tab = ['home', 'collect', 'sales', 'more'].indexOf(screen);
-            if (screen == 'shop-profile') {
+            final tab = [
+              'home',
+              'collect',
+              'sales',
+              'more',
+            ].indexOf(screen == 'sales-empty' ? 'sales' : screen);
+            if ({
+              'receipt',
+              'reports-day',
+              'reports-month',
+              'requests',
+            }.contains(screen)) {
+              await tester.tap(find.byType(NavigationDestination).at(2));
+              await tester.pumpAndSettle();
+              if (screen == 'receipt') {
+                await tester.scrollUntilVisible(
+                  find.byType(ReceiptRow),
+                  200,
+                  scrollable: find.byType(Scrollable).first,
+                );
+                await tester.pumpAndSettle();
+                await tester.tap(find.byType(ReceiptRow));
+              } else if (screen == 'requests') {
+                await tester.tap(find.byKey(const ValueKey('sales-requests')));
+              } else {
+                await tester.tap(find.byKey(const ValueKey('sales-reports')));
+              }
+              await tester.pumpAndSettle();
+              if (screen == 'reports-month') {
+                await tester.tap(find.byKey(const ValueKey('report-MONTH')));
+                await tester.pumpAndSettle();
+              }
+            } else if (screen == 'shop-profile') {
               await tester.tap(find.byType(NavigationDestination).at(3));
               await tester.pumpAndSettle();
               await tester.tap(find.byKey(const ValueKey('open-shop-profile')));
@@ -250,21 +310,11 @@ void main() {
               isNull,
               reason: '$screen-${variant.name}-${brightness.name}',
             );
-            await tester.runAsync(() async {
-              final boundary =
-                  key.currentContext!.findRenderObject()!
-                      as RenderRepaintBoundary;
-              final image = await boundary.toImage();
-              final data = await image.toByteData(
-                format: ui.ImageByteFormat.png,
-              );
-              final file = File(
-                '.local/qa/m6/$screen-${variant.name}-${brightness.name}.png',
-              );
-              await file.parent.create(recursive: true);
-              await file.writeAsBytes(data!.buffer.asUint8List());
-              image.dispose();
-            });
+            await renderFixture(
+              tester,
+              key,
+              '$screen-${variant.name}-${brightness.name}',
+            );
             // Reach lower form/settings content and catch overflow there too.
             if (screen != 'waiting' &&
                 find.byType(Scrollable).evaluate().isNotEmpty) {
@@ -278,6 +328,22 @@ void main() {
                 await tester.pumpAndSettle();
               }
               expect(tester.takeException(), isNull);
+              if (variant.name == 'phone' &&
+                  {
+                    'sales',
+                    'sales-empty',
+                    'receipt',
+                    'reports-day',
+                    'reports-month',
+                    'requests',
+                    'collect-shop-qr',
+                  }.contains(screen)) {
+                await renderFixture(
+                  tester,
+                  key,
+                  '$screen-${variant.name}-${brightness.name}-bottom',
+                );
+              }
             }
             await tester.pumpWidget(const SizedBox.shrink());
             session.dispose();
@@ -287,4 +353,24 @@ void main() {
       }
     },
   );
+}
+
+Future<void> renderFixture(
+  WidgetTester tester,
+  GlobalKey key,
+  String name,
+) async {
+  await tester.runAsync(() async {
+    final boundary =
+        key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final image = await boundary.toImage();
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('.local/qa/m7/$name.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(data!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }

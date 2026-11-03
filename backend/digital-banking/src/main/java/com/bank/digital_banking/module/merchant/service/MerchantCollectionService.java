@@ -49,7 +49,7 @@ public class MerchantCollectionService {
     private final AuditTrail audit;
     @Value("${app.merchant.payment-request-ttl-seconds:300}") private int ttlSeconds;
 
-    private record RequestRow(UUID id, long paymentId, String reference, String status, String currency,
+    record RequestRow(UUID id, long paymentId, String reference, String status, String currency,
                               BigDecimal amount, String orderReference, OffsetDateTime createdAt,
                               OffsetDateTime expiresAt, String requestHash) {}
 
@@ -210,7 +210,7 @@ public class MerchantCollectionService {
     }
 
     /** Persists a lazy expiry under the payment-row lock; paid or terminal rows are returned as they are. */
-    private RequestRow settle(RequestRow row) {
+    RequestRow settle(RequestRow row) {
         if (!"WAITING".equals(row.status()) || row.expiresAt().isAfter(OffsetDateTime.now())) return row;
         lockPayment(row.paymentId());
         jdbc.update("""
@@ -237,7 +237,7 @@ public class MerchantCollectionService {
                 row.expiresAt(), now(), receipt);
     }
 
-    private List<RequestRow> rows(String where, Object... args) {
+    List<RequestRow> rows(String where, Object... args) {
         return jdbc.query("""
                 SELECT r.id,r.payment_id,r.reference,r.status,r.currency,r.amount,r.order_reference,r.created_at,
                     r.expires_at,r.request_hash FROM merchant_payment_requests r
@@ -246,16 +246,18 @@ public class MerchantCollectionService {
                 r.getObject(9, OffsetDateTime.class), r.getString(10)), args);
     }
 
-    private static final String COLLECTION_SQL = """
+    static final String COLLECTION_SQL = """
             SELECT c.reference_number,c.currency,c.amount,c.paid_currency,c.paid_amount,c.payer_name,
-                c.payer_account_masked,r.reference,r.order_reference,c.created_at
+                c.payer_account_masked,r.reference,r.order_reference,c.created_at,c.transaction_id,
+                c.store_name,c.account_number,c.exchange_rate
             FROM merchant_collections c LEFT JOIN merchant_payment_requests r ON r.id=c.payment_request_id
             """;
 
-    private static Receipt collection(java.sql.ResultSet r) throws java.sql.SQLException {
+    static Receipt collection(java.sql.ResultSet r) throws java.sql.SQLException {
         return new Receipt(r.getString(1), r.getString(2), MerchantShopService.money(r.getBigDecimal(3), r.getString(2)),
                 r.getString(4), MerchantShopService.money(r.getBigDecimal(5), r.getString(4)), r.getString(6),
-                r.getString(7), r.getString(8), r.getString(9), r.getObject(10, OffsetDateTime.class));
+                r.getString(7), r.getString(8), r.getString(9), r.getObject(10, OffsetDateTime.class),
+                r.getString(12), r.getString(13), r.getBigDecimal(14) == null ? null : r.getBigDecimal(14).toPlainString());
     }
 
     private MerchantShopService.OwnedShop collecting(User owner) {

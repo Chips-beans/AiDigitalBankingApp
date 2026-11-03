@@ -7,6 +7,12 @@ import 'package:kesor_design_system/kesor_design_system.dart';
 import '../../core/merchant_strings.dart';
 import 'merchant_shop.dart';
 
+String paymentCount(BuildContext context, int count) => t(
+  context,
+  '$count ${count == 1 ? 'payment' : 'payments'}',
+  'ការទូទាត់ $count',
+);
+
 /// Formats exact server decimal text: `1234.5` USD -> `$1,234.50`, KHR -> `1,234 ៛`.
 String shopAmount(String decimal, String currency) {
   final negative = decimal.startsWith('-');
@@ -121,6 +127,23 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, foreground, background) = switch (status) {
+      'WAITING' => (
+        t(context, 'Waiting', 'កំពុងរង់ចាំ'),
+        AppPalette.semanticInfo,
+        AppPalette.semanticInfoMuted,
+      ),
+      'PAID' => (
+        t(context, 'Paid', 'បានបង់'),
+        AppPalette.semanticSuccess,
+        AppPalette.semanticSuccessMuted,
+      ),
+      'EXPIRED' || 'CANCELLED' => (
+        status == 'EXPIRED'
+            ? t(context, 'Expired', 'ផុតកំណត់')
+            : t(context, 'Cancelled', 'បានបោះបង់'),
+        AppPalette.semanticWarning,
+        AppPalette.semanticWarningMuted,
+      ),
       'ACTIVE' => (
         t(context, 'Active', 'សកម្ម'),
         AppPalette.semanticSuccess,
@@ -444,6 +467,16 @@ String shopFailureMessage(
   BuildContext context,
   ShopFailure failure,
 ) => switch (failure.code) {
+  'CONCURRENT_UPDATE' => t(
+    context,
+    'Your shop is busy updating. Please try again.',
+    'ហាងរបស់អ្នកកំពុងធ្វើបច្ចុប្បន្នភាព។ សូមព្យាយាមម្ដងទៀត។',
+  ),
+  'REQUEST_BUSY' => t(
+    context,
+    'Finish the current request first, then try again.',
+    'សូមបញ្ចប់សំណើបច្ចុប្បន្នសិន រួចព្យាយាមម្ដងទៀត។',
+  ),
   'OFFLINE' || 'TIMEOUT' => t(
     context,
     'You’re offline. Connect to the internet and try again.',

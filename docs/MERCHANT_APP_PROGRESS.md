@@ -1,6 +1,6 @@
 # Kesor Merchant — progress and handoff
 
-Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
+Updated: 3 November 2026 Asia/Phnom_Penh (M7 F1–F6 follow-up checkpoint).
 
 ## Current checkpoint
 
@@ -8,10 +8,13 @@ Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
 - M0-M3 are COMPLETE for the adopted development scope. The user confirmed
   native approval/return and restore. M4 source and automated checks are complete;
   its live V19/APK/device acceptance is pending. M5+M6 source and automated checks
-  are complete (V20; device acceptance pending). M7-M9 not started; M10-M13 deferred.
-- Branch: `main`; HEAD: `a88b061` (M3 committed). M4 changes are uncommitted.
-- Preserve the existing uncommitted scanner implementation and planning documents.
-- Last usage snapshot for M2: 78% remaining in five-hour window, 29% in weekly window.
+  are complete (V20; device acceptance pending). M7 source/automated checks are
+  complete; M8-M9 not started; M10-M13 deferred.
+- Branch: `merchant-m4-shop-registration`; use `git log -1` for the M7 commit ID.
+  M7 and F1–F6 are included in this user-authorized commit, with Codex contributor
+  and co-author credit. No push/merge. Uncommitted notes below are historical.
+- Initial tree was clean except `.claude/`, preserved. Customer source is unchanged.
+- Latest M7 usage: 36% remaining in five-hour window, 90% in weekly window.
   Check before milestones and during long work. If either available remaining
   percentage falls below 10%, immediately save a detailed checkpoint here and in
   `NEXT_SESSION_BRIEF.md`, copy the report to this chat's outputs, and notify user.
@@ -19,10 +22,56 @@ Updated: 3 November 2026 Asia/Phnom_Penh (M4 source checkpoint).
 
 ## Next work: follow MERCHANT_REMAINING_WORK_PLAN.md
 
-The implementation plan for everything left (M7 sales/receipts/reports and QR
-sharing, M8 live payment alerts and owner transfers, small gaps, M9 pilot APKs)
+M7 is complete in source/automated verification. The implementation plan for the
+remaining M8 alerts/owner transfers, small gaps and M9 pilot APKs
 is `MERCHANT_REMAINING_WORK_PLAN.md`. Implementing agents start there. APKs are
 built only in M9 and only after the user approves.
+
+## M7 F1–F6 follow-up complete — 3 November 2026
+
+- Added the exact UTC-to-Phnom-Penh regression, human exact-rate formatting in
+  receipt/share output, one EN/KM payment-count helper and a matching Sales title.
+- Request history settles at most 50 total rows per call, prioritizes returned
+  due rows and locks payment IDs ascending. Effective expiry filters keep due
+  rows out of WAITING and preserve complete EXPIRED pagination. Bulk SQL test
+  covers 160 requests and the cap. No isolation or posting changes.
+- CONCURRENT_UPDATE has localized notices and refresh actions in Sales/Reports;
+  known limit documented. Controller endpoints have Tag, Operation and concrete
+  ApiResponse record types.
+- Backend **220/220** (219 + 1), Merchant **73/73** (66 + 7), clean analysis;
+  fixture **220 PNGs**, no overflow. Inspected receipt EN/light and KM/dark,
+  Sales, Reports and Home. Exact logs: `MERCHANT_M7_SALES.md` follow-up section.
+- Customer diff empty; its prior 251 tests were not rerun. No APK, dev runtime,
+  DB/migration, private credential or commit action. All existing uncommitted M7
+  work and `.claude/` preserved. M8/M9 unchanged. Usage 36%/90%, threshold not hit.
+
+## Merchant M7 source complete — 3 November 2026
+
+- Built: `MerchantSalesService`/`MerchantSalesController`; four GET routes under
+  `/api/v1/merchants/me`: sales, sales/{reference}, reports/collections and
+  payment-requests history. V20 snapshot/index reused; no new migration or ledger.
+- Merchant: owner-scoped/generation-safe Sales controller and filters/paging,
+  receipt navigation from Home/Sales/wallet/request, daily/monthly reports and
+  request history. English/Khmer and existing Customer-style widgets. Native
+  `kesor/merchant_share`, cache-only FileProvider, explicit QR/receipt PNG/text
+  actions, gallery `Pictures/Kesor Merchant`, localized failure states.
+- Final evidence: backend **219/219** (8 new M7, zero failures/errors/skips),
+  Merchant **66/66** (13 new M7), Customer **251/251** unchanged; both analyses
+  clean. Visual fixture **220 PNGs**, no overflow, seven inspected including
+  Khmer/dark/2x text. `git diff --check` passes. Exact logs/decisions/render names
+  and acceptance limits: `MERCHANT_M7_SALES.md`.
+- Safety decisions: only confirmed QR collection snapshots, separate receiving
+  currencies, Phnom Penh date bounds, validated keysets, repeatable-read list/
+  report snapshots, masked share output. Loaded day groups say “shown”; summary
+  totals cover the whole filter. Request expiry is settled before status filters;
+  an old poll cannot replace a request reopened from history.
+- Not done/verified: no development DB access, restart/migration, APK, Android
+  native compilation or physical sharing/payment acceptance. V19/V20 remain
+  unapplied to development by this task. M8/M9 and unrelated gaps were not started.
+- Nothing committed. No credential/.env access or personal PIN entry. Initial
+  `.claude/` preserved. Latest usage 54%/93% remaining; threshold not triggered.
+- Next: review this uncommitted M7 change; M8 needs a subsequent assignment, and
+  M9 still requires explicit runtime/APK approval per the remaining-work plan.
 
 ## Merchant M5 + M6 source complete - 3 November 2026
 

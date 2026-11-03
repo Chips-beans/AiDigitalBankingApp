@@ -6,8 +6,10 @@ import 'package:kesor_design_system/kesor_design_system.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/platform/image_share.dart';
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
+import '../sales/receipt_page.dart';
 import 'collect_controller.dart';
 import 'merchant_collect.dart';
 
@@ -447,6 +449,17 @@ class _RequestViewState extends State<RequestView> {
               ),
             ),
             const SizedBox(height: 16),
+            if (receipt != null)
+              OutlinedButton.icon(
+                onPressed: () => openReceipt(
+                  context,
+                  collect.gateway,
+                  receipt.reference,
+                  onExpired: collect.onExpired,
+                ),
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: Text(t(context, 'Open receipt', 'បើកបង្កាន់ដៃ')),
+              ),
             FilledButton.icon(
               key: const ValueKey('request-new'),
               onPressed: collect.reset,
@@ -507,8 +520,13 @@ class _RequestViewState extends State<RequestView> {
 
 /// Payer, conversion, reference and time lines of a confirmed payment.
 class ReceiptLines extends StatelessWidget {
-  const ReceiptLines({required this.receipt, super.key});
+  const ReceiptLines({
+    required this.receipt,
+    this.fullReference = false,
+    super.key,
+  });
   final ShopReceipt receipt;
+  final bool fullReference;
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -551,20 +569,52 @@ class ReceiptLines extends StatelessWidget {
           line(t(context, 'Order note', 'កំណត់ចំណាំ'), receipt.orderReference!),
         line(
           t(context, 'Transaction', 'ប្រតិបត្តិការ'),
-          receipt.reference.length > 16
+          !fullReference && receipt.reference.length > 16
               ? '…${receipt.reference.substring(receipt.reference.length - 12)}'
               : receipt.reference,
         ),
         line(t(context, 'Time', 'ពេលវេលា'), shortTime(receipt.paidAt)),
+        if (fullReference && receipt.requestReference != null)
+          line(
+            t(context, 'Request reference', 'លេខយោងសំណើ'),
+            receipt.requestReference!,
+          ),
+        if (fullReference && receipt.exchangeRate != null && receipt.converted)
+          line(
+            t(context, 'Exchange rate', 'អត្រាប្ដូរប្រាក់'),
+            receiptExchangeRate(context, receipt)!,
+          ),
+        if (fullReference && receipt.walletAccountNumber != null)
+          line(
+            t(context, 'Receiving wallet', 'កាបូបទទួល'),
+            '${receipt.currency} · •••• ${receipt.walletAccountNumber!.substring(receipt.walletAccountNumber!.length - 4)}',
+          ),
+        if (fullReference) Text('UTC+07:00', style: mText(context, 12, 18)),
       ],
     );
   }
 }
 
 String shortTime(DateTime at) {
-  final local = at.toLocal();
+  final local = businessTime(at);
   String two(int v) => v.toString().padLeft(2, '0');
   return '${two(local.day)}/${two(local.month)}/${local.year} ${two(local.hour)}:${two(local.minute)}';
+}
+
+/// The server's canonical rate is KHR per USD in both conversion directions.
+/// Format its exact decimal text; never derive a rate from payment amounts.
+String? receiptExchangeRate(BuildContext context, ShopReceipt receipt) {
+  if (!receipt.converted || receipt.exchangeRate == null) return null;
+  final parts = receipt.exchangeRate!.split('.');
+  final whole = parts.first.replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => ',',
+  );
+  final fraction = parts.length == 1
+      ? ''
+      : parts[1].replaceFirst(RegExp(r'0+$'), '');
+  final rate = '$whole${fraction.isEmpty ? '' : '.$fraction'}';
+  return '${t(context, '1 USD', '1 ដុល្លារ')} = $rate ៛';
 }
 
 /// The shop's reusable QR for one currency; customers type the amount.
@@ -578,6 +628,7 @@ class ShopQrPanel extends StatefulWidget {
 
 class _ShopQrPanelState extends State<ShopQrPanel> {
   late Future<ShopQr> qr = widget.gateway.shopQr(widget.currency);
+  final cardKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) => FutureBuilder<ShopQr>(
@@ -611,12 +662,21 @@ class _ShopQrPanelState extends State<ShopQrPanel> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          KesorQrCard(
-            key: const ValueKey('shop-qr'),
-            title: data.storeName,
-            qrString: data.qrString,
-            headline: walletLabel(context, data.currency),
-            caption: data.accountNumber,
+          RepaintBoundary(
+            key: cardKey,
+            child: KesorQrCard(
+              key: const ValueKey('shop-qr'),
+              title: data.storeName,
+              qrString: data.qrString,
+              headline: walletLabel(context, data.currency),
+              caption: data.accountNumber,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ImageActions(
+            cardKey: cardKey,
+            name: 'kesor-shop-qr',
+            text: '${data.storeName}\n${data.currency}',
           ),
           const SizedBox(height: 12),
           Text(

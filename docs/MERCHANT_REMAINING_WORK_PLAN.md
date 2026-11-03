@@ -9,6 +9,14 @@ This document tells you **what to build, in what order, where, how to verify it,
 and what you must not do.** When this plan and older documents disagree, this plan
 wins for M7–M9; for anything already built, the code and the M4/M5–M6 docs win.
 
+**M7 checkpoint, 3 November 2026:** source/automated complete, included in the
+user-authorized M7/F1–F6 commit with Codex credit (see `git log -1`); no push/merge;
+latest F1–F6 follow-up backend 220, Merchant 73, Merchant analysis clean, 220
+no-overflow renders (five requested follow-up renders inspected); Customer
+unchanged (prior 251). See `MERCHANT_M7_SALES.md`. No migration, dev runtime,
+APK or device acceptance; M8/M9 were not started in the M7-only run. The status
+at writing and baseline instructions below remain historical start conditions.
+
 ---
 
 ## 0. Before you write any code
@@ -159,7 +167,7 @@ Current baselines you must keep green: **backend 211**, **Customer 251**,
 
 | Step | Milestone | Depends on | Size | Checkpoint report |
 | --- | --- | --- | --- | --- |
-| 1 | **M7** Sales history, receipts, reports, QR/receipt sharing | M6 | Medium | After backend tests, after app tests |
+| 1 | **M7** Sales history, receipts, reports, QR/receipt sharing | M6 | Medium | Source/F1–F6 automated complete: backend 220, Merchant 73, 220 renders; Customer unchanged (prior 251); included in user-authorized commit; native/device acceptance pending ([report](MERCHANT_M7_SALES.md)) |
 | 2 | **M8a** Live payment feed + in-app alerts + settings | M7 | Small | After app tests |
 | 3 | **M8b** Owner transfers (Merchant → own personal wallet) | M7 | Large, security-critical | After backend, after both apps |
 | 4 | **G** Small gaps (riel glyph, docs) | any | Small | With M8 |
