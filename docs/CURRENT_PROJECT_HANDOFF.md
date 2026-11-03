@@ -2,7 +2,7 @@
 
 Updated 3 November 2026, Asia/Phnom_Penh (UTC+07:00).
 
-Latest (4 November 2026): **Merchant M8 source complete** — live payment feed/alerts and owner transfers (V21; fresh-PIN approval in the Customer App posts the transfer atomically). Backend 234, Merchant 106, Customer 273, analyses clean, no-overflow renders. Uncommitted on `docs-built-with`; no APK, runtime restart, migration or device acceptance; native Kotlin not compiled. Read `MERCHANT_M8_TRANSFERS.md` and the new top brief section. M9 needs your approval.
+Latest (4 November 2026): **Merchant M8 source complete** — live payment feed/alerts and owner transfers (V21; fresh-PIN approval in the Customer App posts the transfer atomically). Backend 234, Merchant 106, Customer 273, analyses clean, no-overflow renders. Committed as `dc1e4ef` and merged to `main` by PR #3 (`0b9045d`); no APK, runtime restart, migration or device acceptance; native Kotlin not compiled. Read `MERCHANT_M8_TRANSFERS.md` and the new top brief section. M9 needs your approval.
 
 User-authorized M7 commit checkpoint: full M7 plus F1–F6, documentation and Codex
 contributor/co-author credit are included in this commit. Branch

@@ -6,10 +6,10 @@
 
 ## Status
 
-Source and automated verification complete. Nothing is committed, no APK was built, the
-development backend/database was neither restarted nor migrated, and no PIN was entered.
-Work is uncommitted on branch `docs-built-with` (M7 was merged to `main` through PR #1, so the
-plan's `merchant-m4-shop-registration` / `373f03a` start state no longer applies).
+Source and automated verification complete. Committed as `dc1e4ef` and merged to `main` by
+PR #3 (`0b9045d`). No APK was built, the development backend/database was neither restarted nor
+migrated, and no PIN was entered. (M7 was merged to `main` through PR #1, so the plan's
+`merchant-m4-shop-registration` / `373f03a` start state no longer applied.)
 
 | Check | Result | Log |
 | --- | --- | --- |

@@ -8,8 +8,8 @@ App) are implemented, plus G1 (riel sign) and the G2/G4 notes. Read `MERCHANT_M8
 Backend **234/234** (220 + 14), Merchant **106/106** (73 + 33), Customer **273/273** (251 + 22),
 both analyses clean, Merchant fixture **232** renders and Customer transfer fixture **24** renders
 without overflow. Migration **V21** (`merchant_owner_transfers`); `FinancialPostingService.
-postOwnerTransfer` is the only business-wallet debit path. **Not done / not verified:** nothing is
-committed (work is uncommitted on `docs-built-with`; M7 was merged by PR #1), Android native code
+postOwnerTransfer` is the only business-wallet debit path. **Committed:** `dc1e4ef`, merged to `main`
+by PR #3 (`0b9045d`); M7 was merged by PR #1. **Not done / not verified:** Android native code
 (`MerchantLinkBridge.kt`, debug manifests) was not compiled, no APK, no dev backend restart or
 migration (V19–V21 are unapplied to development), no device approval. M9 still needs your explicit
 go-ahead. Usage at the end of the run: 69% five-hour and 46% weekly remaining; threshold not hit.

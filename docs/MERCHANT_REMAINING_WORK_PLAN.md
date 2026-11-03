@@ -17,7 +17,7 @@ unchanged (prior 251). See `MERCHANT_M7_SALES.md`. No migration, dev runtime,
 APK or device acceptance; M8/M9 were not started in the M7-only run. The status
 at writing and baseline instructions below remain historical start conditions.
 
-**M8 checkpoint, 4 November 2026:** M8a, M8b and G1/G2/G4 are source/automated complete (backend 234, Merchant 106, Customer 273, 232 + 24 renders); see [MERCHANT_M8_TRANSFERS.md](MERCHANT_M8_TRANSFERS.md). Uncommitted on `docs-built-with` (M7 was merged to `main` by PR #1); no APK, runtime restart, migration or device acceptance. M9 awaits explicit user approval.
+**M8 checkpoint, 4 November 2026:** M8a, M8b and G1/G2/G4 are source/automated complete (backend 234, Merchant 106, Customer 273, 232 + 24 renders); see [MERCHANT_M8_TRANSFERS.md](MERCHANT_M8_TRANSFERS.md). Committed as `dc1e4ef` and merged to `main` by PR #3 (M7 by PR #1); no APK, runtime restart, migration or device acceptance. M9 awaits explicit user approval.
 
 ---
 

@@ -1,7 +1,7 @@
 # Kesor Merchant — implementation plan and milestones
 
 Date: 31 October 2026, Asia/Phnom_Penh.
-Status: M0-M3 complete for development; M4-M7 source/automated complete (device acceptance pending); M8-M9 not started; M10-M13 deferred.
+Status: M0-M3 complete for development; M4-M8 source/automated complete and merged (device acceptance pending); M9 not started (needs user approval); M10-M13 deferred.
 Audit decisions and contracts: [MERCHANT_M0_CONTRACTS.md](MERCHANT_M0_CONTRACTS.md).
 Current evidence/checkpoint: [MERCHANT_APP_PROGRESS.md](MERCHANT_APP_PROGRESS.md).
 This plan does not authorize production deployment. Milestone evidence and acceptance limits are recorded in the progress/handoff documents.
@@ -89,7 +89,7 @@ the approval/session gap; remaining shop/payment gaps belong to later milestones
 | M5 | Dashboard, wallets and navigation | M4 | Source + automated complete; device acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
 | M6 | QR collection and verified payment confirmation | M5 | Source + automated complete; live payment acceptance pending ([details](MERCHANT_M5_M6_COLLECTION.md)) |
 | M7 | Sales, receipts, collection reports and QR/receipt sharing | M6 | Source + F1–F6 automated complete: backend 220, Merchant 73, 220 renders; Customer unchanged (prior 251); native/device sharing acceptance pending ([details](MERCHANT_M7_SALES.md)) |
-| M8 | Owner transfers, security and settings | M5, M6 | Not started |
+| M8 | Owner transfers, security and settings | M5, M6 | Source + automated complete, merged (PR #3, `dc1e4ef`): backend 234, Merchant 106, Customer 273, V21; native Kotlin not compiled, device acceptance pending ([details](MERCHANT_M8_TRANSFERS.md)) |
 | M9 | Integrated regression, device acceptance and pilot APKs | M7, M8 | Not started |
 | M10 | Background push and optional voice | M9 | Deferred |
 | M11 | Cashiers, closing/export and controlled refunds | M9 | Deferred |

@@ -9,10 +9,10 @@ Updated: 4 November 2026 Asia/Phnom_Penh (M8 source checkpoint).
   native approval/return and restore. M4 source and automated checks are complete;
   its live V19/APK/device acceptance is pending. M5+M6 source and automated checks
   are complete (V20; device acceptance pending). M7 and M8 source/automated checks are
-  complete (M8: V21, device acceptance pending); M9 not started; M10-M13 deferred.
-- Branch: `merchant-m4-shop-registration`; use `git log -1` for the M7 commit ID.
-  M7 and F1–F6 are included in this user-authorized commit, with Codex contributor
-  and co-author credit. No push/merge. Uncommitted notes below are historical.
+  complete and merged (M8: V21, device acceptance pending); M9 not started and awaits
+  user approval; M10-M13 deferred.
+- Branch: `main`. M4–M7 were merged by PR #1 and M8 by PR #3 (`dc1e4ef`, merge
+  `0b9045d`). Uncommitted/branch notes below are historical.
 - Initial tree was clean except `.claude/`, preserved. Customer source is unchanged.
 - Latest M7 usage: 36% remaining in five-hour window, 90% in weekly window.
   Check before milestones and during long work. If either available remaining
@@ -35,8 +35,8 @@ App) are implemented, plus G1 (riel sign) and the G2/G4 notes. Read `MERCHANT_M8
 Backend **234/234** (220 + 14), Merchant **106/106** (73 + 33), Customer **273/273** (251 + 22),
 both analyses clean, Merchant fixture **232** renders and Customer transfer fixture **24** renders
 without overflow. Migration **V21** (`merchant_owner_transfers`); `FinancialPostingService.
-postOwnerTransfer` is the only business-wallet debit path. **Not done / not verified:** nothing is
-committed (work is uncommitted on `docs-built-with`; M7 was merged by PR #1), Android native code
+postOwnerTransfer` is the only business-wallet debit path. **Committed:** `dc1e4ef`, merged to `main`
+by PR #3 (`0b9045d`); M7 was merged by PR #1. **Not done / not verified:** Android native code
 (`MerchantLinkBridge.kt`, debug manifests) was not compiled, no APK, no dev backend restart or
 migration (V19–V21 are unapplied to development), no device approval. M9 still needs your explicit
 go-ahead. Usage at the end of the run: 69% five-hour and 46% weekly remaining; threshold not hit.
