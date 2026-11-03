@@ -270,7 +270,8 @@ void main() {
       expect(find.text('Sales unavailable'), findsOneWidget);
       await tester.tap(find.byType(NavigationDestination).at(3));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Sign out'));
+      // The lazy More list builds Sign out only once it is scrolled near.
+      await tester.scrollUntilVisible(find.text('Sign out'), 300);
       await tester.tap(find.text('Sign out'));
       await tester.pumpAndSettle();
       expect(find.text('Lotus Coffee'), findsNothing);

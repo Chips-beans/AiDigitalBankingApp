@@ -186,11 +186,21 @@ public class AppPinService {
     /** A distinct approval purpose: verifies fresh digits without minting a transfer proof. */
     @Transactional(noRollbackFor = PinRejected.class)
     public void verifyForMerchantApproval(User user, UUID sessionId, String pin) {
+        verifyFresh(user, sessionId, pin, "Unlock the Customer App before approving sign-in", "The PIN did not match");
+    }
+
+    /** Fresh digits for one Merchant owner transfer; shares the persistent five-attempt budget. */
+    @Transactional(noRollbackFor = PinRejected.class)
+    public void verifyForOwnerTransfer(User user, UUID sessionId, String pin) {
+        verifyFresh(user, sessionId, pin, "Unlock the Customer App before approving this transfer", "The PIN did not match");
+    }
+
+    private void verifyFresh(User user, UUID sessionId, String pin, String unlockMessage, String mismatchMessage) {
         users.findLockedById(user.getId()).orElseThrow(this::invalidTicket);
         AuthSession session = valid(sessions.findLockedById(sessionId).orElseThrow(this::invalidTicket));
         if (!user.isProfileComplete() || !session.getUser().getId().equals(user.getId())
                 || sessionService.isPinLocked(sessionId))
-            throw new PinRejected("PIN_REQUIRED", "Unlock the Customer App before approving sign-in");
+            throw new PinRejected("PIN_REQUIRED", unlockMessage);
         Pin saved = pin(user.getId());
         if (saved == null) throw new PinRejected("PIN_SETUP_REQUIRED", "Create your PIN first");
         if (saved.failures() >= 5) throw new PinRejected("PIN_RECOVERY_REQUIRED", "Verify your identity to reset your PIN");
@@ -198,7 +208,7 @@ public class AppPinService {
             int failures = saved.failures() + 1;
             jdbc.update("UPDATE customer_app_pins SET failed_attempts=? WHERE user_id=?", failures, user.getId());
             if (failures >= 5) jdbc.update("UPDATE app_pin_locks SET locked=TRUE WHERE session_id IN (SELECT id FROM auth_sessions WHERE user_id=?)", user.getId());
-            throw new PinRejected(failures >= 5 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID", "The PIN did not match");
+            throw new PinRejected(failures >= 5 ? "PIN_RECOVERY_REQUIRED" : "PIN_INVALID", mismatchMessage);
         }
         jdbc.update("UPDATE customer_app_pins SET failed_attempts=0 WHERE user_id=?", user.getId());
     }

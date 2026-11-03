@@ -283,3 +283,14 @@ the tablet's accessibility and Don't keep activities settings.
 - [Android App Links](https://developer.android.com/training/app-links)
 - [Native-app authorization and PKCE](https://www.rfc-editor.org/rfc/rfc8252)
 - [NBC QR integration](https://bakong.nbc.gov.kh/en/download/KHQR/integration/QR%20Payment%20Integration.pdf)
+
+## 11. M8 owner-transfer contract (4 November 2026)
+
+Implemented as `MERCHANT_M8_TRANSFERS.md`: V21 `merchant_owner_transfers`; Merchant routes
+`/merchants/me/owner-transfers[/{id}[/cancel]]`; Customer routes `/merchant-transfers/{id}[/approve|/deny]`;
+exact links `kesorbank://merchant/transfer?intentId&handoffToken` and
+`kesormerchant://transfer/callback?intentId&state[&error]`. The destination is always the owner's own
+active personal wallet in the same currency, chosen by the server; approval needs a fresh PIN and posts
+atomically through `FinancialPostingService.postOwnerTransfer`, the only business-wallet debit path.
+Legacy `GET /merchants/me/accounts` stays a Customer-session route (G2); EMV tag 59 truncation of long
+or Khmer shop names to 25 bytes is accepted (G4).

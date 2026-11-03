@@ -14,6 +14,7 @@ import 'package:merchant_app/features/auth/merchant_api_auth.dart';
 import 'package:merchant_app/features/auth/merchant_session.dart';
 import 'package:merchant_app/features/collect/merchant_collect.dart';
 import 'package:merchant_app/features/shop/merchant_shop.dart';
+import 'package:merchant_app/features/transfer/owner_transfer.dart';
 import 'package:merchant_app/features/shop/merchant_shop_api.dart';
 import 'package:merchant_app/features/shop/shop_controller.dart';
 import 'package:merchant_app/features/shop/shop_form.dart';
@@ -328,6 +329,131 @@ class FakeShopGateway implements MerchantShopGateway {
       receipt: receipt,
     );
     recent = [receipt, ...recent];
+  }
+
+  // ---- owner transfers (M8) ----
+  final transfers = <String, OwnerTransfer>{};
+  final transferKeys = <String>[];
+  final _transferByKey = <String, String>{};
+  ShopFailure? nextTransferCreate, nextTransferStatus;
+  int transferCancels = 0, transferStatusChecks = 0;
+  static final handoffToken = 'h' * 43, transferState = 's' * 43;
+
+  OwnerTransfer _transferOf(
+    String id,
+    String currency,
+    String amount,
+    TransferStatus status, {
+    bool link = false,
+    String? failureCode,
+    String? receipt,
+  }) => OwnerTransfer(
+    id: id,
+    status: status,
+    sourceAccountNumber: currency == 'KHR' ? '1234567890' : '2234567890',
+    destinationAccount: '•••• 5678',
+    currency: currency,
+    amount: amount,
+    createdAt: serverNow,
+    expiresAt: serverNow.add(const Duration(minutes: 5)),
+    serverTime: serverNow,
+    failureCode: failureCode,
+    receiptReference: receipt,
+    completedAt: receipt == null ? null : serverNow,
+    approvalUri: link
+        ? '$transferApprovalBase?intentId=$id&handoffToken=$handoffToken'
+        : null,
+    state: link ? transferState : null,
+  );
+
+  @override
+  Future<OwnerTransfer> createOwnerTransfer(
+    String key, {
+    required String sourceAccountNumber,
+    required String amount,
+  }) async {
+    transferKeys.add(key);
+    final failure = nextTransferCreate;
+    nextTransferCreate = null;
+    if (failure != null) throw failure;
+    final prior = _transferByKey[key];
+    if (prior != null) {
+      final found = transfers[prior]!;
+      return _transferOf(
+        found.id,
+        found.currency,
+        found.amount,
+        found.status,
+        link: found.waiting,
+        failureCode: found.failureCode,
+        receipt: found.receiptReference,
+      );
+    }
+    final currency = sourceAccountNumber == '1234567890' ? 'KHR' : 'USD';
+    final id =
+        '66666666-6666-4666-8666-${(transfers.length + 1).toString().padLeft(12, '0')}';
+    final created = _transferOf(
+      id,
+      currency,
+      amount,
+      TransferStatus.pending,
+      link: true,
+    );
+    transfers[id] = created;
+    _transferByKey[key] = id;
+    return created;
+  }
+
+  @override
+  Future<OwnerTransfer> ownerTransferStatus(String id) async {
+    transferStatusChecks++;
+    final failure = nextTransferStatus;
+    nextTransferStatus = null;
+    if (failure != null) throw failure;
+    final found = transfers[id];
+    if (found == null) {
+      throw const ShopFailure('RESOURCE_NOT_FOUND', status: 404);
+    }
+    return _transferOf(
+      id,
+      found.currency,
+      found.amount,
+      found.status,
+      failureCode: found.failureCode,
+      receipt: found.receiptReference,
+    );
+  }
+
+  @override
+  Future<OwnerTransfer> cancelOwnerTransfer(String id) async {
+    transferCancels++;
+    final found = transfers[id]!;
+    if (found.waiting) {
+      transfers[id] = _transferOf(
+        id,
+        found.currency,
+        found.amount,
+        TransferStatus.cancelled,
+      );
+    }
+    return ownerTransferStatus(id);
+  }
+
+  /// Simulates the owner finishing (or refusing) a waiting transfer in Kesor Bank.
+  void resolveTransfer(
+    String id,
+    TransferStatus status, {
+    String? failureCode,
+  }) {
+    final found = transfers[id]!;
+    transfers[id] = _transferOf(
+      id,
+      found.currency,
+      found.amount,
+      status,
+      failureCode: failureCode,
+      receipt: status == TransferStatus.completed ? 'TXN-OWNER-0001' : null,
+    );
   }
 
   @override

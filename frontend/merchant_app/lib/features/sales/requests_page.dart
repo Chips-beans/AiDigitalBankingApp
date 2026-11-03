@@ -184,7 +184,7 @@ class _RequestsPageState extends State<RequestsPage> {
                   spacing: 12,
                   runSpacing: 8,
                   children: [
-                    Text(
+                    AmountText(
                       shopAmount(r.amount, r.currency),
                       style: mText(context, 18, 26, weight: FontWeight.w600),
                     ),

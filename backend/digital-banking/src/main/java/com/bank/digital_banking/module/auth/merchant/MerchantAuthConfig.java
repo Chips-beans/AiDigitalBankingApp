@@ -17,6 +17,10 @@ public class MerchantAuthConfig {
     public final String callback;
     public final String approval;
     public final String recoveryKey;
+    /** Owner transfers (M8) use their own exact links; blank outside development disables them only. */
+    public final boolean transfersEnabled;
+    public final String transferApproval;
+    public final String transferCallback;
 
     public MerchantAuthConfig(Environment env) {
         var profiles = Set.of(env.getActiveProfiles());
@@ -28,6 +32,11 @@ public class MerchantAuthConfig {
                 env.getProperty("MERCHANT_AUTH_CALLBACK_URI", development ? "kesormerchant://auth/callback" : ""));
         approval = env.getProperty("app.merchant-auth.approval-uri",
                 env.getProperty("MERCHANT_AUTH_APPROVAL_URI", development ? "kesorbank://merchant/approve" : ""));
+        transferApproval = env.getProperty("app.merchant-auth.transfer-approval-uri",
+                env.getProperty("MERCHANT_TRANSFER_APPROVAL_URI", development ? "kesorbank://merchant/transfer" : ""));
+        transferCallback = env.getProperty("app.merchant-auth.transfer-callback-uri",
+                env.getProperty("MERCHANT_TRANSFER_CALLBACK_URI", development ? "kesormerchant://transfer/callback" : ""));
+        transfersEnabled = enabled && !transferApproval.isBlank() && !transferCallback.isBlank();
         String configuredKey = env.getProperty("app.merchant-auth.recovery-key", env.getProperty("MERCHANT_AUTH_RECOVERY_KEY", ""));
         // Domain-separated derivation is permitted only in development. Production
         // requires an independently generated encryption key, separate from JWT signing.
@@ -36,6 +45,10 @@ public class MerchantAuthConfig {
         if (enabled) {
             checkLink(callback, development, "kesormerchant://auth/callback");
             checkLink(approval, development, "kesorbank://merchant/approve");
+            if (transfersEnabled) {
+                checkLink(transferCallback, development, "kesormerchant://transfer/callback");
+                checkLink(transferApproval, development, "kesorbank://merchant/transfer");
+            }
             byte[] key = Base64.getDecoder().decode(recoveryKey);
             if (key.length != 32 || (!development && java.security.MessageDigest.isEqual(key,
                     Base64.getDecoder().decode(env.getRequiredProperty("app.jwt.secret")))))
@@ -51,6 +64,11 @@ public class MerchantAuthConfig {
     }
     public void requireEnabled() {
         if (!enabled) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "MERCHANT_AUTH_UNAVAILABLE", "Merchant sign-in is unavailable");
+    }
+    public void requireTransfers() {
+        requireEnabled();
+        if (!transfersEnabled) throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "MERCHANT_TRANSFER_UNAVAILABLE",
+                "Transfers to your wallet are unavailable");
     }
     public void requireClient(String client, String redirect) {
         requireEnabled();

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../shop/merchant_shop.dart';
+import '../transfer/owner_transfer.dart';
 
 /// A confirmed QR payment. Amount/currency are what the shop received.
 @immutable
@@ -171,7 +172,8 @@ class PaymentRequest {
 }
 
 /// Merchant-session dashboard, wallet and collection APIs (M5/M6).
-abstract interface class MerchantCollectGateway {
+abstract interface class MerchantCollectGateway
+    implements OwnerTransferGateway {
   Future<SalesPage> sales(SalesFilter filter, {String? cursor});
   Future<ShopReceipt> receipt(String reference);
   Future<CollectionReport> report({

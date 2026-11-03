@@ -1,5 +1,19 @@
 # Kesor Bank — next session brief
 
+## Merchant M8 source complete — 4 November 2026
+
+M8a (live payment feed, in-app banner, Sound/Vibration settings) and M8b (owner transfers: a
+shop's business wallet to the same owner's own wallet, approved with a fresh PIN in the Customer
+App) are implemented, plus G1 (riel sign) and the G2/G4 notes. Read `MERCHANT_M8_TRANSFERS.md`.
+Backend **234/234** (220 + 14), Merchant **106/106** (73 + 33), Customer **273/273** (251 + 22),
+both analyses clean, Merchant fixture **232** renders and Customer transfer fixture **24** renders
+without overflow. Migration **V21** (`merchant_owner_transfers`); `FinancialPostingService.
+postOwnerTransfer` is the only business-wallet debit path. **Not done / not verified:** nothing is
+committed (work is uncommitted on `docs-built-with`; M7 was merged by PR #1), Android native code
+(`MerchantLinkBridge.kt`, debug manifests) was not compiled, no APK, no dev backend restart or
+migration (V19–V21 are unapplied to development), no device approval. M9 still needs your explicit
+go-ahead. Usage at the end of the run: 69% five-hour and 46% weekly remaining; threshold not hit.
+
 ## Merchant M7 commit checkpoint — 3 November 2026
 
 The user authorized committing M7 and adding Codex as a contributor. This commit

@@ -179,7 +179,7 @@ class ReceiptCard extends StatelessWidget {
                 ),
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
+                  child: AmountText(
                     shopAmount(r.amount, r.currency),
                     style: mText(
                       context,

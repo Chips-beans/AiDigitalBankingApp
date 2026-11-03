@@ -28,6 +28,8 @@ import '../shared/widgets/app_states.dart';
 import 'app_theme.dart';
 import '../features/merchant/merchant_approval.dart';
 import '../features/merchant/merchant_approval_screen.dart';
+import '../features/merchant/merchant_transfer_approval.dart';
+import '../features/merchant/merchant_transfer_approval_screen.dart';
 
 class BankingApp extends StatefulWidget {
   const BankingApp({
@@ -44,6 +46,7 @@ class BankingApp extends StatefulWidget {
     this.assistantStore,
     this.preferences,
     this.merchantApproval,
+    this.merchantTransfer,
     super.key,
   });
   final SessionController session;
@@ -59,6 +62,7 @@ class BankingApp extends StatefulWidget {
   final AssistantPendingStore? assistantStore;
   final AppPreferences? preferences;
   final MerchantApproval? merchantApproval;
+  final MerchantTransferApproval? merchantTransfer;
   @override
   State<BankingApp> createState() => _BankingAppState();
 }
@@ -95,6 +99,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
     super.initState();
     widget.session.addListener(_phaseChanged);
     widget.merchantApproval?.addListener(_merchantChanged);
+    widget.merchantTransfer?.addListener(_merchantChanged);
     _idleTimer = Timer.periodic(
       const Duration(seconds: 15),
       (_) => widget.session.checkIdle(),
@@ -170,6 +175,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
     _idleTimer?.cancel();
     widget.session.removeListener(_phaseChanged);
     widget.merchantApproval?.removeListener(_merchantChanged);
+    widget.merchantTransfer?.removeListener(_merchantChanged);
     assistantClient?.close();
     if (widget.preferences == null) preferences.dispose();
     WidgetsBinding.instance.removeObserver(this);
@@ -233,6 +239,33 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                         ),
                         TextButton(
                           onPressed: widget.merchantApproval!.discard,
+                          child: Text(tr(context, 'Close', 'បិទ')),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (widget.merchantTransfer?.hasRequest == true &&
+                widget.session.phase == SessionPhase.signedOut)
+              Material(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tr(
+                              context,
+                              'A Merchant transfer is waiting. Sign in to Kesor Bank to review it.',
+                              'ការផ្ទេរប្រាក់ Merchant កំពុងរង់ចាំ។ សូមចូលធនាគារកេសរ ដើម្បីពិនិត្យ។',
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: widget.merchantTransfer!.discard,
                           child: Text(tr(context, 'Close', 'បិទ')),
                         ),
                       ],
@@ -310,7 +343,8 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                   !session.pinResetting;
               if (enterOnly &&
                   !_pinRequested &&
-                  widget.merchantApproval?.hasRequest != true) {
+                  widget.merchantApproval?.hasRequest != true &&
+                  widget.merchantTransfer?.hasRequest != true) {
                 return LockedHomePage(
                   onUnlock: () => setState(() => _pinRequested = true),
                 );
@@ -334,6 +368,12 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
               if (widget.merchantApproval?.hasRequest == true) {
                 return MerchantApprovalScreen(
                   approval: widget.merchantApproval!,
+                  session: session,
+                );
+              }
+              if (widget.merchantTransfer?.hasRequest == true) {
+                return MerchantTransferApprovalScreen(
+                  approval: widget.merchantTransfer!,
                   session: session,
                 );
               }

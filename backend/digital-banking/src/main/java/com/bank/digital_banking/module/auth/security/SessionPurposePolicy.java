@@ -13,7 +13,7 @@ import java.util.List;
 public final class SessionPurposePolicy {
     private SessionPurposePolicy() {}
     /**
-     * Merchant-session shop routes (M4-M6). The legacy {@code /merchants/me/accounts}
+     * Merchant-session shop routes (M4-M8). The legacy {@code /merchants/me/accounts}
      * stays a Customer-session route; Merchant wallets live under {@code /wallets}.
      */
     public static final List<String> SHOP_ROUTES = List.of("/api/v1/merchants/me",
@@ -23,7 +23,9 @@ public final class SessionPurposePolicy {
             "/api/v1/merchants/me/qr", "/api/v1/merchants/me/payment-requests",
             "/api/v1/merchants/me/payment-requests/*", "/api/v1/merchants/me/payment-requests/*/cancel",
             "/api/v1/merchants/me/sales", "/api/v1/merchants/me/sales/*",
-            "/api/v1/merchants/me/reports/collections");
+            "/api/v1/merchants/me/reports/collections",
+            "/api/v1/merchants/me/owner-transfers", "/api/v1/merchants/me/owner-transfers/*",
+            "/api/v1/merchants/me/owner-transfers/*/cancel");
     private static final List<PathPattern> PATTERNS =
             SHOP_ROUTES.stream().map(PathPatternParser.defaultInstance::parse).toList();
 

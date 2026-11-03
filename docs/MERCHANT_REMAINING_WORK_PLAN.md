@@ -17,6 +17,8 @@ unchanged (prior 251). See `MERCHANT_M7_SALES.md`. No migration, dev runtime,
 APK or device acceptance; M8/M9 were not started in the M7-only run. The status
 at writing and baseline instructions below remain historical start conditions.
 
+**M8 checkpoint, 4 November 2026:** M8a, M8b and G1/G2/G4 are source/automated complete (backend 234, Merchant 106, Customer 273, 232 + 24 renders); see [MERCHANT_M8_TRANSFERS.md](MERCHANT_M8_TRANSFERS.md). Uncommitted on `docs-built-with` (M7 was merged to `main` by PR #1); no APK, runtime restart, migration or device acceptance. M9 awaits explicit user approval.
+
 ---
 
 ## 0. Before you write any code
@@ -168,9 +170,9 @@ Current baselines you must keep green: **backend 211**, **Customer 251**,
 | Step | Milestone | Depends on | Size | Checkpoint report |
 | --- | --- | --- | --- | --- |
 | 1 | **M7** Sales history, receipts, reports, QR/receipt sharing | M6 | Medium | Source/F1–F6 automated complete: backend 220, Merchant 73, 220 renders; Customer unchanged (prior 251); included in user-authorized commit; native/device acceptance pending ([report](MERCHANT_M7_SALES.md)) |
-| 2 | **M8a** Live payment feed + in-app alerts + settings | M7 | Small | After app tests |
-| 3 | **M8b** Owner transfers (Merchant → own personal wallet) | M7 | Large, security-critical | After backend, after both apps |
-| 4 | **G** Small gaps (riel glyph, docs) | any | Small | With M8 |
+| 2 | **M8a** Live payment feed + in-app alerts + settings | M7 | Small | Source/automated complete, 4 Nov ([report](MERCHANT_M8_TRANSFERS.md)) |
+| 3 | **M8b** Owner transfers (Merchant → own personal wallet) | M7 | Large, security-critical | Source/automated complete, 4 Nov; native Kotlin and device acceptance pending |
+| 4 | **G** Small gaps (riel glyph, docs) | any | Small | G1 done (Merchant), G2/G4 documented, 4 Nov |
 | 5 | **M9** Integrated acceptance and pilot APKs | all, **user approval** | Medium | Before building, after install, after user test |
 
 Do the milestones in this order. Do not start M8b before M7 is green: its wallet

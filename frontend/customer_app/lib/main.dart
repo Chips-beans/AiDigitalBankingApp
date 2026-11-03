@@ -14,6 +14,7 @@ import 'features/auth/data/app_pin_gateway.dart';
 import 'features/auth/session_controller.dart';
 import 'features/accounts/account_gateway.dart';
 import 'features/merchant/merchant_approval.dart';
+import 'features/merchant/merchant_transfer_approval.dart';
 
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
 
@@ -46,11 +47,23 @@ Future<void> main() async {
             'kesor.customer.approval.v1|${config.apiBaseUrl}|${config.environment}',
           ),
         );
+  final transfer = approval == null
+      ? null
+      : MerchantTransferApproval(
+          session,
+          HandoffApi(config.apiBaseUrl),
+          SecureHandoffStore(
+            'kesor.customer.transfer.v1|${config.apiBaseUrl}|${config.environment}',
+          ),
+          // A sign-in request in progress is never replaced by a transfer.
+          blocked: () => approval.hasRequest,
+        );
   runApp(
     BankingApp(
       preferences: preferences,
       session: session,
       merchantApproval: approval,
+      merchantTransfer: transfer,
       config: config,
       accountGateway: config.isDemo
           ? DemoAccountGateway()
@@ -59,4 +72,5 @@ Future<void> main() async {
   );
   unawaited(session.initialize());
   if (approval != null) unawaited(approval.initialize());
+  if (transfer != null) unawaited(transfer.initialize());
 }

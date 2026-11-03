@@ -27,6 +27,67 @@ String shopAmount(String decimal, String currency) {
   return '$sign\$$whole.${cents.substring(0, 2)}';
 }
 
+/// A [Text] that draws the riel sign in the Khmer face.
+///
+/// The sign is only properly sized in the Khmer face; through font fallback it renders tiny
+/// next to Latin digits. [data] stays the plain string, so finders and tests see it as is.
+class AmountText extends Text {
+  const AmountText(
+    super.data, {
+    super.key,
+    super.style,
+    super.textAlign,
+    super.maxLines,
+    super.overflow,
+    super.softWrap,
+  });
+
+  static const _khmerFace = 'Noto Sans Khmer';
+  static const _sign = '៛';
+  static const _signScale = 1.3;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = data!;
+    if (!text.contains(_sign)) return super.build(context);
+    final defaults = DefaultTextStyle.of(context);
+    final base = style == null || style!.inherit
+        ? defaults.style.merge(style)
+        : style!;
+    final spans = <InlineSpan>[];
+    final parts = text.split(_sign);
+    for (var i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        spans.add(
+          TextSpan(
+            text: _sign,
+            style: TextStyle(
+              fontFamily: _khmerFace,
+              fontFamilyFallback: const <String>[],
+              // The Khmer face draws the sign small next to Latin digits.
+              fontSize: (base.fontSize ?? 14) * _signScale,
+            ),
+          ),
+        );
+      }
+      if (parts[i].isNotEmpty) spans.add(TextSpan(text: parts[i]));
+    }
+    // A RichText (not a nested Text) keeps this one widget matching the plain string.
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: RichText(
+        text: TextSpan(style: base, children: spans),
+        textAlign: textAlign ?? defaults.textAlign ?? TextAlign.start,
+        maxLines: maxLines ?? defaults.maxLines,
+        overflow: overflow ?? defaults.overflow,
+        softWrap: softWrap ?? defaults.softWrap,
+        textScaler: MediaQuery.textScalerOf(context),
+      ),
+    );
+  }
+}
+
 String walletLabel(BuildContext context, String currency) => currency == 'KHR'
     ? t(context, 'Khmer Riel wallet', 'កាបូបប្រាក់រៀល')
     : t(context, 'US Dollar wallet', 'កាបូបប្រាក់ដុល្លារ');
@@ -110,11 +171,11 @@ class CurrencyBadge extends StatelessWidget {
       currency == 'KHR' ? '៛' : r'$',
       style: mText(
         context,
-        18,
+        // The riel sign is only in the Khmer face, which draws it small.
+        currency == 'KHR' ? 24 : 18,
         22,
         weight: FontWeight.w700,
         color: currency == 'KHR' ? AppPalette.gold700 : AppPalette.navy500,
-        // The riel sign is only in the Khmer face; fallback renders it tiny.
       ).copyWith(fontFamily: currency == 'KHR' ? 'Noto Sans Khmer' : null),
     ),
   );

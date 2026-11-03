@@ -181,7 +181,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: AlignmentDirectional.centerStart,
-                  child: Text(
+                  child: AmountText(
                     shopAmount(totals.gross, currency),
                     style: mText(context, 28, 38, weight: FontWeight.w600),
                   ),
@@ -232,7 +232,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   ),
                   const SizedBox(width: 12),
                   Flexible(
-                    child: Text(
+                    child: AmountText(
                       shopAmount(b.gross, b.currency),
                       textAlign: TextAlign.end,
                       style: mText(context, 14, 22, weight: FontWeight.w600),

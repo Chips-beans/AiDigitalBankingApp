@@ -19,6 +19,7 @@ class CollectController extends ChangeNotifier {
     this.store, {
     this.ownerId = 0,
     this.onPaid,
+    this.onReceipt,
     this.onExpired,
     this.pollEvery = const Duration(seconds: 2),
     Stopwatch Function()? stopwatch,
@@ -28,6 +29,9 @@ class CollectController extends ChangeNotifier {
   final HandoffStore store;
   final int ownerId;
   final VoidCallback? onPaid, onExpired;
+
+  /// The confirmed receipt of a request this screen has just seen become PAID.
+  final void Function(ShopReceipt receipt)? onReceipt;
   final Duration pollEvery;
 
   PaymentRequest? request;
@@ -164,6 +168,7 @@ class CollectController extends ChangeNotifier {
       _poll?.cancel();
       unawaited(store.write(_slot, null));
       if (value.status == RequestStatus.paid && before != RequestStatus.paid) {
+        if (value.receipt != null) onReceipt?.call(value.receipt!);
         onPaid?.call();
       }
     }
