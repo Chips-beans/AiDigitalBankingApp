@@ -3,8 +3,9 @@
 ## Merchant M7 commit checkpoint — 3 November 2026
 
 The user authorized committing M7 and adding Codex as a contributor. This commit
-includes the full M7 implementation, F1–F6 fixes, verification/handoffs and
-`CONTRIBUTORS.md`, plus a Codex co-author trailer. Branch:
+includes the full M7 implementation, F1–F6 fixes, verification/handoffs,
+plus a Codex co-author trailer (AI credit now lives in the README "Built with"
+section; `CONTRIBUTORS.md` was removed). Branch:
 `merchant-m4-shop-registration`; use `git log -1` for the commit ID. No push or
 merge; `.claude/` is excluded and preserved. Latest checks remain backend 220,
 Merchant 73, clean Merchant analysis and 220 no-overflow renders. No source

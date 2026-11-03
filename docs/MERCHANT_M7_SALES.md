@@ -15,7 +15,7 @@ no development backend was restarted, and no development database was accessed.
 No migration is added: the existing V20 collection index covers keyset ordering.
 This implementation and F1–F6 follow-up are included in the user-authorized M7
 commit on `merchant-m4-shop-registration`, with Codex credited in
-`../CONTRIBUTORS.md` and the co-author trailer. No push or merge is included.
+the README "Built with" section and the co-author trailer. No push or merge is included.
 Earlier uncommitted statements below describe the verification checkpoints.
 
 ## F1–F6 follow-up — 3 November 2026
