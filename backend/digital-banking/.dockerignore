@@ -1,0 +1,10 @@
+# Never send secrets or local evidence into an image build.
+.env
+.env.*
+!.env.example
+.local/
+target/
+scripts/
+*.log
+.idea/
+.vscode/
