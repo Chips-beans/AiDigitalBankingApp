@@ -94,7 +94,10 @@ public class AssistantEngine {
     private static final Pattern PLACEHOLDER=Pattern.compile("\\{\\{([A-Za-z0-9_]+)}}");
     private static final Pattern ALWAYS_BAD=Pattern.compile("[@{}]|https?://|www\\.|\\bTXN\\b|\\p{N}{6,}",Pattern.CASE_INSENSITIVE);
     // With customer facts every digit, currency word and statistic must come from a placeholder, so the model cannot restate or invent figures.
-    private static final Pattern DATA_BAD=Pattern.compile("[\\p{N}%$៛]|\\b(?:USD|KHR|SUCCESS|FAILED|PENDING|REVERSED|percent|percentage|hundred|thousand|million|billion)\\b|ភាគរយ|ពាន់|ម៉ឺន|លាន",Pattern.CASE_INSENSITIVE);
+    // Currency names alone ("your USD balance") carry no figure, since digits are banned, so they are allowed in prose.
+    private static final Pattern DATA_BAD=Pattern.compile("[\\p{N}%$៛]|\\b(?:SUCCESS|FAILED|PENDING|REVERSED|percent|percentage|hundred|thousand|million|billion)\\b|ភាគរយ|ពាន់|ម៉ឺន|លាន",Pattern.CASE_INSENSITIVE);
+    // A placeholder value already starts with its currency ("USD 12.50"), so a code written next to one would repeat or contradict it.
+    private static final Pattern CODE_BY_PLACEHOLDER=Pattern.compile("\\b(?:USD|KHR)\\s*\\{\\{|}}\\s*(?:USD|KHR)\\b",Pattern.CASE_INSENSITIVE);
     private static final Pattern CREDENTIAL=Pattern.compile("(?<![A-Za-z])(?:PIN|OTP|password|passcode|one-time code)(?![A-Za-z])|ពាក្យសម្ងាត់|លេខកូដសម្ងាត់",Pattern.CASE_INSENSITIVE);
     private static final Pattern NEGATION=Pattern.compile("(?<![A-Za-z])(?:never|not|don't|dont|do not|avoid|no one|nobody|cannot|can't|won't)(?![A-Za-z])|កុំ|មិន|ហាម|គ្មាន",Pattern.CASE_INSENSITIVE);
     // Handing a credential over: share/give/tell/... in English, ចែករំលែក/ផ្តល់/ប្រាប់/ផ្ញើ/បញ្ចូល/សុំ in Khmer.
@@ -132,8 +135,22 @@ public class AssistantEngine {
         if("km".equals(locale) ? khmer==0 || khmer<2*latin : khmer>0) throw providerInvalid();
     }
     private static int count(Pattern pattern,String text) { var m=pattern.matcher(text);int n=0;while(m.find()) n++;return n; }
+    /**
+     * Models sometimes copy a supplied figure verbatim ("USD 187.50") instead of writing its placeholder. An exact, whole copy of a
+     * supplied value is the verified figure, so it is turned back into that placeholder; any other number still fails validation.
+     */
+    static String restoreFacts(String template,Map<String,String> facts) {
+        // Short values (a bare count such as "3") are left alone, so an ordinary number in a tip is never mistaken for a fact.
+        var values=facts.entrySet().stream().filter(e->e.getValue()!=null && e.getValue().length()>=4 && e.getValue().codePoints().anyMatch(Character::isDigit))
+                .sorted(Comparator.comparingInt((Map.Entry<String,String> e)->e.getValue().length()).reversed()).toList();
+        for(var e:values)
+            template=Pattern.compile("(?<![\\p{N}.,+\\-])"+Pattern.quote(e.getValue())+"(?![\\p{N}]|[.,]\\p{N})").matcher(template)
+                    .replaceAll(Matcher.quoteReplacement("{{"+e.getKey()+"}}"));
+        return template;
+    }
     public static String render(String template,Map<String,String> facts,boolean generalOnly,String locale) {
         if(template==null || template.isBlank() || template.length()>2500) throw providerInvalid();
+        if(!generalOnly) template=restoreFacts(template,facts);
         var matcher=PLACEHOLDER.matcher(template);var out=new StringBuilder();int count=0;
         while(matcher.find()) {
             String value=facts.get(matcher.group(1)); if(value==null) throw providerInvalid();
@@ -142,6 +159,7 @@ public class AssistantEngine {
         matcher.appendTail(out);
         String prose=PLACEHOLDER.matcher(template).replaceAll(" ");
         if(generalOnly ? count>0 : count==0) throw providerInvalid();
+        if(CODE_BY_PLACEHOLDER.matcher(template).find()) throw providerInvalid();
         if(ALWAYS_BAD.matcher(prose).find() || !generalOnly && DATA_BAD.matcher(prose).find() || DIRECTIVE.matcher(prose).find()) throw providerInvalid();
         for(String clause:prose.split("[.!?។\\n,;:]+")) if(unsafeCredential(clause)) throw providerInvalid();
         requireLanguage(prose,locale);

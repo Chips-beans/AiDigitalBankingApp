@@ -307,6 +307,16 @@ class AssistantTests extends PostgresIntegrationTest {
         assertThat(AssistantEngine.render("Many people try a 50/30/20 split. Never share your PIN or OTP.",Map.of(),true)).contains("50/30/20");
         assertThat(AssistantEngine.render("គ្មាននរណាគួរសុំ PIN របស់អ្នកទេ។ សូមរក្សាទុកប្រាក់ ១០%។",Map.of(),true)).contains("PIN");
         assertThat(AssistantEngine.render("Your outgoing is higher: {{change}}.",Map.of("change","USD +10.00"),false)).contains("USD +10.00");
+        // Live Groq answers name the currency in prose; that is allowed, but never right next to a placeholder.
+        assertThat(AssistantEngine.render("Your current USD balance is {{v}} and your KHR balance is {{k}}.",Map.of("v","USD 187.50","k","KHR 100000"),false,"en"))
+                .isEqualTo("Your current USD balance is USD 187.50 and your KHR balance is KHR 100000.");
+        // Live Groq Khmer answers sometimes copy the verified figure itself; an exact whole copy counts as that figure.
+        var supplied=Map.of("USD_balance","USD 187.50","KHR_balance","KHR 100000","n","3");
+        assertThat(AssistantEngine.render("បច្ចុប្បន្ន អ្នកមានសមតុល្យ USD 187.50 និង KHR 100000 ក្នុងគណនីរបស់អ្នក។",supplied,false,"km")).contains("USD 187.50","KHR 100000");
+        for(String text:List.of("You have USD 187.5 left.","You have USD 187.500 left.","You have KHR 1000000.","You have USD 187.50 and USD 99.00.","You made 3 transfers, {{USD_balance}}.","Up 1USD 187.50."))
+            assertThatThrownBy(()->AssistantEngine.render(text,supplied,false,"en")).as(text).isInstanceOf(RuntimeException.class);
+        for(String text:List.of("Your balance is USD {{v}}.","Your balance is {{v}} USD.","Your balance is usd{{v}}."))
+            assertThatThrownBy(()->AssistantEngine.render(text,Map.of("v","USD 187.50"),false)).as(text).isInstanceOf(RuntimeException.class);
         for(String text:List.of("About 50 more than before {{change}}","Up 5% {{change}}","Higher by $5 {{change}}","Up by ៥ {{change}}","Over a thousand more {{change}}","No placeholder here"))
             assertThatThrownBy(()->AssistantEngine.render(text,Map.of("change","USD +10.00"),false)).as(text).isInstanceOf(RuntimeException.class);
         for(String text:List.of("Share your OTP to verify.","Please contact us now.","You should transfer the balance.","Account 9000000001 is safe.","{{change}} is shown"))

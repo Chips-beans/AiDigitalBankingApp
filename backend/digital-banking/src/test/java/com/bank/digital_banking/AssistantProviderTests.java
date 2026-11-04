@@ -17,7 +17,9 @@ class AssistantProviderTests {
     final JsonMapper json=JsonMapper.builder().build();
     HttpServer server; ExecutorService serverPool; GatewayAdapter adapter; AIProperties settings;
     volatile int status=200; volatile String output="{\"text\":\"Verified: {{value}}\"}", finish="stop";
-    volatile String path,key,body;AtomicInteger hits=new AtomicInteger();
+    volatile String path,key,body;AtomicInteger hits=new AtomicInteger(),rejectionsLeft=new AtomicInteger();
+    // Groq's strict-mode refusal; failed_generation echoes model output and must never be logged or used.
+    volatile String rejection="{\"error\":{\"message\":\"Failed to validate JSON\",\"type\":\"invalid_request_error\",\"code\":\"json_validate_failed\",\"failed_generation\":\"secret model text\"}}";
     volatile CountDownLatch entered,release;
     @BeforeEach void start() throws Exception {
         server=HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(),0),0);
@@ -26,6 +28,12 @@ class AssistantProviderTests {
             hits.incrementAndGet();path=exchange.getRequestURI().toString();key=exchange.getRequestHeaders().getFirst("Authorization");body=new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
             if(entered!=null) {entered.countDown();try {release.await(5,TimeUnit.SECONDS);}catch(InterruptedException ex){Thread.currentThread().interrupt();}}
             if(status==302) exchange.getResponseHeaders().set("Location","http://127.0.0.1:1/private");
+            if(rejectionsLeft.getAndDecrement()>0) {
+                byte[] error=rejection.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(400,error.length);
+                try(var stream=exchange.getResponseBody()) {stream.write(error);}finally{exchange.close();}
+                return;
+            }
             byte[] response=json.writeValueAsBytes(Map.of("choices",List.of(Map.of("finish_reason",finish,"message",Map.of("role","assistant","content",output)))));
             exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(status,response.length);
             try(var stream=exchange.getResponseBody()) {stream.write(response);}finally{exchange.close();}
@@ -40,7 +48,7 @@ class AssistantProviderTests {
         assertThat(key).isEqualTo("Bearer "+settings.getApiKey());assertThat(path).isEqualTo("/chat/completions").doesNotContain(settings.getApiKey(),"key=");
         var request=json.readTree(body);
         assertThat(request.path("model").asText()).isEqualTo("qwen/qwen3.8-27b");assertThat(request.path("reasoning_effort").asText()).isEqualTo("none");
-        assertThat(request.path("max_tokens").asInt()).isEqualTo(2048);assertThat(request.path("stream").asBoolean(true)).isFalse();
+        assertThat(request.path("max_tokens").asInt()).as("answer allowance stays under Groq's free-tier 1000/min output budget").isEqualTo(700);assertThat(request.path("stream").asBoolean(true)).isFalse();
         assertThat(request.path("messages").size()).isEqualTo(2);
         assertThat(request.path("messages").get(0).path("role").asText()).isEqualTo("system");assertThat(request.path("messages").get(1).path("role").asText()).isEqualTo("user");
         var format=request.path("response_format");
@@ -69,6 +77,11 @@ class AssistantProviderTests {
         assertThat(intent.path("response_format").path("json_schema").path("name").asText()).isEqualTo("kesor_intent");
         assertThat(intent.path("response_format").path("json_schema").path("schema").path("required").toString()).contains("general");
         assertThat(intent.path("messages").get(0).path("content").asText()).as("strict mode carries the schema, so the prompt stays short").doesNotContain("JSON Schema");
+        // Every intent key is spelled out for the model (Groq checks strict output only after generation).
+        assertThat(intent.path("messages").get(0).path("content").asText()).contains(GatewayAdapter.INTENT_EXAMPLE);
+        var example=json.readTree(GatewayAdapter.INTENT_EXAMPLE);var schema=json.valueToTree(GatewayAdapter.intentSchema());
+        assertThat(example.propertyNames()).containsExactlyInAnyOrderElementsOf(schema.path("properties").propertyNames());
+        assertThat(example.path("filters").propertyNames()).containsExactlyInAnyOrderElementsOf(schema.path("properties").path("filters").path("properties").propertyNames());
         settings.setJsonMode("prompt");
         adapter.classify("Current customer question: help",deadline());
         assertThat(json.readTree(body).has("response_format")).isFalse();
@@ -95,6 +108,25 @@ class AssistantProviderTests {
         }
         settings.setApiUrl("https://gateway.example.com/v1");assertThat(adapter.available()).isTrue();
         assertThat(hits.get()).isZero();
+    }
+    @Test void aRejectedJsonGenerationIsRetriedOnceThenTreatedAsInvalid() {
+        rejectionsLeft.set(1);
+        assertThat(adapter.compose("q",Map.of("value","USD 1.00"),"ACCOUNT","en",deadline())).isEqualTo("Verified: {{value}}");
+        assertThat(hits.get()).isEqualTo(2);
+        // Twice in a row: invalid response (so data answers fall back to verified cards), never a third call.
+        hits.set(0);rejectionsLeft.set(2);
+        assertThatThrownBy(()->adapter.compose("q",Map.of("value","USD 1.00"),"ACCOUNT","en",deadline())).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.getCode()).isEqualTo("AI_INVALID_RESPONSE"));
+        assertThat(hits.get()).isEqualTo(2);
+        // Any other 400 is not retried and stays "unavailable".
+        hits.set(0);rejectionsLeft.set(1);rejection="{\"error\":{\"code\":\"model_not_found\"}}";
+        assertThatThrownBy(()->adapter.compose("q",Map.of(),"GENERAL","en",deadline())).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.getCode()).isEqualTo("AI_UNAVAILABLE"));
+        assertThat(hits.get()).isEqualTo(1);
+        // Plain-text completions never request a JSON format, so they are not retried either.
+        hits.set(0);rejectionsLeft.set(1);rejection="{\"error\":{\"code\":\"json_validate_failed\"}}";
+        assertThatThrownBy(()->adapter.generateCompletion("s","i")).isInstanceOfSatisfying(ApiException.class,e->assertThat(e.getCode()).isEqualTo("AI_UNAVAILABLE"));
+        assertThat(hits.get()).isEqualTo(1);
+        assertThat(adapter.errorCode("{\"error\":{\"code\":\"bad code with spaces\"}}".getBytes())).isEqualTo("unknown");
+        assertThat(adapter.errorCode("not json".getBytes())).isEqualTo("unknown");
     }
     @Test void legacyGeminiSettingsAreReportedByNameOnly() {
         var env=new org.springframework.mock.env.MockEnvironment().withProperty("GEMINI_API_KEY","old-key").withProperty("AI_API_KEY","new");
