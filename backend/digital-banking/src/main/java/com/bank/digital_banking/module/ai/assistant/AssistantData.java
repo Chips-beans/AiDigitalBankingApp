@@ -90,9 +90,7 @@ public class AssistantData {
                 // A summary is customer-wide, matching Monthly Analytics (not a selected-wallet subtotal).
                 for(String currency:currencies(f)) {
                     var overview=analytics.getMonthlyOverview(user,m.getYear(),m.getMonthValue(),currency);
-                    var params=Map.<String,Object>of("user",user.getId(),"currency",currency,
-                            "start",m.atDay(1).atStartOfDay(ZONE).toOffsetDateTime(),"end",m.plusMonths(1).atDay(1).atStartOfDay(ZONE).toOffsetDateTime());
-                    var credits=jdbc.queryForObject("SELECT COALESCE(sum(t.amount),0) FROM transactions t JOIN accounts a ON a.id=t.destination_account_id WHERE a.user_id=:user AND t.currency=:currency AND t.status='SUCCESS' AND t.operation='TEST_OPENING_CREDIT' AND t.created_at>=:start AND t.created_at<:end",params,BigDecimal.class);
+                    var credits=testCredits(user,currency,m.atDay(1),m.atEndOfMonth());
                     String income=currency+" "+overview.totalIncome(), expense=currency+" "+overview.totalExpense();
                     facts.put(currency+"_income",income); facts.put(currency+"_outgoing",expense);
                     facts.put(currency+"_test_credit",money(credits,currency)); facts.put("period",m.toString());
@@ -104,6 +102,77 @@ public class AssistantData {
                             List.of(action("ANALYTICS",null,null,currency,m.toString()))));
                 }
                 reply=t(locale,"Monthly cash flow excludes transfers between your own accounts. Test opening credits are labelled separately.","លំហូរសាច់ប្រាក់ប្រចាំខែមិនរាប់ការផ្ទេររវាងគណនីផ្ទាល់ខ្លួនទេ។ ប្រាក់សាកល្បងត្រូវបានបញ្ជាក់ដាច់ដោយឡែក។");
+            }
+            case TOTALS -> {
+                var today=LocalDate.now(clock.withZone(ZONE));
+                LocalDate from,to;
+                if(f.from()==null && f.to()==null) { var m=month(f.month());from=m.atDay(1);to=m.atEndOfMonth(); }
+                else {
+                    // A half-open range ("since 1 January", "up to 15 October") is closed by today or by the start of the end's month.
+                    to=f.to()==null?today:LocalDate.parse(f.to());
+                    from=f.from()==null?to.withDayOfMonth(1):LocalDate.parse(f.from());
+                }
+                if(to.isBefore(from)||ChronoUnit.DAYS.between(from,to)+1>366) throw invalid();
+                // The daily average only counts days that have already happened.
+                var elapsedEnd=to.isAfter(today)?today:to;
+                long days=Math.max(1,ChronoUnit.DAYS.between(from,elapsedEnd)+1);
+                String period=from.equals(to)?from.toString():from+" – "+to;
+                f=new Filters(f.currency(),null,YearMonth.from(from).toString(),from.toString(),to.toString(),null,null,null,null,null);
+                // Same customer-wide rules as Monthly Analytics: summed from its daily rows, never a second definition of income/outgoing.
+                for(String currency:currencies(f)) {
+                    int scale="USD".equals(currency)?2:0;
+                    BigDecimal in=BigDecimal.ZERO,out=BigDecimal.ZERO;
+                    for(var ym=YearMonth.from(from);!ym.isAfter(YearMonth.from(to));ym=ym.plusMonths(1))
+                        for(var day:analytics.getMonthlyOverview(user,ym.getYear(),ym.getMonthValue(),currency).daily()) {
+                            if(day.date().isBefore(from)||day.date().isAfter(to)) continue;
+                            in=in.add(new BigDecimal(day.totalIncome()));out=out.add(new BigDecimal(day.totalExpense()));
+                        }
+                    String income=money(in,currency),outgoing=money(out,currency),net=signed(in.subtract(out),currency);
+                    String daily=money(out.divide(BigDecimal.valueOf(days),scale,RoundingMode.HALF_UP),currency);
+                    var credits=testCredits(user,currency,from,to);
+                    facts.put(currency+"_income",income);facts.put(currency+"_outgoing",outgoing);facts.put(currency+"_net",net);
+                    facts.put(currency+"_avg_daily_outgoing",daily);facts.put(currency+"_test_credit",money(credits,currency));facts.put("period",period);
+                    cards.add(new Card("MONTHLY",currency+" · "+period,List.of(
+                            new Field(t(locale,"Income","ប្រាក់ចូល"),income),
+                            new Field(t(locale,"Outgoing","ប្រាក់ចេញ"),outgoing),
+                            new Field(t(locale,"Net","សរុបសុទ្ធ"),net),
+                            new Field(t(locale,"Average outgoing per day","ប្រាក់ចេញជាមធ្យមក្នុងមួយថ្ងៃ"),daily),
+                            new Field(t(locale,"Included test opening credits","រួមបញ្ចូលប្រាក់សាកល្បងពេលបើកគណនី"),money(credits,currency))),
+                            List.of(action("ANALYTICS",null,null,currency,YearMonth.from(from).toString()))));
+                }
+                reply=t(locale,"Totals follow Monthly Analytics: transfers between your own accounts are excluded and test opening credits are labelled separately.","ចំនួនសរុបតាមវិភាគប្រចាំខែ៖ មិនរាប់ការផ្ទេររវាងគណនីផ្ទាល់ខ្លួន ហើយប្រាក់សាកល្បងត្រូវបានបញ្ជាក់ដាច់ដោយឡែក។");
+            }
+            case COMPARE -> {
+                var m=month(f.month());var previous=m.minusMonths(1);
+                f=new Filters(f.currency(),null,m.toString(),null,null,null,null,null,null,null);
+                for(String currency:currencies(f)) {
+                    var now=analytics.getMonthlyOverview(user,m.getYear(),m.getMonthValue(),currency);
+                    var before=analytics.getMonthlyOverview(user,previous.getYear(),previous.getMonthValue(),currency);
+                    var in=new BigDecimal(now.totalIncome()).subtract(new BigDecimal(before.totalIncome()));
+                    var out=new BigDecimal(now.totalExpense()).subtract(new BigDecimal(before.totalExpense()));
+                    facts.put(currency+"_income",currency+" "+now.totalIncome());facts.put(currency+"_outgoing",currency+" "+now.totalExpense());
+                    facts.put(currency+"_prev_income",currency+" "+before.totalIncome());facts.put(currency+"_prev_outgoing",currency+" "+before.totalExpense());
+                    facts.put(currency+"_income_change",signed(in,currency));facts.put(currency+"_outgoing_change",signed(out,currency));
+                    var fields=new ArrayList<Field>(List.of(
+                            new Field(t(locale,"Income ","ប្រាក់ចូល ")+m,currency+" "+now.totalIncome()),
+                            new Field(t(locale,"Income ","ប្រាក់ចូល ")+previous,currency+" "+before.totalIncome()),
+                            new Field(t(locale,"Outgoing ","ប្រាក់ចេញ ")+m,currency+" "+now.totalExpense()),
+                            new Field(t(locale,"Outgoing ","ប្រាក់ចេញ ")+previous,currency+" "+before.totalExpense()),
+                            new Field(t(locale,"Change in income","ការប្រែប្រួលប្រាក់ចូល"),signed(in,currency)),
+                            new Field(t(locale,"Change in outgoing","ការប្រែប្រួលប្រាក់ចេញ"),signed(out,currency))));
+                    // A percentage is only meaningful against a non-zero base; otherwise no percentage fact exists.
+                    var base=new BigDecimal(before.totalExpense());
+                    if(base.signum()>0) {
+                        String pct=percent(out,base);facts.put(currency+"_outgoing_change_pct",pct);
+                        fields.add(new Field(t(locale,"Change in outgoing (%)","ការប្រែប្រួលប្រាក់ចេញ (%)"),pct));
+                    }
+                    cards.add(new Card("MONTHLY",currency+" · "+previous+" → "+m,fields,List.of(action("ANALYTICS",null,null,currency,m.toString()))));
+                }
+                facts.put("period",previous+" → "+m);
+                boolean open=m.equals(YearMonth.now(clock.withZone(ZONE)));
+                if(open) facts.put("current_month_note",t(locale,"The current month is not finished yet.","ខែបច្ចុប្បន្នមិនទាន់បញ្ចប់នៅឡើយទេ។"));
+                reply=t(locale,"Comparison of "+m+" with "+previous+". Transfers between your own accounts are excluded.","ការប្រៀបធៀប "+m+" ជាមួយ "+previous+"។ មិនរាប់ការផ្ទេររវាងគណនីផ្ទាល់ខ្លួនទេ។")
+                        +(open?" "+t(locale,"The current month is not finished yet.","ខែបច្ចុប្បន្នមិនទាន់បញ្ចប់នៅឡើយទេ។"):"");
             }
             case SEARCH -> {
                 if(f.amount()!=null && f.currency()==null) return clarification(locale,f);
@@ -126,9 +195,23 @@ public class AssistantData {
             }
             case HELP -> { return knowledge.answer(intent.topic(),locale,now(clock)); }
             case CLARIFY -> { return clarification(locale,f); }
-            default -> { reply=t(locale,"I can help with Kesor balances, transactions, monthly cash flow and app instructions. Category budgets and payment execution are not available here.","ខ្ញុំអាចជួយអំពីសមតុល្យ ប្រតិបត្តិការ លំហូរប្រាក់ប្រចាំខែ និងការប្រើកម្មវិធី Kesor។ មុខងារថវិកាតាមប្រភេទ និងការផ្ញើប្រាក់មិនមាននៅទីនេះទេ។"); }
+            default -> { reply=t(locale,"I can help with your Kesor balances, transactions and monthly cash flow, app instructions and general money questions. Payments, category budgets and advice on specific investments are not available here.","ខ្ញុំអាចជួយអំពីសមតុល្យ ប្រតិបត្តិការ លំហូរប្រាក់ប្រចាំខែ ការប្រើកម្មវិធី Kesor និងសំណួរទូទៅអំពីប្រាក់។ ការផ្ញើប្រាក់ ថវិកាតាមប្រភេទ និងដំបូន្មានអំពីការវិនិយោគជាក់លាក់មិនមាននៅទីនេះទេ។"); }
         }
         return new Grounded(new Answer(reply,List.copyOf(cards),now(clock),"NOT_NEEDED"),facts,f);
+    }
+    private BigDecimal testCredits(User user,String currency,LocalDate from,LocalDate to) {
+        var params=Map.<String,Object>of("user",user.getId(),"currency",currency,
+                "start",from.atStartOfDay(ZONE).toOffsetDateTime(),"end",to.plusDays(1).atStartOfDay(ZONE).toOffsetDateTime());
+        return jdbc.queryForObject("SELECT COALESCE(sum(t.amount),0) FROM transactions t JOIN accounts a ON a.id=t.destination_account_id WHERE a.user_id=:user AND t.currency=:currency AND t.status='SUCCESS' AND t.operation='TEST_OPENING_CREDIT' AND t.created_at>=:start AND t.created_at<:end",params,BigDecimal.class);
+    }
+    /** Exact signed amount, e.g. "USD +12.50" or "KHR -4000". */
+    public static String signed(BigDecimal value,String currency) {
+        String body=money(value.abs(),currency);
+        return currency+" "+(value.signum()<0?"-":value.signum()>0?"+":"")+body.substring(currency.length()+1);
+    }
+    public static String percent(BigDecimal change,BigDecimal base) {
+        var pct=change.multiply(BigDecimal.valueOf(100)).divide(base,0,RoundingMode.HALF_UP);
+        return (pct.signum()>0?"+":"")+pct.toPlainString()+"%";
     }
     private Grounded clarification(String locale,Filters f) {
         return new Grounded(new Answer(t(locale,"Please specify the currency (USD or KHR), account, period or transaction reference needed for this question.","សូមបញ្ជាក់រូបិយប័ណ្ណ (USD ឬ KHR) គណនី រយៈពេល ឬលេខយោងប្រតិបត្តិការសម្រាប់សំណួរនេះ។"),List.of(),now(clock),"NOT_NEEDED"),Map.of(),f);

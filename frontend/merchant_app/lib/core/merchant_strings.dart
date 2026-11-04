@@ -39,3 +39,49 @@ Color merchantNavy(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark
     ? AppPalette.navy100
     : AppPalette.navy500;
+
+/// Short business-calendar labels, without dependence on the host timezone.
+String merchantDateLabel(
+  BuildContext context,
+  DateTime date, {
+  bool today = false,
+}) {
+  const en = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const km = [
+    'មករា',
+    'កុម្ភៈ',
+    'មីនា',
+    'មេសា',
+    'ឧសភា',
+    'មិថុនា',
+    'កក្កដា',
+    'សីហា',
+    'កញ្ញា',
+    'តុលា',
+    'វិច្ឆិកា',
+    'ធ្នូ',
+  ];
+  final months = MerchantStrings.isKhmer(context) ? km : en;
+  final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+  final prefix =
+      today &&
+          date.year == now.year &&
+          date.month == now.month &&
+          date.day == now.day
+      ? '${t(context, 'Today', 'ថ្ងៃនេះ')}, '
+      : '';
+  return '$prefix${date.day} ${months[date.month - 1]}';
+}

@@ -11,6 +11,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/platform/image_share.dart';
 import '../../../shared/money.dart';
 import '../../../shared/widgets/app_states.dart';
+import '../../../shared/widgets/figma_presentation.dart';
 import '../../accounts/accounts_controller.dart';
 import '../../accounts/account_gateway.dart';
 import '../../auth/session_controller.dart';
@@ -19,10 +20,10 @@ import '../qr_gateway.dart';
 
 // Mockup palette (dark "My QR" sheet).
 const _sheet = Color(0xFF3B3B3D);
-const _surface = Color(0xFF1F1F21);
+const _surface = Color(0xFF0B1F35);
 const _tile = Color(0xFF2A2A2D);
 const _muted = Color(0xFFA1A1A6);
-const _qrRed = AppPalette.semanticError;
+const _qrGold = AppPalette.gold500;
 
 /// "My QR" (user mockup, 31 Oct 2026): a shareable Kesor QR card, optional fixed
 /// amount, wallet selection, and Save / Share of the rendered card.
@@ -246,9 +247,13 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([model, widget.accounts]),
     builder: (context, _) {
-      final eligible = widget.accounts.accounts
-          .where((a) => a.status == 'ACTIVE')
-          .toList();
+      final eligible =
+          widget.accounts.accounts.where((a) => a.status == 'ACTIVE').toList()
+            ..sort(
+              (a, b) => (a.currency == 'KHR' ? 0 : 1).compareTo(
+                b.currency == 'KHR' ? 0 : 1,
+              ),
+            );
       final current = eligible
           .where((a) => a.number == selected?.number)
           .firstOrNull;
@@ -260,10 +265,6 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
           children: [
             _header(),
             const SizedBox(height: 16),
-            if (eligible.isNotEmpty) ...[
-              _walletPicker(eligible, current),
-              const SizedBox(height: 12),
-            ],
             if (eligible.isEmpty)
               NoticePanel(
                 tx(context, 'Open an account before receiving money.'),
@@ -284,6 +285,13 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
             ],
             if (code != null) _card(code),
             if (current != null) ...[const SizedBox(height: 12), _amountRow()],
+            if (eligible.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final account in eligible) ...[
+                _walletRow(account, current?.number == account.number),
+                const SizedBox(height: 8),
+              ],
+            ],
             if (widget.accounts.hasMore)
               TextButton(
                 onPressed: widget.accounts.loadingMore
@@ -329,7 +337,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
           children: [
             Text(
               tx(context, 'My QR'),
-              style: _text(22, weight: FontWeight.w700),
+              style: _text(24, weight: FontWeight.w600),
             ),
             if (widget.onClose != null)
               Align(
@@ -347,7 +355,9 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                       child: const SizedBox(
                         width: 44,
                         height: 44,
-                        child: Icon(Icons.close, color: Colors.white),
+                        child: Center(
+                          child: CustomerDesignIcon('a136c', size: 18),
+                        ),
                       ),
                     ),
                   ),
@@ -375,27 +385,32 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              color: _qrRed,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+              color: _qrGold,
+              constraints: const BoxConstraints(minHeight: 60),
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
               child: Text(
                 tx(context, 'Kesor Bank QR Code'),
-                style: _text(18, weight: FontWeight.w600),
+                style: _text(18, weight: FontWeight.w500),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-              child: Text(code.name, style: _text(15, color: _muted)),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Text(
+                code.name,
+                style: _text(14, color: _muted, weight: FontWeight.w600),
+              ),
             ),
             const Divider(height: 1, color: Color(0x22FFFFFF)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+              padding: const EdgeInsets.fromLTRB(36, 20, 36, 32),
               child: Center(
                 child: Semantics(
                   label: tx(context, 'My QR'),
                   image: true,
                   // Dark modules on white keep the code readable by every scanner.
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
@@ -403,7 +418,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                     child: LayoutBuilder(
                       builder: (context, box) => QrImageView(
                         data: code.payload,
-                        size: box.maxWidth.clamp(140, 200),
+                        size: box.maxWidth.clamp(0, 328),
                         padding: const EdgeInsets.all(6),
                         backgroundColor: Colors.white,
                         eyeStyle: const QrEyeStyle(
@@ -420,41 +435,42 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-              child: Column(
-                children: [
-                  Text(
-                    code.amount?.formatted ??
-                        '${code.currency} · ${grouped(code.account)}',
-                    textAlign: TextAlign.center,
-                    style: _text(
-                      code.amount == null ? 13 : 20,
-                      color: code.amount == null ? _muted : Colors.white,
-                      weight: code.amount == null ? null : FontWeight.w600,
-                    ),
-                  ),
-                  if (code.dynamic)
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        tx(
-                          context,
-                          model.isPaid
-                              ? 'Payment received'
-                              : 'Waiting for payment',
-                        ),
-                        style: _text(
-                          13,
-                          color: model.isPaid
-                              ? const Color(0xFF34C759)
-                              : AppPalette.gold500,
-                        ),
+            if (code.dynamic)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: Column(
+                  children: [
+                    Text(
+                      code.amount?.formatted ??
+                          '${code.currency} · ${grouped(code.account)}',
+                      textAlign: TextAlign.center,
+                      style: _text(
+                        code.amount == null ? 13 : 20,
+                        color: code.amount == null ? _muted : Colors.white,
+                        weight: code.amount == null ? null : FontWeight.w600,
                       ),
                     ),
-                ],
+                    if (code.dynamic)
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          tx(
+                            context,
+                            model.isPaid
+                                ? 'Payment received'
+                                : 'Waiting for payment',
+                          ),
+                          style: _text(
+                            13,
+                            color: model.isPaid
+                                ? const Color(0xFF34C759)
+                                : AppPalette.gold500,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -472,7 +488,7 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            const Icon(Icons.add_circle_outline, color: AppPalette.gold500),
+            const CustomerDesignIcon('5830b', size: 18),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -484,65 +500,39 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                 ),
               ),
             ),
-            Text(
-              requested?.formatted ?? tx(context, 'Optional'),
-              style: _text(13, color: _muted),
+            Flexible(
+              fit: FlexFit.tight,
+              child: Text(
+                requested?.formatted ?? tx(context, 'Optional'),
+                textAlign: TextAlign.end,
+                style: _text(13, color: _muted),
+              ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: AppPalette.gold500),
+            const CustomerDesignIcon('7b106', size: 18),
           ],
         ),
       ),
     ),
   );
 
-  /// Receiving wallet as a single drop-down instead of a list of rows.
-  Widget _walletPicker(List<BankAccount> eligible, BankAccount? current) =>
-      Container(
-        decoration: BoxDecoration(
-          color: _tile,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: current == null ? Colors.transparent : AppPalette.gold500,
-          ),
+  Widget _walletRow(BankAccount account, bool selected) => Semantics(
+    selected: selected,
+    button: true,
+    child: Material(
+      color: _tile,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: ValueKey('qr-wallet-${account.number}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: model.busy ? null : () => _select(account),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          child: _walletLabel(account),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            key: const ValueKey('qr-wallet-select'),
-            value: current?.number,
-            isExpanded: true,
-            itemHeight: null,
-            dropdownColor: _tile,
-            borderRadius: BorderRadius.circular(16),
-            iconEnabledColor: AppPalette.gold500,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded),
-            hint: Text(
-              tx(context, 'Select account'),
-              style: _text(14, color: _muted),
-            ),
-            onChanged: model.busy
-                ? null
-                : (number) {
-                    final account = eligible
-                        .where((a) => a.number == number)
-                        .firstOrNull;
-                    if (account != null) _select(account);
-                  },
-            selectedItemBuilder: (context) => [
-              for (final account in eligible) _walletLabel(account),
-            ],
-            items: [
-              for (final account in eligible)
-                DropdownMenuItem(
-                  key: ValueKey('qr-wallet-${account.number}'),
-                  value: account.number,
-                  child: _walletLabel(account),
-                ),
-            ],
-          ),
-        ),
-      );
+      ),
+    ),
+  );
 
   Widget _walletLabel(BankAccount account) {
     final khr = account.currency == 'KHR';
@@ -573,13 +563,13 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
                   tx(context, khr ? 'KHR Wallet' : 'USD Wallet'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _text(15, weight: FontWeight.w600),
+                  style: _text(14, weight: FontWeight.w600),
                 ),
                 Text(
                   grouped(account.number),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: _text(12, color: _muted),
+                  style: _text(10, color: _muted),
                 ),
               ],
             ),
@@ -610,37 +600,58 @@ class _ReceiveQrPanelState extends State<ReceiveQrPanel>
             child: SizedBox(
               width: 56,
               height: 56,
-              child: Icon(
-                icon,
-                color: onTap == null ? Colors.white38 : Colors.white,
+              child: Center(
+                child: CustomerDesignIcon(
+                  icon == Icons.download_rounded ? '6040b' : 'fefcb',
+                  size: 22,
+                  color: onTap == null ? Colors.white38 : Colors.white,
+                ),
               ),
             ),
           ),
         ),
       ),
       const SizedBox(height: 6),
-      Text(label, style: _text(12, color: _muted)),
+      Text(label, style: _text(10, color: _muted)),
     ],
   );
 }
 
 /// Full-screen dark sheet hosting [ReceiveQrPanel], matching the mockup.
 class ReceiveQrScreen extends StatelessWidget {
-  const ReceiveQrScreen({required this.panel, super.key});
+  const ReceiveQrScreen({required this.panel, this.background, super.key});
   final ReceiveQrPanel panel;
+  final Widget? background;
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: _sheet,
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            child: panel,
+    body: Stack(
+      children: [
+        if (background != null)
+          Positioned.fill(
+            child: ExcludeSemantics(child: IgnorePointer(child: background!)),
+          ),
+        Positioned.fill(
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 7.5, sigmaY: 7.5),
+              child: ColoredBox(color: const Color(0xBF222222)),
+            ),
           ),
         ),
-      ),
+        SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                child: panel,
+              ),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }

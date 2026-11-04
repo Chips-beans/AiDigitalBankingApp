@@ -1,3 +1,5 @@
+import 'support/merchant_navigation.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -908,6 +910,18 @@ void main() {
       await reveal(tester, find.byKey(const ValueKey('register-shop-submit')));
       await tester.tap(find.byKey(const ValueKey('register-shop-submit')));
       await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('register-shop-confirm'))
+          .evaluate()
+          .isNotEmpty) {
+        expect(
+          gateway.registrations,
+          isEmpty,
+          reason: 'Reviewing the shop does not register it.',
+        );
+        await tester.tap(find.byKey(const ValueKey('register-shop-confirm')));
+        await tester.pumpAndSettle();
+      }
       expect(gateway.registrations, isEmpty);
       expect(find.text('Required'), findsWidgets);
 
@@ -919,6 +933,18 @@ void main() {
       await reveal(tester, find.byKey(const ValueKey('register-shop-submit')));
       await tester.tap(find.byKey(const ValueKey('register-shop-submit')));
       await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('register-shop-confirm'))
+          .evaluate()
+          .isNotEmpty) {
+        expect(
+          gateway.registrations,
+          isEmpty,
+          reason: 'Reviewing the shop does not register it.',
+        );
+        await tester.tap(find.byKey(const ValueKey('register-shop-confirm')));
+        await tester.pumpAndSettle();
+      }
       expect(gateway.registrations, hasLength(1));
       final sent = gateway.registrations.single.$2;
       expect(sent.categoryCode, 'FOOD_DRINK');
@@ -950,18 +976,38 @@ void main() {
       await reveal(tester, find.byKey(const ValueKey('register-shop-submit')));
       await tester.tap(find.byKey(const ValueKey('register-shop-submit')));
       await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('register-shop-confirm'))
+          .evaluate()
+          .isNotEmpty) {
+        expect(
+          gateway.registrations,
+          isEmpty,
+          reason: 'Reviewing the shop does not register it.',
+        );
+        await tester.tap(find.byKey(const ValueKey('register-shop-confirm')));
+        await tester.pumpAndSettle();
+      }
       expect(find.textContaining('couldn’t confirm'), findsOneWidget);
-      expect(find.text('Check registration status'), findsOneWidget);
-      final field = tester.widget<TextField>(
-        find.descendant(
-          of: find.byKey(const ValueKey('shop-name')),
-          matching: find.byType(TextField),
-        ),
-      );
-      expect(field.enabled, isFalse);
+      expect(find.text('Check status'), findsOneWidget);
+      // The immutable saved draft is shown as a summary, with no editable fields.
+      expect(find.byKey(const ValueKey('shop-name')), findsNothing);
+      expect(find.text('Kesor Coffee'), findsOneWidget);
       await reveal(tester, find.byKey(const ValueKey('register-shop-submit')));
       await tester.tap(find.byKey(const ValueKey('register-shop-submit')));
       await tester.pumpAndSettle();
+      if (find
+          .byKey(const ValueKey('register-shop-confirm'))
+          .evaluate()
+          .isNotEmpty) {
+        expect(
+          gateway.registrations,
+          isEmpty,
+          reason: 'Reviewing the shop does not register it.',
+        );
+        await tester.tap(find.byKey(const ValueKey('register-shop-confirm')));
+        await tester.pumpAndSettle();
+      }
       expect(gateway.registrations, hasLength(2));
       expect(gateway.registrations[1].$1, gateway.registrations[0].$1);
       session.dispose();
@@ -990,7 +1036,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Kesor Coffee'), findsOneWidget);
-        expect(find.text('MCH-AB23CD45'), findsOneWidget);
+        await openMerchantSection(tester, 3);
+        expect(find.textContaining('MCH-AB23CD45'), findsOneWidget);
+        await openMerchantSection(tester, 0);
         // Wallet balances and today's collections are shown separately.
         expect(
           tester
@@ -1008,10 +1056,9 @@ void main() {
               .data,
           r'$0.00',
         );
-        expect(find.text('1234567890'), findsOneWidget);
-        expect(find.text('Hello, Dara'), findsOneWidget);
-
-        await tester.tap(find.text('Edit shop'));
+        expect(find.text('•••• 7890'), findsNWidgets(2));
+        await openMerchantSection(tester, 3);
+        await tester.tap(find.byKey(const ValueKey('open-shop-profile')));
         await tester.pumpAndSettle();
         expect(find.text('Shop profile'), findsOneWidget);
         final save = find.byKey(const ValueKey('save-shop-profile'));

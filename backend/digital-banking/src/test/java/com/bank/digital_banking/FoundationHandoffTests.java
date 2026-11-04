@@ -220,7 +220,7 @@ class FoundationHandoffTests {
     private ConfigurableApplicationContext start(String url, int smtpPort) {
         return new SpringApplicationBuilder(DigitalBankingApplication.class).run(
                 "--spring.profiles.active=local,test", "--server.port=0",
-                "--app.ai.gemini.enabled=false", "--app.ai.gemini.customer-context-enabled=false",
+                "--app.ai.gateway.enabled=false", "--app.ai.gateway.customer-context-enabled=false",
                 "--spring.datasource.url=" + url, "--spring.datasource.username=postgres",
                 "--spring.datasource.password=postgres", "--spring.datasource.hikari.maximum-pool-size=2",
                 "--spring.datasource.hikari.minimum-idle=0",

@@ -96,6 +96,36 @@ void main() {
       expect(api.requests, hasLength(1));
     },
   );
+  testWidgets('general guidance is labelled and keeps verified cards', (
+    tester,
+  ) async {
+    await mount(tester);
+    api.answerMode = 'MIXED';
+    await tester.enterText(
+      find.byKey(const ValueKey('assistant-question')),
+      'How can I save more?',
+    );
+    await tap(tester, find.byKey(const ValueKey('assistant-send')));
+    expect(find.text('USD 190.00'), findsOneWidget);
+    expect(
+      find.text(
+        'AI-written general information · Account figures are verified',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('AI explanation'), findsNothing);
+  });
+  testWidgets('welcome offers account and general-money suggestions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(480, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await mount(tester);
+    expect(find.text('Compare this month with last month'), findsOneWidget);
+    expect(find.text('How can I build an emergency fund?'), findsOneWidget);
+    expect(find.textContaining('not financial advice'), findsOneWidget);
+  });
   testWidgets('history opens, renames and deletes the customer conversation', (
     tester,
   ) async {
@@ -205,7 +235,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tap(tester, find.byTooltip('AI assistant'));
-      expect(find.text('Your Kesor assistant'), findsOneWidget);
+      expect(find.text('How can I help you today?'), findsOneWidget);
+      expect(find.byKey(const ValueKey('kesor-nav-capsule')), findsNothing);
+      await tap(tester, find.byTooltip('Back'));
+      expect(find.byKey(const ValueKey('kesor-nav-capsule')), findsOneWidget);
+      await tap(tester, find.byTooltip('AI assistant'));
       await tester.enterText(
         find.byKey(const ValueKey('assistant-question')),
         'Show my balances',

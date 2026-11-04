@@ -20,7 +20,7 @@ public class AssistantController {
     private final AIProperties properties;
     private <T> ResponseEntity<ApiResponse<T>> ok(T value) { return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.success(value,"Assistant")); }
     @GetMapping("/capabilities") public ResponseEntity<?> capabilities() {
-        return ok(Map.of("available",provider.available(),"capabilities",List.of("BALANCES","SEARCH","DETAIL","MONTHLY","HELP"),"locales",List.of("en","km"),"retentionDays",30,"maxMessageLength",2000,"minuteLimit",properties.getMinuteLimit(),"dailyLimit",properties.getDailyLimit()));
+        return ok(Map.of("available",provider.available(),"capabilities",List.of("BALANCES","SEARCH","DETAIL","MONTHLY","TOTALS","COMPARE","HELP","GENERAL"),"locales",List.of("en","km"),"retentionDays",30,"maxMessageLength",2000,"minuteLimit",properties.getMinuteLimit(),"dailyLimit",properties.getDailyLimit()));
     }
     @GetMapping("/conversations") public ResponseEntity<ApiResponse<Page<Conversation>>> list(@AuthenticationPrincipal User user,@RequestParam(required=false) String cursor,@RequestParam(defaultValue="20") int size,@RequestParam(required=false) String requestKey) { return ok(requestKey==null?store.conversations(user.getId(),cursor,size):new Page<>(List.of(store.recoverCreation(user.getId(),requestKey)),null)); }
     @PostMapping("/conversations") public ResponseEntity<ApiResponse<Conversation>> create(@AuthenticationPrincipal User user,@RequestHeader("Idempotency-Key") String key) {

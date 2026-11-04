@@ -1,10 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import 'shop_controller.dart';
+import 'merchant_shop.dart';
 import 'shop_form.dart';
 import 'shop_widgets.dart';
 
@@ -94,6 +95,66 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
     }
   }
 
+  Future<void> _review() async {
+    if (shop?.pending != null) {
+      await _submit();
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    if (!formKey.currentState!.validate()) return;
+    final draft = form.draft(logoId: logoId);
+    final category = categoryFor(draft.categoryCode);
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (context) => SingleChildScrollView(
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  t(context, 'Review shop', 'ពិនិត្យហាង'),
+                  style: mText(context, 20, 27, weight: FontWeight.w500),
+                ),
+                const SizedBox(height: 16),
+                QDetail(t(context, 'Shop name', 'ឈ្មោះហាង'), draft.storeName),
+                QDetail(
+                  t(context, 'Category', 'ប្រភេទ'),
+                  category == null
+                      ? draft.categoryCode
+                      : MerchantStrings.isKhmer(context)
+                      ? category.km
+                      : category.en,
+                ),
+                QDetail(t(context, 'Phone', 'ទូរស័ព្ទ'), draft.phone),
+                QDetail(t(context, 'City', 'ទីក្រុង'), draft.city),
+                QDetail(t(context, 'Address', 'អាសយដ្ឋាន'), draft.address),
+                const SizedBox(height: 20),
+                FilledButton(
+                  key: const ValueKey('register-shop-confirm'),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: Text(t(context, 'Register shop', 'ចុះឈ្មោះហាង')),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(t(context, 'Back to edit', 'ត្រឡប់ទៅកែ')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (confirmed == true && mounted) await _submit();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = shop;
@@ -107,166 +168,129 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
             controller.uploadingLogo ||
             controller.loading;
         final locked = pending != null;
-        final colors = AppColors.of(context);
+        final draft = pending?.draft;
         return Scaffold(
-          backgroundColor: colors.background,
+          appBar: AppBar(
+            leading: QBack(onPressed: () => widget.onSignOut()),
+            title: Text(
+              t(context, 'Register your shop', 'ចុះឈ្មោះហាងរបស់អ្នក'),
+            ),
+          ),
           body: SafeArea(
+            top: false,
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: Form(
                   key: formKey,
-                  child: ListView(
-                    key: const PageStorageKey('register-shop'),
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              t(
-                                context,
-                                'Register your shop',
-                                'ចុះឈ្មោះហាងរបស់អ្នក',
-                              ),
-                              style: mText(
-                                context,
-                                20,
-                                28,
-                                weight: FontWeight.w600,
-                              ),
-                            ),
+                  child: QStage(
+                    footer: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (controller?.submitting == true)
+                          const LinearProgressIndicator(),
+                        FilledButton(
+                          key: const ValueKey('register-shop-submit'),
+                          onPressed: busy ? null : _review,
+                          child: Text(
+                            locked
+                                ? t(context, 'Check status', 'ពិនិត្យស្ថានភាព')
+                                : t(context, 'Review shop', 'ពិនិត្យហាង'),
                           ),
-                          CircleAction(
-                            tooltip: t(context, 'Sign out', 'ចាកចេញ'),
-                            icon: Icons.logout_rounded,
-                            onPressed: controller?.submitting == true
-                                ? null
-                                : widget.onSignOut,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        t(
-                          context,
-                          'Set up your business once. You can edit these details later.',
-                          'រៀបចំអាជីវកម្មរបស់អ្នកម្ដង។ អ្នកអាចកែព័ត៌មាននេះពេលក្រោយ។',
                         ),
-                        style: mText(
-                          context,
-                          14,
-                          22,
-                          color: colors.disabledBackground,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: LogoEditor(
-                          name: form.name.text,
-                          logo: logoPreview,
-                          busy: controller?.uploadingLogo == true,
-                          onPick: locked || controller == null
-                              ? null
-                              : _pickLogo,
-                          onRemove: locked
-                              ? null
-                              : () => setState(() {
-                                  logoPreview = null;
-                                  logoId = null;
-                                }),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (controller == null) ...[
-                        NoticeBanner(
-                          t(
-                            context,
-                            'Shop registration is currently unavailable. Please try again later.',
-                            'ការចុះឈ្មោះហាងមិនទាន់អាចប្រើបាន។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',
-                          ),
-                          tone: NoticeTone.warning,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      if (locked) ...[
-                        NoticeBanner(
-                          controller!.notice == ShopNotice.uncertain
-                              ? t(
-                                  context,
-                                  'We couldn’t confirm your registration. Check its status — your shop will not be created twice.',
-                                  'យើងមិនអាចបញ្ជាក់ការចុះឈ្មោះបានទេ។ សូមពិនិត្យស្ថានភាព — ហាងរបស់អ្នកនឹងមិនត្រូវបង្កើតពីរដងទេ។',
-                                )
-                              : t(
-                                  context,
-                                  'You have an unfinished registration. Check its status to finish safely.',
-                                  'អ្នកមានការចុះឈ្មោះមិនទាន់បញ្ចប់។ សូមពិនិត្យស្ថានភាពដើម្បីបញ្ចប់ដោយសុវត្ថិភាព។',
-                                ),
-                          tone: NoticeTone.warning,
-                          action: TextButton(
+                        if (locked) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton(
                             key: const ValueKey('discard-pending-registration'),
                             onPressed: busy ? null : controller.discardPending,
                             child: Text(
                               t(context, 'Discard and edit', 'បោះបង់ ហើយកែ'),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                      ] else if (controller?.failure != null) ...[
-                        NoticeBanner(
-                          shopFailureMessage(context, controller!.failure!),
-                          tone: NoticeTone.error,
-                        ),
-                        const SizedBox(height: 16),
+                        ],
                       ],
-                      SurfaceCard(
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-                        child: ShopFormFields(
-                          form: form,
-                          enabled: !locked && !busy,
-                          onChanged: () => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const _WalletPreview(),
-                      const SizedBox(height: 24),
-                      if (controller?.submitting == true) ...[
-                        const LinearProgressIndicator(),
-                        const SizedBox(height: 12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (controller == null) ...[
+                          NoticeBanner(
+                            t(
+                              context,
+                              'Shop registration is currently unavailable. Please try again later.',
+                              'ការចុះឈ្មោះហាងមិនទាន់អាចប្រើបាន។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',
+                            ),
+                            tone: NoticeTone.warning,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (locked && draft != null) ...[
+                          NoticeBanner(
+                            t(
+                              context,
+                              'We couldn’t confirm your registration. Your details are saved — check the status before trying again.',
+                              'យើងមិនអាចបញ្ជាក់ការចុះឈ្មោះបានទេ។ ព័ត៌មានរបស់អ្នកត្រូវបានរក្សាទុក — ពិនិត្យស្ថានភាព មុនព្យាយាមម្ដងទៀត។',
+                            ),
+                            tone: NoticeTone.warning,
+                          ),
+                          const SizedBox(height: 20),
+                          QGroup(
+                            child: Column(
+                              children: [
+                                QDetail(
+                                  t(context, 'Shop name', 'ឈ្មោះហាង'),
+                                  draft.storeName,
+                                ),
+                                QDetail(
+                                  t(context, 'Category', 'ប្រភេទ'),
+                                  (MerchantStrings.isKhmer(context)
+                                          ? categoryFor(draft.categoryCode)?.km
+                                          : categoryFor(draft.categoryCode)
+                                                ?.en) ??
+                                      draft.categoryCode,
+                                ),
+                                QDetail(
+                                  t(context, 'Phone', 'ទូរស័ព្ទ'),
+                                  draft.phone,
+                                ),
+                                QDetail(
+                                  t(context, 'City', 'ទីក្រុង'),
+                                  draft.city,
+                                ),
+                                QDetail(
+                                  t(context, 'Address', 'អាសយដ្ឋាន'),
+                                  draft.address,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          LogoEditor(
+                            name: form.name.text,
+                            logo: logoPreview,
+                            busy: controller?.uploadingLogo == true,
+                            onPick: controller == null ? null : _pickLogo,
+                            onRemove: () => setState(() {
+                              logoPreview = null;
+                              logoId = null;
+                            }),
+                          ),
+                          const SizedBox(height: 16),
+                          if (controller?.failure != null) ...[
+                            NoticeBanner(
+                              shopFailureMessage(context, controller!.failure!),
+                              tone: NoticeTone.error,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          ShopFormFields(
+                            form: form,
+                            enabled: !busy,
+                            onChanged: () => setState(() {}),
+                          ),
+                        ],
                       ],
-                      FilledButton.icon(
-                        key: const ValueKey('register-shop-submit'),
-                        onPressed: busy ? null : _submit,
-                        icon: Icon(
-                          locked ? Icons.sync_rounded : Icons.check_rounded,
-                        ),
-                        label: Text(
-                          locked
-                              ? t(
-                                  context,
-                                  'Check registration status',
-                                  'ពិនិត្យស្ថានភាពចុះឈ្មោះ',
-                                )
-                              : t(context, 'Register shop', 'ចុះឈ្មោះហាង'),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        t(
-                          context,
-                          'Your shop uses your Kesor Bank owner account. Your personal name, photo and wallets stay separate.',
-                          'ហាងរបស់អ្នកប្រើគណនីម្ចាស់ធនាគារកេសរ។ ឈ្មោះ រូបថត និងកាបូបផ្ទាល់ខ្លួនរបស់អ្នកនៅដាច់ដោយឡែក។',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: mText(
-                          context,
-                          12,
-                          18,
-                          color: colors.disabledBackground,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -276,52 +300,4 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
       },
     );
   }
-}
-
-class _WalletPreview extends StatelessWidget {
-  const _WalletPreview();
-  @override
-  Widget build(BuildContext context) => SurfaceCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionTitle(t(context, 'Two business wallets', 'កាបូបអាជីវកម្មពីរ')),
-        const SizedBox(height: 4),
-        Text(
-          t(
-            context,
-            'Created with your shop. Both start at zero and receive your QR payments.',
-            'បង្កើតជាមួយហាងរបស់អ្នក។ ទាំងពីរចាប់ផ្ដើមពីសូន្យ ហើយទទួលការទូទាត់ QR។',
-          ),
-          style: mText(
-            context,
-            13,
-            20,
-            color: AppColors.of(context).disabledBackground,
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (final currency in const ['KHR', 'USD'])
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                CurrencyBadge(currency),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    walletLabel(context, currency),
-                    style: mText(context, 14, 22, weight: FontWeight.w500),
-                  ),
-                ),
-                AmountText(
-                  shopAmount('0', currency),
-                  style: mText(context, 14, 22, weight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-      ],
-    ),
-  );
 }

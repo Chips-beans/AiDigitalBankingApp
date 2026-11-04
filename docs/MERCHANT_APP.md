@@ -257,3 +257,156 @@ personal evidence, remaining production dependencies) goes into the progress gui
   Customer transfer-approval fixture 24 renders, analysis clean. Earlier: M2 backend 191/191, M3 Customer 247 + Merchant 28,
   M4 backend 203/Merchant 42, M5/M6 backend 211/Merchant 53, M7 backend 220/Merchant 73. Visual fixtures render EN/KM,
   light/dark, phone, 320 px, 2× text, landscape and tablet.
+
+## 12. Merchant UI refinement — 4 November 2026
+
+**Later user-directed card restoration (4 Nov):** the attached reference selected the previous
+Home shop card and its three action tiles. Restored the navy gradient, faded Kesor mark, 60 px shop
+avatar, merchant-ID row and Collect/Sales/Edit shop tiles. `NavyCard.branded` opts Home into this
+treatment; other navy surfaces retain the refined flat style. Today's collections returns to its
+ordinary surface below the tiles. Other screen refinements and wallet keyboard/copy behavior remain.
+The `Merchant App v2` export below is the snapshot from before this card restoration; current renders
+are in `frontend/merchant_app/.local/qa/card-restore/` and the cropped preview is
+`.local/qa/card-restore-preview.png` within that app. Changes remain uncommitted.
+Verification for this adjustment: **18/18 targeted shop/accessibility tests**, **232 visual fixture
+renders with no overflow**, analysis and diff checks clean. Compared the restored card in light/dark,
+320 px, 2× Khmer and tablet renders against the supplied reference. Device acceptance remains unverified.
+
+Screenshot export: `Flutter Screen/Merchant App v2/` contains all 28 catalog screens/states,
+38 full-resolution PNGs including 10 scrolled views, `Overview.jpg` and `README.md`. Captured from
+the current UI in English/light at 393×852 logical pixels (1179×2556 PNGs); catalog fixture passed
+and every image's decoding/dimensions and numbered screen coverage were verified. Existing exports
+were preserved. `tool/screen_catalog.dart` supports `SCREEN_OUTPUT_DIR` for separate versions and
+waits for the welcome artwork to decode. This is controlled Flutter fixture evidence, not device capture.
+
+Presentation-only refinement, **uncommitted**. The existing Kesor foundations in
+`frontend/customer_app/docs/DESIGN_SYSTEM.md`, captured Figma tokens and
+`frontend/packages/kesor_design_system` remain authoritative. No Customer code, shared package,
+backend, routes, controllers, integrations or dependency versions changed.
+
+The source and 232 baseline renders showed an oversized shop-ID panel and equal-weight action tiles
+ahead of collections, a 560 px Home column on wide tablets, a pictogram-led welcome, and too many rows
+of Sales controls. These were the first screens selected by the app audit.
+
+- **Welcome:** one bundled, generated illustration of a Cambodian coffee-counter exchange, replacing
+  the storefront pictogram and feature badges. The copy retains QR, riel and dollar information.
+  Phone stacks artwork and copy; wide layouts place them side by side. Approval, failure, recovery,
+  busy, language and appearance controls retain their behavior. Artwork is decorative in semantics.
+- **Home (initial refinement, superseded above for the card/actions):** compact actual shop identity,
+  category, ID and labelled status; navy today's-collections summary; one gold Collect action;
+  secondary Sales/Edit actions; the two independent business wallets
+  grouped on one surface. Tablet Home expands to 1040 px and uses equal columns when text size allows.
+  Large text stacks the currency lanes; 320 px uses the existing titleL amount role without scaling
+  text down through FittedBox. Both wallet balances are still distinct from collection totals.
+- **Collect:** remove the redundant outer form card, use the existing hero role for the amount input,
+  attach its label to the field, and let the optional order-note label wrap above its field. Its full
+  semantic label remains attached to the editable value. Validation, currency/mode selection,
+  uncertain-create recovery, QR presentation and all request outcomes are preserved.
+- **Sales:** Requests and Reports share the title area; all five date choices scroll within one row.
+  Currency/search/custom dates, totals, paging and receipt navigation remain. Shared payment rows now
+  align amounts to the trailing edge, use tabular figures and theme ink for readable incoming amounts.
+- **Merchant shared widgets:** reuse the existing SurfaceCard/NavyCard/AmountText/StatusChip/SectionTitle
+  components. Navy emphasis is flat without the repeated watermark; section titles use source type
+  roles and heading semantics. Status backgrounds retain their semantic tokens with high-contrast navy
+  text and explicit state words. AmountText keeps the enlarged Khmer riel glyph on a stable baseline.
+  Wallet rows use Material InkWell focus/hover/press/keyboard behavior and preserve separate Copy
+  controls with snack-bar feedback. Material navigation, hit targets, safe areas and theme behavior stay.
+
+Taste app-screen direction: **Achromatic ledger, seed 1244715967**, with `--keep palette,type`, no redraws.
+Used for hierarchy and grouping, adapted to the user's priority order: Kesor gold primary/navy emphasis,
+20/24 px shapes, existing fonts, semantic colours and Material selection controls override the sheet's
+achromatic budget, radii and desktop control sizes. Compatible Apple principles applied: text adaptation,
+standard control behavior, explicit labels, feedback and keyboard focus. Primary guidance checked:
+[Apple accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility).
+
+**Verification:** final Merchant suite **109/109** (106 existing plus three accessibility/feedback/error-state
+checks); `flutter analyze --no-pub` clean; `git diff --check` clean. The existing visual fixture passed
+before and after with **232 renders each**: 393×852 phone, 320×640 small, 375×812 Khmer at 2×,
+812×375 landscape, 800×1280 Khmer tablet at 1.3×, 1280×800 tablet landscape, each light and dark.
+All final images were inspected in 28 contact sheets, with representative images opened at full size.
+Tests exercise wallet keyboard activation, independent copy/feedback, Android touch-target and labelled
+target guidelines, order-note label/value semantics, and stale balances plus retry on refresh failure.
+The fixture now accepts `MERCHANT_QA_OUT` and waits for welcome-image decoding before capture.
+
+Ignored local evidence under `frontend/merchant_app/.local/`: `ui-tests.log`, `ui-analyze.log`,
+`ui-visual-final.log`, `ui-critique.md`, `qa/ui-before/`, `qa/ui-after/`, `qa/ui-review/`.
+The latter contains `home-before-after.png`, `welcome-before-after.png`, `sales-before-after.png`,
+`collect-before-after.png` and `review-manifest.json`. No new live sample data was introduced; all
+rendered Kesor Coffee/Dara/Sophea values remain controlled test fixtures, not claimed merchant activity.
+
+**Limits:** Android/native builds, real device input, TalkBack/VoiceOver, native sharing and payment
+integration were not verified in this UI task. No Android device was attached. `flutter build web`
+could not run because the Merchant project has no web target; no platform was added. Taste's DOM/CSS
+lint reported no supported Dart source files, so no browser-inspector or zero-DOM-failure claim is made.
+Flutter renders and semantics tests are the evidence. Large accessibility text and short landscape
+windows deliberately scroll; the complete content is not forced above the fold. M9 remains unstarted.
+
+**Generated asset:** `frontend/merchant_app/assets/images/merchant-welcome.png`, built-in `image_gen`,
+one generation, no source photo or external media credit. This is illustrative artwork, not a real shop
+photograph. Final prompt:
+
+> Use case: illustration-story. Asset: one landscape raster illustration for the Kesor Merchant Flutter welcome screen. Editorial illustration of a Cambodian small coffee shop owner at a counter, handing a takeaway coffee to a customer holding a phone, friendly everyday business scene, modest Phnom Penh shop with potted plant, coffee equipment and a blank small payment placard. Sophisticated flat painted illustration with delicate paper texture, calm clean composition, restrained deep navy #17253D and warm gold #CDA32F on a white/off-white backdrop, natural skin tones. Main subjects centered with generous crop safety on all sides, landscape aspect about 3:2. No text, no logos, no letters, no QR patterns, no graphs, no gradients, no floating icons, no decorative blobs. This is in-app supporting artwork, not a UI screenshot.
+
+
+## 13. Figma Quiet v2 redesign — 4 November 2026
+
+**Current presentation, uncommitted.** The user's explicit reference is
+[Merchant Redesign v2 · Quiet, section 370:4356](https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=370-4356).
+This supersedes the presentation in §12, including the later navy Home-card restoration.
+Earlier source work and screenshot exports were preserved; the generated welcome illustration
+remains on disk but is no longer shown or bundled.
+
+Read the full section, retrieved high-fidelity context for all 28 child screens and downloaded
+51 SVG exports. Merchant-only type/theme overrides reuse the existing Poppins/Google Sans,
+semantic palette and shared theme extensions. The Customer App and shared design package
+are unchanged. Static SVGs retain their exported geometry; the sample QR is never used at
+runtime. Shop logos, QR payloads, money, references, dates and account suffixes remain live data.
+
+Implemented across the existing flows:
+
+- Welcome, sign-in waiting/failures, account review, registration/recovery and restricted-shop states.
+- Home/Collect/More tabs; drawer links for Home, Collect, Sales, Collections report, Payment requests,
+  Business wallets and Shop QR. More owns profile, language/appearance, alerts, support and sign-out.
+- Flat Home totals, independent wallet balances, masked account rows, recent payments and wallet activity;
+  wallet detail retains full-account copying and owner-transfer entry.
+- Currency/amount entry with a decimal-string keypad, optional order note, server-controlled QR/countdown,
+  paid/expired/cancelled states; white QR cards and receipt Save image/Share/Copy reference actions.
+- Owner-transfer form, approval/countdown and result layouts; sources/destinations remain server-verified.
+- Sales date/currency/search filters, exact totals and paging; separate requests; daily/monthly reports with
+  pale/navy bars and complete exact-value rows; compact shop forms and settings controls.
+
+Registration's primary action is **Review shop**. The local review sheet sends nothing; **Register shop**
+creates the request through the existing controller. An uncertain registration shows the immutable saved
+summary and **Check status** reuses its original key. Other payment/session safety behavior is retained.
+The sign-in UI reads remaining approval time through `MerchantApprovalTiming`; the existing API gateway
+calculates it from its pending journal's expiry and injected clock. It does not alter expiry enforcement.
+
+Layouts use scrolling stages, wrapping choices, flexible value columns and larger keypad rows as text grows.
+Headers/safe areas remain native. Large text, narrow widths and short landscape windows scroll instead of
+forcing all controls above the fold; large/long payment rows stack their amount. Small display links follow
+the compact Figma geometry; no blanket claim about every touch target or assistive-technology acceptance.
+
+**Verification complete:** Merchant tests **112/112** (106 pre-refinement, three existing accessibility/
+feedback tests, two new keypad/keyboard regressions and one light/dark selected-filter contrast check). Financial/controller/API assertions remain intact;
+navigation and presentation assertions now drive the three tabs, drawer and review sheet. The QR-currency
+check asserts the actual payload instead of a full account number that the new screen no longer displays.
+Final default visual fixture: **294 renders, no overflow**, covering 393×852 phone, 320×640 small phone,
+375×812 Khmer at 2×, 812×375 landscape, 800×1280 Khmer at 1.3× and 1280×800 tablet landscape, each
+light/dark. Includes drawer, separate language/appearance and alert pages, sign-out sheet, denied sign-in
+and server-expired request. Inspected all renders through 19 contact sheets and representative full-size
+images. The review found and fixed selected dark tab/filter contrast and dark status-icon visibility;
+final full-size Home, Sales and approval renders confirm the fixes. Final Welcome spacing was rechecked
+in 12 variants, and approval assets in two. The fixture warms SVG bytecode outside the fake clock.
+`flutter analyze --no-pub` and `git diff --check` are clean.
+
+Export: `Flutter Screen/Merchant App Figma Quiet/` — **34 states, 36 PNGs**, all verified to decode at
+1179×2556 (393×852 logical), plus `Preview.jpg`, `Overview.jpg` and `README.md`. Earlier export folders
+remain untouched. The fixture reserves the native status-bar inset; it does not draw a fake OS bar.
+Balances, QR patterns, dates, references, logo presence and preference values vary with actual data;
+the Figma sample values are not hardcoded into the app. Native sharing/camera, device rendering and
+TalkBack remain unverified.
+
+Local evidence: `frontend/merchant_app/.local/figma-quiet/` contains the retrieved contexts, reference renders,
+asset audit and logs. Responsive renders are in `.local/qa/figma-final/` in that app. No backend restart,
+database migration, real payment, APK build/install, native sharing or physical-device acceptance occurred.
+Backend/Customer suites were not rerun for this Merchant presentation task. M9 remains unstarted.

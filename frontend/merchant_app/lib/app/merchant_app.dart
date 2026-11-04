@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
@@ -12,6 +11,10 @@ import 'package:kesor_auth_handoff/kesor_auth_handoff.dart'
 
 import '../core/merchant_preferences.dart';
 import '../core/merchant_strings.dart';
+import '../core/merchant_ui.dart';
+import '../features/settings/merchant_settings.dart';
+import '../features/sales/reports_page.dart';
+import '../features/sales/requests_page.dart';
 import '../features/auth/merchant_session.dart';
 import '../features/collect/collect_controller.dart';
 import '../features/collect/collect_view.dart';
@@ -28,7 +31,6 @@ import '../features/shop/shop_form.dart';
 import '../features/shop/shop_home.dart';
 import '../features/shop/shop_profile_page.dart';
 import '../features/transfer/owner_transfer_controller.dart';
-import '../features/shop/shop_widgets.dart';
 
 export '../core/merchant_strings.dart' show MerchantStrings;
 
@@ -203,8 +205,8 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
         locale: prefs.locale,
         supportedLocales: const [Locale('en'), Locale('km')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: AppTheme.build(Brightness.light, locale: prefs.locale),
-        darkTheme: AppTheme.build(Brightness.dark, locale: prefs.locale),
+        theme: merchantTheme(Brightness.light, prefs.locale),
+        darkTheme: merchantTheme(Brightness.dark, prefs.locale),
         themeMode: prefs.themeMode,
         // The privacy cover overlays the screen instead of replacing it, so an
         // in-progress form survives the system logo picker.
@@ -239,25 +241,8 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
               onRegistered: widget.session.validate,
               onSignOut: widget.session.signOut,
             ),
-            MerchantPhase.recoveryRequired => Builder(
-              builder: (context) => Scaffold(
-                appBar: AppBar(title: const Text('Kesor Merchant')),
-                body: _Page(
-                  children: [
-                    Text(
-                      _t(
-                        context,
-                        'Your shop needs support review. Contact Kesor Bank.',
-                        'សូមទាក់ទងធនាគារកេសរ ដើម្បីពិនិត្យហាងរបស់អ្នក។',
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: widget.session.signOut,
-                      child: Text(_t(context, 'Sign out', 'ចាកចេញ')),
-                    ),
-                  ],
-                ),
-              ),
+            MerchantPhase.recoveryRequired => _AccountReview(
+              session: widget.session,
             ),
             MerchantPhase.ready || MerchantPhase.restricted => _ShopShell(
               key: ValueKey(widget.session.identity!.shop!.id),
@@ -306,8 +291,8 @@ String _authMessage(
   ),
   MerchantAuthIssue.denied => _t(
     context,
-    'Sign-in was declined. You can start a new request.',
-    'ការចូលប្រើត្រូវបានបដិសេធ។ អ្នកអាចចាប់ផ្ដើមសំណើថ្មី។',
+    'The request was declined in Kesor Bank. Nothing changed in your shop.',
+    'សំណើត្រូវបានបដិសេធក្នុងធនាគារកេសរ។ គ្មានអ្វីផ្លាស់ប្ដូរក្នុងហាងរបស់អ្នកទេ។',
   ),
   MerchantAuthIssue.customerMissing => _t(
     context,
@@ -356,189 +341,176 @@ class _Welcome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final type = AppTextStyles.of(context);
+    if (session.failure != null) return _SignInFailure(session: session);
+    Widget feature(String asset, String en, String km) => Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        children: [
+          QIcon(asset),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(t(context, en, km), style: mText(context, 15, 24)),
+          ),
+        ],
+      ),
+    );
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: LayoutBuilder(
-              builder: (context, bounds) => SingleChildScrollView(
+              builder: (context, box) => SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: bounds.maxHeight),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(child: _Brand()),
-                            IconButton(
-                              tooltip: _t(
-                                context,
-                                'Change language',
-                                'ប្ដូរភាសា',
-                              ),
-                              onPressed: () => prefs.setLanguage(
-                                prefs.isKhmer ? 'en' : 'km',
-                              ),
-                              icon: const Icon(Icons.translate),
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 72, 20, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: QIcon('3633f', darkAdaptive: false),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            t(
+                              context,
+                              'Your shop,\nready for business.',
+                              'ហាងរបស់អ្នក\nត្រៀមសម្រាប់អាជីវកម្ម។',
                             ),
-                            IconButton(
-                              tooltip: _t(
+                            style: mText(
+                              context,
+                              32,
+                              43,
+                              weight: FontWeight.w300,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            t(
+                              context,
+                              'Collect payments in riel and dollars, see every sale, and move money to your own wallet.',
+                              'ទទួលការទូទាត់ជាប្រាក់រៀល និងដុល្លារ តាមដានការលក់ ហើយផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន។',
+                            ),
+                            style: mText(
+                              context,
+                              15,
+                              24,
+                              color: colors.disabledBackground,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          const Spacer(),
+                          feature(
+                            'a83fb',
+                            'QR payments in KHR and USD',
+                            'ការទូទាត់ QR ជាប្រាក់រៀល និងដុល្លារ',
+                          ),
+                          feature(
+                            '156fc',
+                            'A receipt for every sale',
+                            'បង្កាន់ដៃសម្រាប់ការលក់នីមួយៗ',
+                          ),
+                          feature(
+                            'd8c8d',
+                            'Transfers to your own wallet',
+                            'ផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន',
+                          ),
+                          const Spacer(),
+                          const SizedBox(height: 32),
+                          if (session.busy) ...[
+                            const LinearProgressIndicator(),
+                            Text(
+                              t(
                                 context,
-                                'Change appearance',
-                                'ប្ដូររូបរាង',
+                                'Finishing your previous request…',
+                                'កំពុងបញ្ចប់សំណើមុនរបស់អ្នក…',
                               ),
-                              onPressed: () => prefs.setTheme(
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? ThemeMode.light
-                                    : ThemeMode.dark,
-                              ),
-                              icon: const Icon(Icons.contrast),
                             ),
                           ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 48),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          FilledButton(
+                            key: const ValueKey('continue-with-kesor'),
+                            onPressed: session.busy ? null : session.signIn,
+                            child: Text(
+                              t(
+                                context,
+                                'Continue with Kesor Bank',
+                                'បន្តជាមួយធនាគារកេសរ',
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            t(
+                              context,
+                              'You approve in Kesor Bank. No new password or PIN.',
+                              'អ្នកអនុម័តក្នុងធនាគារកេសរ។ មិនត្រូវការពាក្យសម្ងាត់ ឬ PIN ថ្មីទេ។',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: mText(
+                              context,
+                              13,
+                              18,
+                              color: colors.disabledBackground,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: colors.primary50,
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: const Icon(
-                                  Icons.storefront_outlined,
-                                  color: AppPalette.navy500,
-                                  size: 40,
-                                ),
-                              ),
-                              const SizedBox(height: 28),
-                              Text(
-                                _t(
-                                  context,
-                                  'Your shop.\nYour payments.',
-                                  'ហាងរបស់អ្នក។\nការទូទាត់របស់អ្នក។',
-                                ),
-                                style: type.titleXL.copyWith(
-                                  fontSize: 32,
-                                  height: 1.5,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _t(
-                                  context,
-                                  'Collect payments and keep your business moving with Kesor Bank.',
-                                  'ទទួលការទូទាត់ និងគ្រប់គ្រងអាជីវកម្មរបស់អ្នកជាមួយធនាគារកេសរ។',
-                                ),
-                                style: type.bodyL,
-                              ),
-                              const SizedBox(height: 32),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  _Feature(
-                                    label: _t(
-                                      context,
-                                      'USD & KHR',
-                                      'ដុល្លារ និងរៀល',
-                                    ),
-                                    icon: Icons.account_balance_wallet_outlined,
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 18),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
-                                  _Feature(
-                                    label: _t(
-                                      context,
-                                      'QR payments',
-                                      'ការទូទាត់តាម QR',
-                                    ),
-                                    icon: Icons.qr_code_2,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => prefs.setLanguage(
+                                  prefs.isKhmer ? 'en' : 'km',
+                                ),
+                                child: Text(
+                                  prefs.isKhmer ? 'ខ្មែរ' : 'English',
+                                ),
+                              ),
+                              Text(
+                                '·',
+                                style: mText(
+                                  context,
+                                  13,
+                                  18,
+                                  color: merchantNavy(context),
+                                ),
+                              ),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  minimumSize: const Size(48, 18),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
-                                ],
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => MerchantAppearancePage(
+                                      preferences: prefs,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  themeLabel(context, prefs.themeMode),
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (session.failure != null) ...[
-                              Semantics(
-                                liveRegion: true,
-                                child: Text(
-                                  _authMessage(context, session.failure!),
-                                  key: const ValueKey(
-                                    'merchant-auth-unavailable',
-                                  ),
-                                  style: type.body,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            if (session.busy) ...[
-                              const LinearProgressIndicator(),
-                              const SizedBox(height: 12),
-                              Text(
-                                _t(
-                                  context,
-                                  'Finishing your previous request…',
-                                  'កំពុងបញ្ចប់សំណើមុនរបស់អ្នក…',
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            if (session.failure ==
-                                MerchantAuthIssue.uncertain) ...[
-                              FilledButton(
-                                onPressed: session.recover,
-                                child: Text(
-                                  _t(
-                                    context,
-                                    'Recover sign-in result',
-                                    'យកលទ្ធផលចូលប្រើវិញ',
-                                  ),
-                                ),
-                              ),
-                              OutlinedButton(
-                                onPressed: session.cancel,
-                                child: Text(
-                                  _t(context, 'Cancel request', 'បោះបង់សំណើ'),
-                                ),
-                              ),
-                            ] else
-                              FilledButton.icon(
-                                key: const ValueKey('continue-with-kesor'),
-                                onPressed: session.busy ? null : session.signIn,
-                                icon: const Icon(Icons.open_in_new),
-                                label: Text(
-                                  _t(
-                                    context,
-                                    'Continue with Kesor Bank',
-                                    'បន្តជាមួយធនាគារកេសរ',
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _t(
-                                context,
-                                'Approve securely in your Kesor Bank app. Your shop uses the same owner account.',
-                                'អនុម័តដោយសុវត្ថិភាពក្នុងកម្មវិធីធនាគារកេសរ។ ហាងរបស់អ្នកប្រើគណនីម្ចាស់ដដែល។',
-                              ),
-                              textAlign: TextAlign.center,
-                              style: type.body,
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -551,84 +523,265 @@ class _Welcome extends StatelessWidget {
   }
 }
 
-class _Feature extends StatelessWidget {
-  const _Feature({required this.label, required this.icon});
-  final String label;
-  final IconData icon;
+class _SignInFailure extends StatelessWidget {
+  const _SignInFailure({required this.session});
+  final MerchantSession session;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    decoration: BoxDecoration(
-      color: AppColors.of(context).surface,
-      border: Border.all(color: AppColors.of(context).border),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 8),
-        Flexible(child: Text(label, style: AppTextStyles.of(context).body)),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final issue = session.failure!;
+    return QPage(
+      title: t(context, 'Sign in', 'ចូលប្រើ'),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FilledButton(
+            key: const ValueKey('continue-with-kesor'),
+            onPressed: session.busy
+                ? null
+                : issue == MerchantAuthIssue.uncertain
+                ? session.recover
+                : session.signIn,
+            child: Text(
+              issue == MerchantAuthIssue.uncertain
+                  ? t(context, 'Recover sign-in result', 'យកលទ្ធផលចូលប្រើវិញ')
+                  : t(context, 'Try again', 'ព្យាយាមម្ដងទៀត'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: session.cancel,
+            child: Text(t(context, 'Back to welcome', 'ត្រឡប់ទៅទំព័រស្វាគមន៍')),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 96),
+        child: Column(
+          children: [
+            const QStatusIcon('00600', tone: 'error'),
+            const SizedBox(height: 12),
+            Text(
+              issue == MerchantAuthIssue.denied
+                  ? t(
+                      context,
+                      'Sign-in not approved',
+                      'ការចូលប្រើមិនត្រូវបានអនុម័ត',
+                    )
+                  : t(context, 'Unable to sign in', 'មិនអាចចូលប្រើបាន'),
+              textAlign: TextAlign.center,
+              style: mText(context, 20, 27, weight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _authMessage(context, issue),
+              key: const ValueKey('merchant-auth-unavailable'),
+              textAlign: TextAlign.center,
+              style: mText(
+                context,
+                15,
+                24,
+                color: AppColors.of(context).disabledBackground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _ApprovalWaiting extends StatelessWidget {
+class _ApprovalWaiting extends StatefulWidget {
   const _ApprovalWaiting({required this.session});
   final MerchantSession session;
+  @override
+  State<_ApprovalWaiting> createState() => _ApprovalWaitingState();
+}
+
+class _ApprovalWaitingState extends State<_ApprovalWaiting> {
+  Timer? tick;
+  MerchantSession get session => widget.session;
+  @override
+  void initState() {
+    super.initState();
+    tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    tick?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop) session.cancel();
     },
-    child: Scaffold(
-      appBar: AppBar(
-        title: Text(_t(context, 'Approve sign-in', 'អនុម័តការចូលប្រើ')),
-      ),
-      body: _Page(
+    child: QPage(
+      title: t(context, 'Sign in', 'ចូលប្រើ'),
+      footer: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.phonelink_lock_outlined, size: 64),
-          const SizedBox(height: 24),
-          Text(
-            _t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
-            style: AppTextStyles.of(context).titleXL,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _t(
-              context,
-              'Confirm this request in your Customer App, then return here.',
-              'បញ្ជាក់សំណើនេះក្នុងកម្មវិធីអតិថិជន រួចត្រឡប់មកទីនេះវិញ។',
-            ),
-          ),
-          const SizedBox(height: 32),
-          const LinearProgressIndicator(),
-          const SizedBox(height: 24),
-          TextButton(
+          FilledButton(
             onPressed: session.reopen,
-            child: Text(_t(context, 'Open Kesor Bank', 'បើកធនាគារកេសរ')),
+            child: Text(t(context, 'Open Kesor Bank', 'បើកធនាគារកេសរ')),
           ),
+          const SizedBox(height: 8),
           OutlinedButton(
             onPressed: session.cancel,
-            child: Text(_t(context, 'Cancel', 'បោះបង់')),
+            child: Text(t(context, 'Cancel', 'បោះបង់')),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const QStatusIcon('c0d59'),
+            const SizedBox(height: 16),
+            Text(
+              t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
+              textAlign: TextAlign.center,
+              style: mText(context, 20, 27, weight: FontWeight.w500),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              t(
+                context,
+                'Approve this sign-in with your Kesor Bank PIN, then come back here.',
+                'អនុម័តការចូលប្រើដោយ PIN ធនាគារកេសរ រួចត្រឡប់មកទីនេះ។',
+              ),
+              textAlign: TextAlign.center,
+              style: mText(
+                context,
+                15,
+                24,
+                color: AppColors.of(context).disabledBackground,
+              ),
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              minHeight: 4,
+              value: session.approvalRemaining == null
+                  ? null
+                  : (session.approvalRemaining!.inSeconds / 120).clamp(0, 1),
+              color: merchantNavy(context),
+              backgroundColor: AppColors.of(context).surface,
+            ),
+            if (session.approvalRemaining != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${t(context, 'Expires in', 'ផុតកំណត់ក្នុង')} ${session.approvalRemaining!.inMinutes}:${(session.approvalRemaining!.inSeconds % 60).toString().padLeft(2, '0')}',
+                textAlign: TextAlign.center,
+                style: mText(
+                  context,
+                  13,
+                  18,
+                  color: AppColors.of(context).disabledBackground,
+                ),
+              ),
+            ],
+            if (session.failure != null) ...[
+              const SizedBox(height: 12),
+              Text(_authMessage(context, session.failure!)),
+            ],
+            const SizedBox(height: 40),
+            for (final step in [
+              t(
+                context,
+                'Kesor Bank opens on this phone',
+                'ធនាគារកេសរបើកលើទូរស័ព្ទនេះ',
+              ),
+              t(
+                context,
+                'Check the shop app and device',
+                'ពិនិត្យកម្មវិធីហាង និងឧបករណ៍',
+              ),
+              t(context, 'Approve with your PIN', 'អនុម័តដោយ PIN របស់អ្នក'),
+            ].asMap().entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: Text(
+                        '${step.key + 1}',
+                        style: mText(
+                          context,
+                          15,
+                          24,
+                          color: AppColors.of(context).disabledBackground,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Text(step.value)),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     ),
   );
 }
 
-class _Page extends StatelessWidget {
-  const _Page({required this.children});
-  final List<Widget> children;
+class _AccountReview extends StatelessWidget {
+  const _AccountReview({required this.session});
+  final MerchantSession session;
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: ListView(padding: const EdgeInsets.all(24), children: children),
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: QStage(
+            footer: OutlinedButton(
+              onPressed: session.signOut,
+              child: Text(t(context, 'Sign out', 'ចាកចេញ')),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 132),
+              child: Column(
+                children: [
+                  const QStatusIcon('6e46a', tone: 'warning'),
+                  const SizedBox(height: 12),
+                  Text(
+                    t(
+                      context,
+                      'Your account needs a review',
+                      'គណនីរបស់អ្នកត្រូវការពិនិត្យ',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: mText(context, 20, 27, weight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    t(
+                      context,
+                      'More than one shop is linked to you. Support will help you continue with the right one.',
+                      'មានហាងច្រើនជាងមួយភ្ជាប់នឹងអ្នក។ ផ្នែកគាំទ្រនឹងជួយអ្នកបន្តជាមួយហាងត្រឹមត្រូវ។',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: mText(
+                      context,
+                      15,
+                      24,
+                      color: AppColors.of(context).disabledBackground,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const MerchantSupportCard(),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     ),
   );
@@ -662,15 +815,26 @@ class _ShopShell extends StatefulWidget {
 
 class _ShopShellState extends State<_ShopShell> {
   int tab = 0;
+  @override
+  void initState() {
+    super.initState();
+    widget.collect?.addListener(_collectionChanged);
+  }
+
+  void _collectionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.collect?.removeListener(_collectionChanged);
+    super.dispose();
+  }
 
   Widget _withBanner(Widget body) {
     final feed = widget.feed;
     if (feed == null) return body;
-    return PaymentBannerHost(
-      controller: feed,
-      onOpen: () => setState(() => tab = 2),
-      child: body,
-    );
+    return PaymentBannerHost(controller: feed, onOpen: _openSales, child: body);
   }
 
   void _openProfile() {
@@ -700,332 +864,424 @@ class _ShopShellState extends State<_ShopShell> {
     );
   }
 
+  void _push(Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  void _openSales() {
+    if (widget.sales == null) {
+      _push(
+        QPage(
+          title: t(context, 'Sales', 'ការលក់'),
+          child: _Unavailable(
+            title: t(context, 'Sales unavailable', 'ការលក់មិនអាចប្រើបាន'),
+            message: t(
+              context,
+              'Your payment history could not be loaded.',
+              'មិនអាចទាញយកប្រវត្តិការទូទាត់របស់អ្នកបានទេ។',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    _push(
+      Scaffold(
+        appBar: AppBar(
+          leadingWidth: 52,
+          leading: const QBack(),
+          title: Text(t(context, 'Sales', 'ការលក់')),
+          actions: [
+            IconButton(
+              key: const ValueKey('sales-reports'),
+              tooltip: t(context, 'Reports', 'របាយការណ៍'),
+              icon: const QIcon('7b0e4'),
+              onPressed: _openReports,
+            ),
+          ],
+        ),
+        body: SafeArea(
+          top: false,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: SalesView(
+                controller: widget.sales!,
+                showHeader: false,
+                onRequest: _openRequest,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRequest(String id) async {
+    await widget.collect?.openRequest(id);
+    if (mounted) setState(() => tab = 1);
+  }
+
+  void _openReports() {
+    if (widget.gateway != null) {
+      _push(
+        ReportsPage(gateway: widget.gateway!, onExpired: widget.session.expire),
+      );
+    }
+  }
+
+  void _openRequests() {
+    if (widget.gateway != null) {
+      _push(
+        RequestsPage(
+          gateway: widget.gateway!,
+          onExpired: widget.session.expire,
+          onWaiting: _openRequest,
+        ),
+      );
+    }
+  }
+
+  void _openQr() {
+    if (widget.gateway != null) {
+      _push(MerchantShopQrPage(gateway: widget.gateway!));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final identityShop = widget.session.identity!.shop!;
+    final identity = widget.session.identity!.shop!;
     final controller = widget.shop;
-    final colors = AppColors.of(context);
     final titles = [
-      _t(context, 'Home', 'ទំព័រដើម'),
-      _t(context, 'Collect', 'ទទួលប្រាក់'),
-      _t(context, 'Sales', 'ការលក់'),
-      _t(context, 'More', 'បន្ថែម'),
+      t(context, 'Home', 'ទំព័រដើម'),
+      t(context, 'Collect', 'ទទួលប្រាក់'),
+      t(context, 'More', 'បន្ថែម'),
     ];
+    final active = identity.active;
+    final colors = AppColors.of(context);
+    Widget home() => RefreshIndicator(
+      onRefresh: () async {
+        await controller?.refresh();
+        await widget.session.validate();
+      },
+      child: ListView(
+        key: const PageStorageKey('shop-tab-0'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          controller?.shop?.active == false ? 8 : 4,
+          20,
+          24,
+        ),
+        children: [
+          if (controller != null)
+            ShopHomeView(
+              controller: controller,
+              fallbackName: identity.name,
+              onCollect: active ? () => setState(() => tab = 1) : null,
+              onSales: _openSales,
+              onEditShop: () => _push(const MerchantSupportPage()),
+              onOpenWallet: widget.gateway == null ? null : _openWallet,
+              onSeeSales: _openSales,
+              onReceipt: widget.gateway == null
+                  ? null
+                  : (r) => openReceipt(
+                      context,
+                      widget.gateway!,
+                      r.reference,
+                      onExpired: widget.session.expire,
+                    ),
+            )
+          else
+            _Unavailable(
+              title: identity.name,
+              message: t(
+                context,
+                'Shop details are currently unavailable.',
+                'ព័ត៌មានហាងមិនអាចប្រើបានបណ្ដោះអាសន្ន។',
+              ),
+            ),
+        ],
+      ),
+    );
     return PopScope(
       canPop: tab == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) setState(() => tab = 0);
       },
-      child: Scaffold(
-        backgroundColor: colors.background,
-        body: _withBanner(
-          SafeArea(
-            bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: tab == 2 && widget.sales != null
-                    ? SalesView(
-                        controller: widget.sales!,
-                        onRequest: (id) async {
-                          await widget.collect?.openRequest(id);
-                          if (mounted) setState(() => tab = 1);
-                        },
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await controller?.refresh();
-                          await widget.session.validate();
-                        },
-                        child: ListView(
-                          key: PageStorageKey('shop-tab-$tab'),
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      child: _withBanner(
+        Scaffold(
+          appBar: AppBar(
+            leadingWidth: 52,
+            leading: tab == 1 && widget.collect?.waiting == true
+                ? QBack(onPressed: () => setState(() => tab = 0))
+                : Builder(
+                    builder: (context) => IconButton(
+                      key: const ValueKey('merchant-menu'),
+                      tooltip: t(context, 'Menu', 'ម៉ឺនុយ'),
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                      icon: const QIcon('56124'),
+                    ),
+                  ),
+            title: tab == 0 && controller != null
+                ? ListenableBuilder(
+                    listenable: controller,
+                    builder: (context, _) =>
+                        Text(controller.shop?.storeName ?? identity.name),
+                  )
+                : tab == 1 && widget.collect != null
+                ? ListenableBuilder(
+                    listenable: widget.collect!,
+                    builder: (context, _) => Text(
+                      widget.collect!.waiting
+                          ? t(
+                              context,
+                              'Waiting for payment',
+                              'កំពុងរង់ចាំការទូទាត់',
+                            )
+                          : titles[tab],
+                    ),
+                  )
+                : Text(tab == 0 ? identity.name : titles[tab]),
+            actions: tab == 0
+                ? [
+                    IconButton(
+                      tooltip: t(context, 'Refresh', 'ធ្វើបច្ចុប្បន្នភាព'),
+                      onPressed: controller?.refresh,
+                      icon: const QIcon('8d19a'),
+                    ),
+                  ]
+                : null,
+          ),
+          drawer: Drawer(
+            width: 296,
+            backgroundColor: colors.background,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+            ),
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 24, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          controller?.shop?.storeName ?? identity.name,
+                          style: mText(
+                            context,
+                            17,
+                            23,
+                            weight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          controller?.shop?.merchantId ?? '',
+                          style: mText(
+                            context,
+                            13,
+                            18,
+                            color: colors.disabledBackground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
                           children: [
-                            Text(
-                              titles[tab],
-                              style: mText(
-                                context,
-                                20,
-                                28,
-                                weight: FontWeight.w600,
+                            for (final item in <(String, String, VoidCallback)>[
+                              (
+                                titles[0],
+                                '5bdf3',
+                                () => setState(() => tab = 0),
                               ),
-                            ),
-                            if (tab == 0 && controller != null)
-                              ListenableBuilder(
-                                listenable: controller,
-                                builder: (context, _) {
-                                  final owner =
-                                      controller.profile?.ownerName ?? '';
-                                  if (owner.isEmpty) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return Text(
-                                    _t(
-                                      context,
-                                      'Hello, $owner',
-                                      'សួស្ដី $owner',
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: mText(
-                                      context,
-                                      13,
-                                      20,
-                                      color: colors.disabledBackground,
-                                    ),
-                                  );
+                              (
+                                titles[1],
+                                'cc139',
+                                () => setState(() => tab = 1),
+                              ),
+                              (
+                                t(context, 'Sales', 'ការលក់'),
+                                '5e757',
+                                _openSales,
+                              ),
+                              (
+                                t(
+                                  context,
+                                  'Collections report',
+                                  'របាយការណ៍ប្រាក់ទទួល',
+                                ),
+                                '8b848',
+                                _openReports,
+                              ),
+                              (
+                                t(context, 'Payment requests', 'សំណើទូទាត់'),
+                                'dc524',
+                                _openRequests,
+                              ),
+                              (
+                                t(
+                                  context,
+                                  'Business wallets',
+                                  'កាបូបអាជីវកម្ម',
+                                ),
+                                '58f29',
+                                () => _push(
+                                  MerchantWalletsPage(
+                                    controller: controller,
+                                    onOpen: _openWallet,
+                                  ),
+                                ),
+                              ),
+                              (
+                                t(context, 'Shop QR', 'QR ហាង'),
+                                '875aa',
+                                _openQr,
+                              ),
+                            ])
+                              ListTile(
+                                key: ValueKey('merchant-menu-${item.$2}'),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                leading: QIcon(item.$2),
+                                title: Text(
+                                  item.$1,
+                                  style: mText(context, 15, 24),
+                                ),
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  item.$3();
                                 },
                               ),
-                            const SizedBox(height: 16),
-                            if (tab == 0)
-                              if (controller != null)
-                                ShopHomeView(
-                                  controller: controller,
-                                  fallbackName: identityShop.name,
-                                  onCollect: identityShop.active
-                                      ? () => setState(() => tab = 1)
-                                      : null,
-                                  onSales: () => setState(() => tab = 2),
-                                  onEditShop: _openProfile,
-                                  onOpenWallet: widget.gateway == null
-                                      ? null
-                                      : _openWallet,
-                                  onSeeSales: () => setState(() => tab = 2),
-                                  onReceipt: widget.gateway == null
-                                      ? null
-                                      : (r) => openReceipt(
-                                          context,
-                                          widget.gateway!,
-                                          r.reference,
-                                          onExpired: widget.session.expire,
-                                        ),
-                                )
-                              else
-                                _Unavailable(
-                                  title: identityShop.name,
-                                  message: _t(
-                                    context,
-                                    'Shop details are currently unavailable.',
-                                    'ព័ត៌មានហាងមិនអាចប្រើបានបណ្ដោះអាសន្ន។',
-                                  ),
-                                )
-                            else if (tab == 1 &&
-                                widget.collect != null &&
-                                widget.gateway != null)
-                              CollectView(
-                                controller: widget.collect!,
-                                gateway: widget.gateway!,
-                                storeName:
-                                    controller?.shop?.storeName ??
-                                    identityShop.name,
-                                active: identityShop.active,
-                              )
-                            else if (tab == 1)
-                              _Unavailable(
-                                title: _t(
-                                  context,
-                                  'Collection unavailable',
-                                  'មិនអាចទទួលប្រាក់បាន',
-                                ),
-                                message: _t(
-                                  context,
-                                  'No payment request has been created. Your business wallets are ready to receive payments once collection is enabled.',
-                                  'មិនមានសំណើទូទាត់ត្រូវបានបង្កើតទេ។ កាបូបអាជីវកម្មរបស់អ្នករួចរាល់សម្រាប់ទទួលការទូទាត់ពេលការទទួលប្រាក់ត្រូវបានបើក។',
-                                ),
-                              )
-                            else if (tab == 2)
-                              _Unavailable(
-                                title: _t(
-                                  context,
-                                  'Sales unavailable',
-                                  'ការលក់មិនអាចប្រើបាន',
-                                ),
-                                message: _t(
-                                  context,
-                                  'Your payment history could not be loaded.',
-                                  'មិនអាចទាញយកប្រវត្តិការទូទាត់របស់អ្នកបានទេ។',
-                                ),
-                              )
-                            else ...[
-                              if (controller != null) ...[
-                                ShopProfileCard(
-                                  controller: controller,
-                                  fallbackName: identityShop.name,
-                                  onEdit: _openProfile,
-                                ),
-                                const SizedBox(height: 24),
-                              ],
-                              SectionTitle(
-                                _t(context, 'Preferences', 'ចំណូលចិត្ត'),
-                              ),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  widget.preferences.locale.languageCode,
-                                ),
-                                initialValue:
-                                    widget.preferences.locale.languageCode,
-                                decoration: InputDecoration(
-                                  labelText: _t(context, 'Language', 'ភាសា'),
-                                  prefixIcon: const Icon(
-                                    Icons.translate_rounded,
-                                  ),
-                                ),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'en',
-                                    child: Text('English'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'km',
-                                    child: Text('ខ្មែរ'),
-                                  ),
-                                ],
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    widget.preferences.setLanguage(v);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<ThemeMode>(
-                                key: ValueKey(widget.preferences.themeMode),
-                                initialValue: widget.preferences.themeMode,
-                                isExpanded: true,
-                                decoration: InputDecoration(
-                                  labelText: _t(
-                                    context,
-                                    'Appearance',
-                                    'រូបរាង',
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.contrast_rounded,
-                                  ),
-                                ),
-                                items: [
-                                  DropdownMenuItem(
-                                    value: ThemeMode.system,
-                                    child: Text(
-                                      _t(context, 'System', 'ប្រព័ន្ធ'),
-                                    ),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: ThemeMode.light,
-                                    child: Text(_t(context, 'Light', 'ភ្លឺ')),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: ThemeMode.dark,
-                                    child: Text(_t(context, 'Dark', 'ងងឹត')),
-                                  ),
-                                ],
-                                onChanged: (v) {
-                                  if (v != null) widget.preferences.setTheme(v);
-                                },
-                              ),
-                              const SizedBox(height: 24),
-                              SectionTitle(
-                                _t(
-                                  context,
-                                  'Payment alerts',
-                                  'ការជូនដំណឹងការទូទាត់',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              PaymentAlertSettings(
-                                preferences: widget.preferences,
-                              ),
-                              const SizedBox(height: 24),
-                              SectionTitle(_t(context, 'Help', 'ជំនួយ')),
-                              const SizedBox(height: 8),
-                              Material(
-                                color: colors.surface,
-                                clipBehavior: Clip.antiAlias,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide(color: colors.border),
-                                ),
-                                child: ListTile(
-                                  leading: const Icon(
-                                    Icons.support_agent_outlined,
-                                  ),
-                                  title: Text(_t(context, 'Support', 'ជំនួយ')),
-                                  subtitle: const Text('reachsteav2@gmail.com'),
-                                  trailing: const Icon(
-                                    Icons.copy_rounded,
-                                    size: 20,
-                                  ),
-                                  onTap: () async {
-                                    await Clipboard.setData(
-                                      const ClipboardData(
-                                        text: 'reachsteav2@gmail.com',
-                                      ),
-                                    );
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                _t(
-                                                  context,
-                                                  'Support address copied',
-                                                  'បានចម្លងអាសយដ្ឋានជំនួយ',
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                    }
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(48, 52),
-                                  foregroundColor: colors.error,
-                                  side: BorderSide(color: colors.border),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                onPressed: widget.session.signOut,
-                                icon: const Icon(Icons.logout),
-                                label: Text(_t(context, 'Sign out', 'ចាកចេញ')),
-                              ),
-                            ],
                           ],
                         ),
                       ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Text(
+                      t(
+                        context,
+                        'Settings and sign out are in More.',
+                        'ការកំណត់ និងចាកចេញនៅក្នុងបន្ថែម។',
+                      ),
+                      style: mText(
+                        context,
+                        13,
+                        18,
+                        color: colors.disabledBackground,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-        bottomNavigationBar: SafeArea(
-          top: false,
-          child: NavigationBar(
-            selectedIndex: tab,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            onDestinationSelected: (v) => setState(() => tab = v),
-            destinations: [
-              NavigationDestination(
-                icon: const Icon(Icons.home_outlined),
-                selectedIcon: const Icon(Icons.home_rounded),
-                label: titles[0],
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: tab == 0
+                  ? home()
+                  : tab == 1 && widget.collect != null && widget.gateway != null
+                  ? CollectView(
+                      controller: widget.collect!,
+                      gateway: widget.gateway!,
+                      storeName: controller?.shop?.storeName ?? identity.name,
+                      active: active,
+                    )
+                  : tab == 2
+                  ? MerchantMoreView(
+                      preferences: widget.preferences,
+                      controller: controller,
+                      fallbackName: identity.name,
+                      onProfile: _openProfile,
+                      onSignOut: widget.session.signOut,
+                    )
+                  : _Unavailable(
+                      title: titles[tab],
+                      message: t(
+                        context,
+                        'Collection unavailable',
+                        'មិនអាចទទួលប្រាក់បាន',
+                      ),
+                    ),
+            ),
+          ),
+
+          bottomNavigationBar: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: colors.border)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < 3; i++)
+                      Expanded(
+                        child: Semantics(
+                          key: ValueKey('merchant-tab-$i'),
+                          selected: tab == i,
+                          button: true,
+                          child: InkWell(
+                            onTap: () => setState(() => tab = i),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 56,
+                                    height: 28,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: tab == i
+                                          ? colors.accent50
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: QIcon(
+                                      i == 0
+                                          ? (tab == 0 ? '19f2d' : '5b56c')
+                                          : i == 1
+                                          ? (tab == 1 ? 'e306f' : 'f6e9c')
+                                          : (tab == 2 ? 'be895' : 'ff372'),
+                                      darkAdaptive: tab != i,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    titles[i],
+                                    textAlign: TextAlign.center,
+                                    style: mText(
+                                      context,
+                                      11,
+                                      14,
+                                      weight: FontWeight.w500,
+                                      color: tab == i
+                                          ? merchantNavy(context)
+                                          : colors.disabledBackground,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              NavigationDestination(
-                icon: const Icon(Icons.qr_code_2),
-                label: titles[1],
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.receipt_long_outlined),
-                selectedIcon: const Icon(Icons.receipt_long_rounded),
-                label: titles[2],
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.more_horiz),
-                label: titles[3],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1037,13 +1293,8 @@ class _Unavailable extends StatelessWidget {
   const _Unavailable({required this.title, required this.message});
   final String title, message;
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: AppColors.of(context).surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: AppColors.of(context).border),
-    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

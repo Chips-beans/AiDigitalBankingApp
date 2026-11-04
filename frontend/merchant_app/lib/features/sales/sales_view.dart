@@ -1,23 +1,27 @@
+import 'package:kesor_design_system/kesor_design_system.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../collect/merchant_collect.dart';
 import '../collect/wallet_page.dart';
 import '../shop/shop_home.dart';
 import '../shop/shop_widgets.dart';
 import 'receipt_page.dart';
 import 'reports_page.dart';
-import 'requests_page.dart';
 import 'sales_controller.dart';
 
 class SalesView extends StatefulWidget {
   const SalesView({
     required this.controller,
     required this.onRequest,
+    this.showHeader = true,
     super.key,
   });
+  final bool showHeader;
   final SalesController controller;
   final Future<void> Function(String) onRequest;
   @override
@@ -124,51 +128,36 @@ class _SalesViewState extends State<SalesView> {
         child: ListView(
           controller: scroll,
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    t(context, 'Sales', 'ការលក់'),
-                    style: mText(context, 20, 28, weight: FontWeight.w600),
+            if (widget.showHeader)
+              Row(
+                children: [
+                  const QBack(),
+                  Expanded(
+                    child: Text(
+                      t(context, 'Sales', 'ការលក់'),
+                      style: AppTextStyles.of(context).titleL,
+                    ),
                   ),
-                ),
-                IconButton(
-                  key: const ValueKey('sales-reports'),
-                  tooltip: t(context, 'Reports', 'របាយការណ៍'),
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => ReportsPage(
-                        gateway: sales.gateway,
-                        onExpired: sales.onExpired,
+                  IconButton(
+                    key: const ValueKey('sales-reports'),
+                    tooltip: t(context, 'Reports', 'របាយការណ៍'),
+                    icon: const QIcon('7b0e4'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => ReportsPage(
+                          gateway: sales.gateway,
+                          onExpired: sales.onExpired,
+                        ),
                       ),
                     ),
                   ),
-                  icon: const Icon(Icons.bar_chart_rounded),
-                ),
-              ],
-            ),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: TextButton.icon(
-                key: const ValueKey('sales-requests'),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => RequestsPage(
-                      gateway: sales.gateway,
-                      onExpired: sales.onExpired,
-                      onWaiting: widget.onRequest,
-                    ),
-                  ),
-                ),
-                icon: const Icon(Icons.history_rounded),
-                label: Text(t(context, 'Requests', 'សំណើ')),
+                ],
               ),
-            ),
             Wrap(
-              spacing: 8,
-              runSpacing: 4,
+              spacing: 4,
+              runSpacing: 0,
               children: [
                 for (final item in [
                   ('today', t(context, 'Today', 'ថ្ងៃនេះ')),
@@ -195,13 +184,16 @@ class _SalesViewState extends State<SalesView> {
               controller: search,
               maxLength: 50,
               decoration: InputDecoration(
-                labelText: t(
+                hintText: t(
                   context,
-                  'Reference or order note',
+                  'Search reference or note',
                   'លេខយោង ឬកំណត់ចំណាំ',
                 ),
                 counterText: '',
-                prefixIcon: const Icon(Icons.search_rounded),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: QIcon('32729'),
+                ),
               ),
               onChanged: (v) {
                 debounce?.cancel();
@@ -212,11 +204,6 @@ class _SalesViewState extends State<SalesView> {
               },
             ),
             const SizedBox(height: 16),
-            Text(
-              '${sales.filter.from} — ${sales.filter.to} · UTC+07:00',
-              style: mText(context, 12, 18),
-            ),
-            const SizedBox(height: 8),
             TodayCard(
               title: t(
                 context,
@@ -260,10 +247,25 @@ class _SalesViewState extends State<SalesView> {
               ),
             for (final day in grouped.entries) ...[
               const SizedBox(height: 16),
-              SectionTitle(day.key),
-              Text(
-                daySummary(context, day.value),
-                style: mText(context, 12, 18),
+              SectionTitle(
+                merchantDateLabel(
+                  context,
+                  DateTime.parse(day.key),
+                  today: true,
+                ),
+                trailing: Text(
+                  t(
+                    context,
+                    '${day.value.length} shown',
+                    'បានបង្ហាញ ${day.value.length}',
+                  ),
+                  style: mText(
+                    context,
+                    13,
+                    18,
+                    color: AppColors.of(context).disabledBackground,
+                  ),
+                ),
               ),
               for (final r in day.value)
                 ReceiptRow(
@@ -319,53 +321,16 @@ class CurrencyFilter extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final bool all;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, bounds) {
-      if (all &&
-          bounds.maxWidth >= 300 &&
-          MediaQuery.textScalerOf(context).scale(14) <= 20) {
-        return SegmentedButton<String>(
-          showSelectedIcon: false,
-          segments: [
-            ButtonSegment(
-              value: 'ALL',
-              label: Text(t(context, 'All', 'ទាំងអស់')),
-            ),
-            ButtonSegment(value: 'KHR', label: Text(t(context, 'KHR', 'រៀល'))),
-            ButtonSegment(
-              value: 'USD',
-              label: Text(t(context, 'USD', 'ដុល្លារ')),
-            ),
-          ],
-          selected: {value ?? 'ALL'},
-          onSelectionChanged: (v) =>
-              onChanged(v.first == 'ALL' ? null : v.first),
-        );
-      }
-      // Wrapped choices preserve readable labels at narrow widths / large text.
-      return Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        children: [
-          if (all)
-            ChoiceChip(
-              label: Text(t(context, 'All', 'ទាំងអស់')),
-              selected: value == null,
-              onSelected: (_) => onChanged(null),
-            ),
-          for (final c in ['KHR', 'USD'])
-            ChoiceChip(
-              label: Text(
-                c == 'KHR'
-                    ? t(context, 'KHR', 'រៀល')
-                    : t(context, 'USD', 'ដុល្លារ'),
-              ),
-              selected: value == c,
-              onSelected: (_) => onChanged(c),
-            ),
-        ],
-      );
-    },
+  Widget build(BuildContext context) => QSegments<String>(
+    values: [if (all) 'ALL', 'KHR', 'USD'],
+    labels: [
+      if (all) t(context, 'All', 'ទាំងអស់'),
+      t(context, 'KHR', 'រៀល'),
+      t(context, 'USD', 'ដុល្លារ'),
+    ],
+    compact: !all,
+    value: value ?? 'ALL',
+    onChanged: (v) => onChanged(v == 'ALL' ? null : v),
   );
 }
 

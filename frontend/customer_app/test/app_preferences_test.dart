@@ -78,7 +78,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('bottom-tab-1')));
       await tester.pumpAndSettle();
-      expect(find.text('ប្រចាំខែ'), findsOneWidget);
+      expect(find.text('ការវិភាគ'), findsNWidgets(2));
       expect(
         find.byKey(const ValueKey('analytics-income-card')),
         findsOneWidget,

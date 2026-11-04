@@ -47,6 +47,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final label in [
       'View accounts',
+      'Wallet',
       'Transfer',
       'Analytics',
       'Settings',
@@ -54,7 +55,7 @@ void main() {
       await tester.tap(find.byTooltip(label).first);
       await tester.pumpAndSettle();
     }
-    expect([accounts, transfers, activity, profile], [1, 1, 1, 1]);
+    expect([accounts, transfers, activity, profile], [2, 1, 1, 1]);
   });
 
   for (final size in [

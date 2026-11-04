@@ -3,11 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../app/app_preferences.dart';
 import '../../../app/design_system/design_system.dart';
 import '../../../shared/widgets/app_states.dart';
+import '../../../shared/widgets/figma_presentation.dart';
 import '../assistant_controller.dart';
 import '../assistant_labels.dart';
 import '../assistant_models.dart';
@@ -18,12 +18,14 @@ class AssistantScreen extends StatefulWidget {
     required this.onAction,
     required this.bottomClearance,
     this.keyboardVisible = false,
+    this.onBack,
     super.key,
   });
   final AssistantController controller;
   final ValueChanged<AiAction> onAction;
   final double bottomClearance;
   final bool keyboardVisible;
+  final VoidCallback? onBack;
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
 }
@@ -253,79 +255,150 @@ class _AssistantScreenState extends State<AssistantScreen>
 
   Widget _welcome(BuildContext context) {
     final colors = AppColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: SvgPicture.asset(
-              'assets/pin/assistant.svg',
-              excludeFromSemantics: true,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            aiText(context, 'Your Kesor assistant'),
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            aiText(context, 'Understand your money. Find the details.'),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            aiText(
-              context,
-              'Ask about your balances, transactions or how to use Kesor.',
-            ),
-            style: TextStyle(color: colors.foreground.withValues(alpha: .8)),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            aiText(
-              context,
-              'Questions and minimal financial summaries are sent to Gemini. Conversations are kept for 30 days.',
-            ),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 16),
-          for (final suggestion in [
-            ('Show my balances', Icons.account_balance_wallet_outlined),
-            ('Summarize this month', Icons.bar_chart_outlined),
-            ('Find recent transfers', Icons.receipt_long_outlined),
-            ('How do I receive money by QR?', Icons.qr_code_2),
-          ])
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor:
-                        Theme.of(context).brightness == Brightness.dark
-                        ? AppPalette.gold200
-                        : AppPalette.gold700,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+    final name =
+        model.session.identity?.firstName ??
+        model.session.identity?.username ??
+        '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Column(
+            children: [
+              Tooltip(
+                message: aiText(context, 'Conversation history'),
+                child: InkWell(
+                  onTap: _history,
+                  borderRadius: BorderRadius.circular(100),
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.primary50,
+                      shape: BoxShape.circle,
                     ),
-                    minimumSize: const Size(48, 52),
+                    child: const CustomerDesignIcon('68b0e', size: 76),
                   ),
-                  onPressed: model.canSend
-                      ? () => _send(aiText(context, suggestion.$1))
-                      : null,
-                  icon: Icon(suggestion.$2, size: 22),
-                  label: Text(aiText(context, suggestion.$1)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                name.isEmpty
+                    ? tr(context, 'Hi there', 'សួស្ដី')
+                    : tr(context, 'Hi, $name', 'សួស្ដី $name'),
+                textAlign: TextAlign.center,
+                style: customerText(context, 15, 24, color: colors.primary700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                aiText(context, 'How can I help you today?'),
+                textAlign: TextAlign.center,
+                style: customerText(
+                  context,
+                  32,
+                  44,
+                  color: customerNavy(context),
+                  weight: FontWeight.w300,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 356),
+                child: Text(
+                  aiText(
+                    context,
+                    'Ask about your spending, your accounts, or money in general.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: customerText(
+                    context,
+                    15,
+                    24,
+                    color: colors.disabledBackground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          aiText(context, 'Try asking'),
+          style: customerText(
+            context,
+            14,
+            22,
+            color: customerNavy(context),
+            weight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final suggestion in [
+          ('How much have I spent this month?', '2d864'),
+          ('Compare this month with last month', '9653a'),
+          ('How can I build an emergency fund?', 'c3050'),
+          ('How can I keep my account secure?', 'c3050'),
+        ])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: model.canSend
+                    ? () => _send(aiText(context, suggestion.$1))
+                    : null,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? colors.accent
+                              : AppPalette.navy50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: CustomerDesignIcon(
+                          suggestion.$2,
+                          size: 22,
+                          color: customerNavy(context),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          aiText(context, suggestion.$1),
+                          style: customerText(context, 15, 24),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      CustomerDesignIcon(
+                        '38515',
+                        size: 20,
+                        color: colors.disabledBackground,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+        const SizedBox(height: 4),
+        Text(
+          aiText(
+            context,
+            'Your question and only the figures needed to answer it are sent to the AI service; names and account numbers are not. General answers are information, not financial advice. Conversations are kept for 30 days.',
+          ),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 
@@ -335,19 +408,24 @@ class _AssistantScreenState extends State<AssistantScreen>
       SelectableText(answer.reply),
       const SizedBox(height: 12),
       for (final card in answer.cards) _card(card),
-      Text(
-        '${aiText(context, 'Data as of')} ${_date(answer.asOf)} · Asia/Phnom_Penh',
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
+      if (answer.mode != 'GENERAL')
+        Text(
+          '${aiText(context, 'Data as of')} ${_date(answer.asOf)} · Asia/Phnom_Penh',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
       if (answer.explanationStatus != 'NOT_NEEDED')
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             aiText(
               context,
-              answer.explanationStatus == 'AI'
-                  ? 'AI explanation'
-                  : 'AI explanation unavailable · Verified figures shown',
+              answer.explanationStatus != 'AI'
+                  ? 'AI explanation unavailable · Verified figures shown'
+                  : answer.mode == 'GENERAL'
+                  ? 'AI-written general information'
+                  : answer.mode == 'MIXED'
+                  ? 'AI-written general information · Account figures are verified'
+                  : 'AI explanation',
             ),
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -485,58 +563,35 @@ class _AssistantScreenState extends State<AssistantScreen>
     );
   }
 
-  Widget _header(bool compact) => ColoredBox(
-    color: AppPalette.navy500,
-    child: SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 12, 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    aiText(context, 'AI assistant'),
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(color: Colors.white),
-                  ),
-                  if (!compact) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      aiText(context, 'Verified bank data'),
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppPalette.navy100),
-                    ),
-                  ],
-                ],
+  Widget _header(bool compact) => CustomerPageHeader(
+    title: aiText(context, 'AI Assistant'),
+    onBack: widget.onBack ?? () => Navigator.maybePop(context),
+    trailing:
+        model.messages.isEmpty &&
+            model.pending == null &&
+            model.lastTurn == null
+        ? null
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: aiText(context, 'Conversation history'),
+                onPressed: model.busy ? null : _history,
+                icon: const Icon(Icons.history),
               ),
-            ),
-            IconButton(
-              tooltip: aiText(context, 'Conversation history'),
-              onPressed: model.busy ? null : _history,
-              icon: const Icon(Icons.history),
-              color: Colors.white,
-              disabledColor: AppPalette.navy200,
-            ),
-            IconButton(
-              tooltip: aiText(context, 'New conversation'),
-              onPressed: model.busy || model.pending != null
-                  ? null
-                  : () {
-                      draft.clear();
-                      consumed.clear();
-                      model.newChat();
-                    },
-              icon: const Icon(Icons.edit_square),
-              color: AppPalette.gold200,
-              disabledColor: AppPalette.navy200,
-            ),
-          ],
-        ),
-      ),
-    ),
+              IconButton(
+                tooltip: aiText(context, 'New conversation'),
+                onPressed: model.busy || model.pending != null
+                    ? null
+                    : () {
+                        draft.clear();
+                        consumed.clear();
+                        model.newChat();
+                      },
+                icon: const Icon(Icons.edit_square),
+              ),
+            ],
+          ),
   );
 
   @override
@@ -647,8 +702,7 @@ class _AssistantScreenState extends State<AssistantScreen>
         ];
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value:
-              ((shortLayout || keyboard) &&
-                          Theme.of(context).brightness == Brightness.light
+              (Theme.of(context).brightness == Brightness.light
                       ? SystemUiOverlayStyle.dark
                       : SystemUiOverlayStyle.light)
                   .copyWith(
@@ -659,10 +713,9 @@ class _AssistantScreenState extends State<AssistantScreen>
                         ? Brightness.light
                         : Brightness.dark,
                   ),
-          child: ColoredBox(
-            color: colors.background,
+          child: CustomerAssistantBackground(
             child: SafeArea(
-              top: shortLayout || keyboard,
+              top: true,
               bottom: false,
               child: Column(
                 children: [
@@ -672,9 +725,9 @@ class _AssistantScreenState extends State<AssistantScreen>
                       key: const ValueKey('assistant-messages'),
                       controller: scroll,
                       padding: EdgeInsets.fromLTRB(
-                        shortLayout ? 0 : 24,
+                        shortLayout ? 0 : 20,
                         0,
-                        shortLayout ? 0 : 24,
+                        shortLayout ? 0 : 20,
                         16,
                       ),
                       children: [
@@ -689,107 +742,103 @@ class _AssistantScreenState extends State<AssistantScreen>
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
-                    decoration: BoxDecoration(
-                      color: colors.background,
-                      border: Border(top: BorderSide(color: colors.border)),
-                    ),
+
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(20, compact ? 8 : 24, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (!compact) ...[
-                          Text(
-                            aiText(
-                              context,
-                              'Never share PINs, OTPs or passwords.',
-                            ),
-                            style: Theme.of(context).textTheme.bodySmall,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: colors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: colors.border),
                           ),
-                          const SizedBox(height: 8),
-                        ],
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            if (compact) ...[
-                              IconButton(
-                                tooltip: aiText(
-                                  context,
-                                  'Never share PINs, OTPs or passwords.',
+                          padding: const EdgeInsets.only(left: 12, right: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  key: const ValueKey('assistant-question'),
+                                  controller: draft,
+                                  minLines: 1,
+                                  maxLines: compact ? 1 : 3,
+                                  maxLength: 2000,
+                                  enabled: model.canSend,
+                                  keyboardType: TextInputType.multiline,
+                                  style: customerText(context, 15, 24),
+                                  buildCounter: (
+                                    context, {
+                                    required currentLength,
+                                    required isFocused,
+                                    required maxLength,
+                                  }) => null,
+                                  decoration: InputDecoration(
+                                    hintText: aiText(
+                                      context,
+                                      'Ask Kesor Assistant…',
+                                    ),
+                                    hintStyle: customerText(
+                                      context,
+                                      15,
+                                      24,
+                                      color: colors.disabledBackground,
+                                    ),
+                                    filled: false,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
-                                onPressed: () => _confirm(
-                                  'Never share PINs, OTPs or passwords.',
-                                  'Questions and minimal financial summaries are sent to Gemini. Conversations are kept for 30 days.',
-                                  'Close',
-                                ),
-                                icon: const Icon(Icons.info_outline),
                               ),
-                              const SizedBox(width: 8),
+                              ValueListenableBuilder(
+                                valueListenable: draft,
+                                builder: (context, value, _) => IconButton(
+                                  key: const ValueKey('assistant-send'),
+                                  tooltip: aiText(context, 'Send question'),
+                                  onPressed:
+                                      model.canSend &&
+                                          value.text.trim().isNotEmpty
+                                      ? () => _send()
+                                      : null,
+                                  icon: Container(
+                                    width: 32,
+                                    height: 32,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: colors.primary100,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: CustomerDesignIcon(
+                                      '6fd29',
+                                      size: 22,
+                                      color: customerNavy(context),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
-                            Expanded(
-                              child: TextField(
-                                key: const ValueKey('assistant-question'),
-                                controller: draft,
-                                minLines: 1,
-                                maxLines: compact
-                                    ? (constraints.maxHeight < 260 ? 1 : 2)
-                                    : 5,
-                                maxLength: 2000,
-                                enabled: model.canSend,
-                                keyboardType: TextInputType.multiline,
-                                textInputAction: TextInputAction.newline,
-                                buildCounter:
-                                    (
-                                      context, {
-                                      required currentLength,
-                                      required isFocused,
-                                      maxLength,
-                                    }) => currentLength > 1900
-                                    ? Text('$currentLength / $maxLength')
-                                    : null,
-                                decoration: InputDecoration(
-                                  floatingLabelBehavior:
-                                      FloatingLabelBehavior.never,
-                                  labelText: aiText(
-                                    context,
-                                    'Ask Kesor a question',
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ValueListenableBuilder(
-                              valueListenable: draft,
-                              builder: (context, value, _) => IconButton.filled(
-                                key: const ValueKey('assistant-send'),
-                                tooltip: aiText(context, 'Send question'),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: AppPalette.gold500,
-                                  foregroundColor: AppPalette.navy500,
-                                  minimumSize: const Size(48, 48),
-                                ),
-                                onPressed:
-                                    model.canSend &&
-                                        value.text.trim().isNotEmpty
-                                    ? () => _send()
-                                    : null,
-                                icon: const Icon(Icons.arrow_upward),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                        if (!compact) ...[
-                          const SizedBox(height: 8),
+                        if (!keyboard) ...[
+                          const SizedBox(height: 12),
                           Text(
                             aiText(
                               context,
-                              'Read-only assistant · You confirm all payments in the transfer flow.',
+                              'Never share your PIN, password or OTP.',
                             ),
-                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.center,
+                            style: customerText(
+                              context,
+                              12,
+                              20,
+                              color: colors.disabledBackground,
+                            ),
                           ),
                         ],
                       ],
@@ -798,7 +847,8 @@ class _AssistantScreenState extends State<AssistantScreen>
                   SizedBox(
                     height: keyboard
                         ? MediaQuery.paddingOf(context).bottom
-                        : widget.bottomClearance,
+                        : widget.bottomClearance +
+                              MediaQuery.paddingOf(context).bottom,
                   ),
                 ],
               ),

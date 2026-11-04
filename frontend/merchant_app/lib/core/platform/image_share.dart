@@ -152,26 +152,28 @@ class _ImageActionsState extends State<ImageActions> {
         ),
         const SizedBox(height: 12),
       ],
-      Wrap(
-        spacing: 12,
-        runSpacing: 8,
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          OutlinedButton.icon(
-            key: const ValueKey('save-image'),
-            onPressed: busy ? null : () => act(true),
-            icon: const Icon(Icons.download_outlined),
-            label: Text(
-              t(context, 'Save to gallery', 'រក្សាទុកក្នុងវិចិត្រសាល'),
+          Expanded(
+            child: OutlinedButton(
+              key: const ValueKey('save-image'),
+              onPressed: busy ? null : () => act(true),
+              child: Text(
+                t(context, 'Save image', 'រក្សាទុករូបភាព'),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
-          FilledButton.icon(
-            key: const ValueKey('share-image'),
-            onPressed: busy ? null : () => act(false),
-            icon: const Icon(Icons.share_outlined),
-            label: Text(
-              widget.receipt
-                  ? t(context, 'Share receipt', 'ចែករំលែកបង្កាន់ដៃ')
-                  : t(context, 'Share', 'ចែករំលែក'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton(
+              key: const ValueKey('share-image'),
+              onPressed: busy ? null : () => act(false),
+              child: Text(
+                t(context, 'Share', 'ចែករំលែក'),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ],

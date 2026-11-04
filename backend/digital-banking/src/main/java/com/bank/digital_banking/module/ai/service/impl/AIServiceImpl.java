@@ -1,6 +1,6 @@
 package com.bank.digital_banking.module.ai.service.impl;
 
-import com.bank.digital_banking.module.ai.adapter.GeminiAdapter;
+import com.bank.digital_banking.module.ai.adapter.GatewayAdapter;
 import com.bank.digital_banking.module.ai.dto.*;
 import com.bank.digital_banking.module.ai.entity.InsightType;
 import com.bank.digital_banking.module.ai.entity.UserAIInsight;
@@ -20,7 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AIServiceImpl implements AIService {
 
-    private final GeminiAdapter geminiAdapter;
+    private final GatewayAdapter gatewayAdapter;
     private final UserAIInsightRepository insightRepository;
     private final com.bank.digital_banking.module.ai.assistant.AssistantLegacyService legacy;
     private final com.bank.digital_banking.module.ai.assistant.AssistantStore assistantStore;
@@ -54,7 +54,7 @@ public class AIServiceImpl implements AIService {
                     if(userPrompt.length()>8000) throw com.bank.digital_banking.module.ai.assistant.AssistantSupport.invalid();
                     String sanitized=com.bank.digital_banking.module.ai.assistant.AssistantPrivacy.prepare(
                             com.bank.digital_banking.module.auth.entity.User.builder().id(request.userId()).build(),userPrompt.toString(),List.of()).text();
-                    String aiAnalysis = geminiAdapter.generateCompletion(systemPrompt, sanitized);
+                    String aiAnalysis = gatewayAdapter.generateCompletion(systemPrompt, sanitized);
 
                     UserAIInsight insight = UserAIInsight.builder()
                             .userId(request.userId())

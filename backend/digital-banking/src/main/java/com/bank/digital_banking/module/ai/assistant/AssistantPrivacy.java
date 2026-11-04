@@ -16,6 +16,12 @@ public final class AssistantPrivacy {
     public record Prepared(String text,Map<String,String> aliases) {
         public String resolve(String value) { return value==null?null:aliases.getOrDefault(value,value); }
     }
+    /** Question text with the same redaction as {@link #prepare}, without the reference footer. */
+    public static String sanitize(User user,String input) {
+        String text=prepare(user,input,List.of()).text();
+        int footer=text.lastIndexOf("\nPreviously displayed references in order:");
+        return footer<0?text:text.substring(0,footer);
+    }
     public static Prepared prepare(User user,String input,List<String> references) {
         var aliases=new LinkedHashMap<String,String>(); String text=input;
         var known=new ArrayList<String>();

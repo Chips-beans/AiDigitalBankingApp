@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../collect/merchant_collect.dart';
 import '../collect/wallet_page.dart' show ReceiptRow;
 import 'merchant_shop.dart';
 import 'shop_controller.dart';
 import 'shop_widgets.dart';
 
-/// Home tab: shop identity card, review/restriction notices and both wallets.
 class ShopHomeView extends StatelessWidget {
   const ShopHomeView({
     required this.controller,
@@ -25,55 +25,43 @@ class ShopHomeView extends StatelessWidget {
   final ShopController controller;
   final String fallbackName;
   final VoidCallback? onCollect;
-  final VoidCallback onSales;
-  final VoidCallback onEditShop;
+  final VoidCallback onSales, onEditShop;
   final ValueChanged<ShopWallet>? onOpenWallet;
   final VoidCallback? onSeeSales;
   final ValueChanged<ShopReceipt>? onReceipt;
-
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
-      final profile = controller.profile;
-      final shop = profile?.shop;
-      final colors = AppColors.of(context);
+      final profile = controller.profile, shop = controller.shop;
+      final restricted = shop != null && !shop.active;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (controller.loading && profile == null)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16),
-              child: LinearProgressIndicator(),
-            ),
-          _ShopCard(
-            name: shop?.storeName ?? fallbackName,
-            controller: controller,
-            shop: shop,
-          ),
-          if (shop?.status == 'PENDING') ...[
-            const SizedBox(height: 12),
+          if (controller.loading) const LinearProgressIndicator(),
+          if (restricted) ...[
             NoticeBanner(
-              t(
-                context,
-                'Your shop is in review. You can edit your details while you wait.',
-                'ហាងរបស់អ្នកកំពុងត្រូវបានពិនិត្យ។ អ្នកអាចកែព័ត៌មានខណៈពេលរង់ចាំ។',
-              ),
-              tone: NoticeTone.warning,
+              shop.status == 'PENDING'
+                  ? t(
+                      context,
+                      'Your shop is in review. You can edit your details while you wait.',
+                      'ហាងរបស់អ្នកកំពុងត្រូវបានពិនិត្យ។ អ្នកអាចកែព័ត៌មានខណៈពេលរង់ចាំ។',
+                    )
+                  : t(
+                      context,
+                      'Your shop is restricted. Collecting and transfers are paused; sales and receipts stay available.',
+                      'ហាងរបស់អ្នកត្រូវបានកម្រិត។ ការទទួលប្រាក់ និងផ្ទេរត្រូវបានផ្អាក។ ការលក់ និងបង្កាន់ដៃនៅតែអាចប្រើបាន។',
+                    ),
+              tone: shop.status == 'PENDING'
+                  ? NoticeTone.warning
+                  : NoticeTone.error,
             ),
-          ] else if (shop != null && !shop.active) ...[
-            const SizedBox(height: 12),
-            NoticeBanner(
-              t(
-                context,
-                'Shop access is restricted. Contact support for help with your shop status.',
-                'ការចូលប្រើហាងត្រូវបានកម្រិត។ សូមទាក់ទងផ្នែកគាំទ្រអំពីស្ថានភាពហាង។',
-              ),
-              tone: NoticeTone.error,
-            ),
+            const SizedBox(height: 24),
+          ] else ...[
+            TodayCard(dashboard: controller.dashboard),
+            const SizedBox(height: 28),
           ],
-          if (controller.failure != null && profile == null) ...[
-            const SizedBox(height: 12),
+          if (controller.failure != null) ...[
             NoticeBanner(
               shopFailureMessage(context, controller.failure!),
               tone: NoticeTone.error,
@@ -82,53 +70,9 @@ class ShopHomeView extends StatelessWidget {
                 child: Text(t(context, 'Try again', 'ព្យាយាមម្ដងទៀត')),
               ),
             ),
-          ],
-          const SizedBox(height: 16),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ActionTile(
-                    icon: Icons.qr_code_2_rounded,
-                    label: t(context, 'Collect', 'ទទួលប្រាក់'),
-                    highlighted: true,
-                    onTap: onCollect,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ActionTile(
-                    icon: Icons.receipt_long_rounded,
-                    label: t(context, 'Sales', 'ការលក់'),
-                    onTap: onSales,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ActionTile(
-                    icon: Icons.edit_outlined,
-                    label: t(context, 'Edit shop', 'កែហាង'),
-                    onTap: shop == null ? null : onEditShop,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (shop != null) ...[
             const SizedBox(height: 16),
-            TodayCard(dashboard: controller.dashboard),
           ],
-          const SizedBox(height: 24),
-          SectionTitle(
-            t(context, 'Business wallets', 'កាបូបអាជីវកម្ម'),
-            trailing: IconButton(
-              tooltip: t(context, 'Refresh', 'ធ្វើបច្ចុប្បន្នភាព'),
-              onPressed: controller.loading ? null : controller.refresh,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ),
-          const SizedBox(height: 8),
+          SectionTitle(t(context, 'Business wallets', 'កាបូបអាជីវកម្ម')),
           if (profile != null && profile.wallets.isEmpty)
             NoticeBanner(
               t(
@@ -137,39 +81,50 @@ class ShopHomeView extends StatelessWidget {
                 'កាបូបអាជីវកម្មរបស់អ្នកមិនទាន់មាននៅឡើយ។',
               ),
             ),
-          for (final wallet in profile?.wallets ?? const <ShopWallet>[]) ...[
-            WalletTile(
-              wallet: wallet,
-              onTap: onOpenWallet == null ? null : () => onOpenWallet!(wallet),
+          if (profile != null)
+            for (final wallet in [
+              ...profile.wallets,
+            ]..sort((a, b) => a.currency.compareTo(b.currency)))
+              WalletTile(
+                wallet: wallet,
+                grouped: true,
+                onTap: onOpenWallet == null
+                    ? null
+                    : () => onOpenWallet!(wallet),
+              ),
+          if (restricted) ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onEditShop,
+                child: Text(t(context, 'Contact support', 'ទាក់ទងផ្នែកគាំទ្រ')),
+              ),
             ),
-            const SizedBox(height: 10),
-          ],
-          const SizedBox(height: 6),
-          Text(
-            t(
-              context,
-              'Business wallets are separate from your personal Kesor Bank wallets.',
-              'កាបូបអាជីវកម្មដាច់ដោយឡែកពីកាបូបផ្ទាល់ខ្លួនក្នុងធនាគារកេសរ។',
-            ),
-            style: mText(context, 12, 18, color: colors.disabledBackground),
-          ),
-          if (shop != null) ...[
-            const SizedBox(height: 24),
+          ] else if (shop != null) ...[
+            const SizedBox(height: 28),
             SectionTitle(
               t(context, 'Recent payments', 'ការទូទាត់ថ្មីៗ'),
               trailing: onSeeSales == null
                   ? null
                   : TextButton(
                       onPressed: onSeeSales,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 24),
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       child: Text(t(context, 'See all', 'មើលទាំងអស់')),
                     ),
             ),
-            const SizedBox(height: 4),
-            RecentPayments(
-              receipts: controller.dashboard?.recent ?? const [],
-              limit: 5,
-              onReceipt: onReceipt,
-            ),
+            if (controller.dashboard != null)
+              RecentPayments(
+                receipts: controller.dashboard!.recent,
+                limit: 5,
+                onReceipt: onReceipt,
+              )
+            else if (controller.failure == null)
+              const LinearProgressIndicator(),
           ],
         ],
       );
@@ -177,89 +132,89 @@ class ShopHomeView extends StatelessWidget {
   );
 }
 
-/// Today's confirmed QR collections per currency (Asia/Phnom_Penh day).
-/// Collections are sales received, kept apart from wallet balances.
+/// Exact, independent currency totals; only presentation differs from the ledger.
 class TodayCard extends StatelessWidget {
   const TodayCard({
     required this.dashboard,
     this.title,
     this.suppliedTotals,
+    this.prominent = false,
     super.key,
   });
   final ShopDashboard? dashboard;
   final String? title;
   final List<CurrencyTotal>? suppliedTotals;
+  final bool prominent;
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     final totals = {
-      for (final t
+      for (final item
           in suppliedTotals ?? dashboard?.today ?? const <CurrencyTotal>[])
-        t.currency: t,
+        item.currency: item,
     };
-    return SurfaceCard(
+    final ready = dashboard != null || suppliedTotals != null;
+    final muted = AppColors.of(context).disabledBackground;
+    Widget lane(String currency) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AmountText(
+          ready ? shopAmount(totals[currency]?.gross ?? '0', currency) : '—',
+          key: ValueKey('today-$currency'),
+          style: mText(
+            context,
+            title == null ? 28 : 24,
+            title == null ? 38 : 32,
+            weight: FontWeight.w300,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          ready
+              ? paymentCount(context, totals[currency]?.count ?? 0)
+              : t(context, 'Payments', 'ការទូទាត់'),
+          style: mText(context, 13, 18, color: muted),
+        ),
+      ],
+    );
+    return Column(
       key: const ValueKey('today-collections'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SectionTitle(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (title == null ||
+            title !=
+                t(
+                  context,
+                  'Filtered collections',
+                  'ប្រាក់ទទួលបានតាមការច្រោះ',
+                )) ...[
+          Text(
             title ?? t(context, 'Today’s collections', 'ប្រាក់ទទួលបានថ្ងៃនេះ'),
+            style: mText(context, 15, 24, color: muted),
           ),
           const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final currency in const ['KHR', 'USD']) ...[
-                  if (currency == 'USD')
-                    VerticalDivider(width: 24, color: colors.border),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: AlignmentDirectional.centerStart,
-                          child: AmountText(
-                            dashboard == null && suppliedTotals == null
-                                ? '—'
-                                : shopAmount(
-                                    totals[currency]?.gross ?? '0',
-                                    currency,
-                                  ),
-                            key: ValueKey('today-$currency'),
-                            style: mText(
-                              context,
-                              20,
-                              28,
-                              weight: FontWeight.w600,
-                              color: merchantNavy(context),
-                            ),
-                          ),
-                        ),
-                        Text(
-                          dashboard == null && suppliedTotals == null
-                              ? t(context, 'Payments', 'ការទូទាត់')
-                              : paymentCount(
-                                  context,
-                                  totals[currency]?.count ?? 0,
-                                ),
-                          style: mText(
-                            context,
-                            12,
-                            18,
-                            color: colors.disabledBackground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
         ],
-      ),
+        LayoutBuilder(
+          builder: (context, box) =>
+              MediaQuery.textScalerOf(context).scale(26) > 34 ||
+                  box.maxWidth < 300
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    lane('KHR'),
+                    const SizedBox(height: 12),
+                    lane('USD'),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: lane('KHR')),
+                    const SizedBox(width: 16),
+                    Expanded(child: lane('USD')),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 }
@@ -295,205 +250,125 @@ class RecentPayments extends StatelessWidget {
   }
 }
 
-class _ShopCard extends StatelessWidget {
-  const _ShopCard({
-    required this.name,
-    required this.controller,
-    required this.shop,
-  });
-  final String name;
-  final ShopController controller;
-  final ShopDetails? shop;
-  @override
-  Widget build(BuildContext context) {
-    final khmer = MerchantStrings.isKhmer(context);
-    final category = categoryFor(shop?.categoryCode);
-    return NavyCard(
-      key: const ValueKey('shop-identity-card'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              ShopAvatar(
-                name: name,
-                logo: controller.logoBytes,
-                size: 60,
-                onDark: true,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: mText(
-                        context,
-                        20,
-                        28,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (category != null)
-                      Text(
-                        khmer ? category.km : category.en,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: mText(
-                          context,
-                          13,
-                          20,
-                          color: AppPalette.gold200,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (shop != null) ...[
-            const SizedBox(height: 16),
-            Container(height: 1, color: Colors.white24),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t(context, 'Merchant ID', 'លេខសម្គាល់ហាង'),
-                        style: mText(context, 12, 18, color: Colors.white70),
-                      ),
-                      // The code is copied by staff; keep it on one line.
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentDirectional.centerStart,
-                        child: Text(
-                          shop!.merchantId,
-                          key: const ValueKey('shop-merchant-id'),
-                          maxLines: 1,
-                          softWrap: false,
-                          style: mText(
-                            context,
-                            14,
-                            22,
-                            weight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                StatusChip(shop!.status, onDark: true),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class WalletTile extends StatelessWidget {
-  const WalletTile({required this.wallet, this.onTap, super.key});
+  const WalletTile({
+    required this.wallet,
+    this.onTap,
+    this.grouped = false,
+    super.key,
+  });
   final ShopWallet wallet;
   final VoidCallback? onTap;
+  final bool grouped;
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final card = SurfaceCard(
+    final number = wallet.accountNumber;
+    final masked =
+        '•••• ${number.length > 4 ? number.substring(number.length - 4) : number}';
+    final amount = AmountText(
+      shopAmount(wallet.balance, wallet.currency),
+      key: ValueKey('wallet-balance-${wallet.currency}'),
+      style: mText(context, 15, 24, weight: FontWeight.w500),
+    );
+    final label = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          walletLabel(context, wallet.currency),
+          style: mText(context, 15, 24),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          masked,
+          style: mText(
+            context,
+            13,
+            18,
+            color: AppColors.of(context).disabledBackground,
+          ),
+        ),
+        if (wallet.status != 'ACTIVE') StatusChip(wallet.status),
+      ],
+    );
+    return Material(
       key: ValueKey('wallet-${wallet.currency}'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-      child: Row(
-        children: [
-          CurrencyBadge(wallet.currency),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  walletLabel(context, wallet.currency),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: mText(context, 14, 22, weight: FontWeight.w600),
-                ),
-                Text(
-                  wallet.accountNumber,
-                  style: mText(
-                    context,
-                    12,
-                    18,
-                    color: colors.disabledBackground,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: AmountText(
-                    shopAmount(wallet.balance, wallet.currency),
-                    key: ValueKey('wallet-balance-${wallet.currency}'),
-                    maxLines: 1,
-                    softWrap: false,
-                    style: mText(
-                      context,
-                      20,
-                      28,
-                      weight: FontWeight.w600,
-                      color: merchantNavy(context),
-                    ),
-                  ),
-                ),
-              ],
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('open-wallet-${wallet.currency}'),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: AppColors.of(context).border),
             ),
           ),
-          if (wallet.status != 'ACTIVE') ...[
-            StatusChip(wallet.status),
-            const SizedBox(width: 4),
-          ],
-          IconButton(
-            tooltip: t(context, 'Copy account number', 'ចម្លងលេខគណនី'),
-            icon: const Icon(Icons.copy_rounded, size: 20),
-            onPressed: () async {
-              await Clipboard.setData(
-                ClipboardData(text: wallet.accountNumber),
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      t(context, 'Account number copied', 'បានចម្លងលេខគណនី'),
-                    ),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final large =
+                  MediaQuery.textScalerOf(context).scale(15) > 22 ||
+                  box.maxWidth < 280;
+              return Row(
+                children: [
+                  Expanded(
+                    child: large
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              label,
+                              const SizedBox(height: 8),
+                              amount,
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(child: label),
+                              const SizedBox(width: 8),
+                              amount,
+                            ],
+                          ),
                   ),
-                );
-              }
+                  if (!grouped)
+                    IconButton(
+                      tooltip: t(
+                        context,
+                        'Copy account number',
+                        'ចម្លងលេខគណនី',
+                      ),
+                      icon: const QIcon('015d6'),
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: wallet.accountNumber),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                t(
+                                  context,
+                                  'Account number copied',
+                                  'បានចម្លងលេខគណនី',
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 6),
+                    const QIcon('f7f78'),
+                  ],
+                ],
+              );
             },
           ),
-        ],
-      ),
-    );
-    if (onTap == null) return card;
-    return Semantics(
-      button: true,
-      label: walletLabel(context, wallet.currency),
-      child: GestureDetector(
-        key: ValueKey('open-wallet-${wallet.currency}'),
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: card,
+        ),
       ),
     );
   }
 }
 
-/// Compact shop identity row for the More tab.
 class ShopProfileCard extends StatelessWidget {
   const ShopProfileCard({
     required this.controller,
@@ -509,53 +384,47 @@ class ShopProfileCard extends StatelessWidget {
     listenable: controller,
     builder: (context, _) {
       final shop = controller.shop;
-      final colors = AppColors.of(context);
-      return Material(
-        color: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const ValueKey('open-shop-profile'),
-          onTap: shop == null ? null : onEdit,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                ShopAvatar(
-                  name: shop?.storeName ?? fallbackName,
-                  logo: controller.logoBytes,
-                  size: 52,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      return InkWell(
+        key: const ValueKey('open-shop-profile'),
+        onTap: shop == null ? null : onEdit,
+        child: Row(
+          children: [
+            ShopAvatar(
+              name: shop?.storeName ?? fallbackName,
+              logo: controller.logoBytes,
+              size: 52,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    shop?.storeName ?? fallbackName,
+                    style: mText(context, 17, 23, weight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
                     children: [
-                      Text(
-                        shop?.storeName ?? fallbackName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: mText(context, 16, 24, weight: FontWeight.w600),
-                      ),
-                      Text(
-                        t(context, 'Shop profile', 'ប្រវត្តិរូបហាង'),
-                        style: mText(
-                          context,
-                          13,
-                          20,
-                          color: colors.disabledBackground,
+                      const QIcon('a542c', darkAdaptive: false),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${shop?.active == true ? t(context, 'Active', 'សកម្ម') : t(context, 'Restricted', 'បានកម្រិត')} · ${shop?.merchantId ?? ''}',
+                          style: mText(
+                            context,
+                            13,
+                            18,
+                            color: AppColors.of(context).disabledBackground,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const Icon(Icons.chevron_right_rounded),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       );
     },

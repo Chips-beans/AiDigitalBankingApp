@@ -1,7 +1,10 @@
+import 'support/merchant_navigation.dart';
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merchant_app/features/collect/collect_view.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart';
@@ -247,7 +250,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(NavigationDestination).at(1));
+        await openMerchantSection(tester, 1);
         await tester.pumpAndSettle();
 
         await tester.enterText(
@@ -309,15 +312,25 @@ void main() {
         MerchantApp(preferences: prefs, session: session, shopGateway: gateway),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(NavigationDestination).at(1));
+      await openMerchantSection(tester, 1);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Shop QR'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('shop-qr')), findsOneWidget);
-      expect(find.text('1234567890'), findsOneWidget);
-      await tester.tap(find.text(r'USD $'));
+      expect(
+        tester
+            .widget<KesorQrCard>(find.byKey(const ValueKey('shop-qr')))
+            .qrString,
+        (await gateway.shopQr('KHR')).qrString,
+      );
+      await tester.tap(find.text('USD'));
       await tester.pumpAndSettle();
-      expect(find.text('2234567890'), findsOneWidget);
+      expect(
+        tester
+            .widget<KesorQrCard>(find.byKey(const ValueKey('shop-qr')))
+            .qrString,
+        (await gateway.shopQr('USD')).qrString,
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();
       prefs.dispose();
@@ -355,7 +368,7 @@ void main() {
           find.byKey(const ValueKey('wallet-detail-card')),
           findsOneWidget,
         );
-        expect(find.text('QR payment'), findsOneWidget);
+        expect(find.textContaining('QR payment ·'), findsOneWidget);
         expect(find.text('+25,000 ៛'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
         session.dispose();
@@ -386,7 +399,7 @@ void main() {
         MerchantApp(preferences: prefs, session: session, shopGateway: gateway),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(NavigationDestination).at(1));
+      await openMerchantSection(tester, 1);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('collect-create')), findsNothing);
       expect(find.textContaining('can’t collect payments'), findsOneWidget);

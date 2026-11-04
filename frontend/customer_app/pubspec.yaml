@@ -81,6 +81,7 @@ flutter:
     - assets/pin/
     - assets/transfer/
     - assets/settings/
+    - assets/figma/
   fonts:
     - family: Google Sans
       fonts:

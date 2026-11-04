@@ -465,11 +465,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Kesor Bank QR Code'), findsOneWidget);
     expect(find.text('USD Wallet'), findsOneWidget);
-    // Wallets are chosen from a drop-down; opening it lists both.
-    await tester.tap(find.byKey(const ValueKey('qr-wallet-select')));
-    await tester.pumpAndSettle();
+    // Both live wallet selectors are visible below the QR card.
     expect(find.text('KHR Wallet'), findsOneWidget);
-    await tester.tap(find.text('USD Wallet').last);
+    await tester.tap(find.byKey(const ValueKey('qr-wallet-1000000001')));
     await tester.pumpAndSettle();
     expect(
       find.text('100 0000 001'),

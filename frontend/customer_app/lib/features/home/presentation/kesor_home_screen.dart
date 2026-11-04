@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/app_theme.dart';
 import '../../../app/app_preferences.dart';
 import '../../../shared/widgets/kesor_layout.dart';
+import '../../../shared/widgets/figma_presentation.dart';
 import '../../../shared/widgets/kesor_bottom_bar.dart';
 import '../../../app/design_system/design_system.dart';
 import '../../transactions/presentation/recipient_widgets.dart';
@@ -567,7 +568,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
               const Positioned(
                 right: -46.335,
                 top: -17.3583,
-                child: KesorBalanceMotif(),
+                child: KesorBalanceMotif(asset: 'assets/figma/b31a9.svg'),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(17, 17, 23, 21),
@@ -671,6 +672,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                                         context,
                                         20,
                                         28,
+                                        family: 'Google Sans',
                                         weight: FontWeight.w500,
                                       ),
                                     ),
@@ -730,7 +732,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           for (final action in _HomeAction.values) ...[
-                            if (action != _HomeAction.transfer)
+                            if (action != _HomeAction.wallet)
                               const SizedBox(width: 8),
                             Expanded(
                               child: _quickAction(action, 82 + extra * 70),
@@ -770,10 +772,10 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
         widget.onScanQr ??
             () => _showPanel(_tr('Scan QR', 'ស្កេនកូដ QR'), 'QR scanner'),
       ),
-      _HomeAction.receive => (
-        _tr('My QR', 'QR ខ្ញុំ'),
-        'Receive',
-        widget.onMyQr ?? () => _showPanel('កូដ QR របស់ខ្ញុំ', 'My QR'),
+      _HomeAction.wallet => (
+        _tr('Wallet', 'កាបូបប្រាក់'),
+        'Wallet',
+        widget.onAccounts ?? () => _showPanel('កាបូប', 'Wallet'),
       ),
     };
     return _Tap(
@@ -784,15 +786,17 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
         blurRadius: 69,
         child: Container(
           constraints: BoxConstraints(minHeight: minHeight),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 13.4, horizontal: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _homeColors(context).primary100,
+              width: .6,
+            ),
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: action == _HomeAction.transfer
-                  ? const [Color(0x66EEDAB5), Color(0x5ECDA32F)]
-                  : const [Color(0x1CEEDAB5), Color(0x12CDA32F)],
+              colors: const [Color(0x1CFCF8EA), Color(0x12F7EDCD)],
             ),
           ),
           child: Column(
@@ -806,8 +810,8 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
                   child: switch (action) {
                     _HomeAction.transfer => const _Svg('transfer.svg'),
                     _HomeAction.scan => const _Svg('qr-scan.svg'),
-                    _HomeAction.receive => Icon(
-                      Icons.qr_code_2_rounded,
+                    _HomeAction.wallet => CustomerDesignIcon(
+                      'e1bfb',
                       size: 26,
                       color: _homeAccent(context),
                     ),
@@ -1186,7 +1190,7 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
   );
 }
 
-enum _HomeAction { transfer, scan, receive }
+enum _HomeAction { wallet, scan, transfer }
 
 class _Avatar extends StatelessWidget {
   const _Avatar(this.name, {required this.size, this.asset});

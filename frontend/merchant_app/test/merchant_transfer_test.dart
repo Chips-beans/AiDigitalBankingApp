@@ -558,7 +558,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const ValueKey('transfer-destination')))
             .data,
-        '•••• 5678',
+        'From your US Dollar business wallet to your wallet •••• 5678',
       );
       expect(find.byKey(const ValueKey('transfer-open')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('transfer-open')));
@@ -579,9 +579,7 @@ void main() {
       expect(find.byKey(const ValueKey('transfer-completed')), findsOneWidget);
       expect(
         tester
-            .widget<SelectableText>(
-              find.byKey(const ValueKey('transfer-reference')),
-            )
+            .widget<Text>(find.byKey(const ValueKey('transfer-reference')))
             .data,
         'TXN-OWNER-0001',
       );

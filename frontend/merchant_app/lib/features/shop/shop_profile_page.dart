@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import 'merchant_shop.dart';
 import 'shop_controller.dart';
 import 'shop_form.dart';
@@ -117,7 +117,6 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: shop,
     builder: (context, _) {
-      final colors = AppColors.of(context);
       final busy = shop.submitting || shop.uploadingLogo;
       final editable = base.status == 'ACTIVE' || base.status == 'PENDING';
       final logo = removeLogo ? null : newLogo ?? shop.logoBytes;
@@ -125,45 +124,48 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
       return PopScope(
         canPop: !shop.submitting,
         child: Scaffold(
-          backgroundColor: colors.background,
+          appBar: AppBar(
+            leading: QBack(
+              onPressed: () =>
+                  shop.submitting ? null : Navigator.of(context).pop(),
+            ),
+            title: Text(t(context, 'Shop profile', 'ប្រវត្តិរូបហាង')),
+          ),
           body: SafeArea(
+            top: false,
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: Form(
                   key: formKey,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                    children: [
-                      Row(
-                        children: [
-                          CircleAction(
-                            tooltip: t(context, 'Back', 'ថយក្រោយ'),
-                            icon: Icons.arrow_back_rounded,
-                            onPressed: shop.submitting
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              t(context, 'Shop profile', 'ប្រវត្តិរូបហាង'),
-                              style: mText(
-                                context,
-                                20,
-                                28,
-                                weight: FontWeight.w600,
-                              ),
+                  child: QStage(
+                    footer: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (shop.submitting) const LinearProgressIndicator(),
+                        FilledButton(
+                          key: const ValueKey('save-shop-profile'),
+                          onPressed: editable && changed && !busy
+                              ? _save
+                              : null,
+                          child: Text(
+                            t(
+                              context,
+                              'Save changes',
+                              'រក្សាទុកការផ្លាស់ប្ដូរ',
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: LogoEditor(
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        LogoEditor(
                           name: form.name.text,
                           logo: logo,
                           busy: shop.uploadingLogo,
+                          editing: true,
                           onPick: editable ? _pickLogo : null,
                           onRemove: editable
                               ? () => setState(() {
@@ -173,92 +175,41 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
                                 })
                               : null,
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (!editable) ...[
-                        NoticeBanner(
-                          t(
-                            context,
-                            'This shop can’t be changed right now. Contact support.',
-                            'មិនអាចកែហាងនេះបានទេឥឡូវនេះ។ សូមទាក់ទងផ្នែកគាំទ្រ។',
-                          ),
-                          tone: NoticeTone.error,
-                        ),
                         const SizedBox(height: 16),
-                      ] else if (shop.notice == ShopNotice.conflict ||
-                          shop.failure != null) ...[
-                        NoticeBanner(
-                          shopFailureMessage(
-                            context,
-                            shop.failure ??
-                                const ShopFailure('MERCHANT_PROFILE_CONFLICT'),
+                        if (!editable) ...[
+                          NoticeBanner(
+                            t(
+                              context,
+                              'This shop can’t be changed right now. Contact support.',
+                              'មិនអាចកែហាងនេះបានទេឥឡូវនេះ។ សូមទាក់ទងផ្នែកគាំទ្រ។',
+                            ),
+                            tone: NoticeTone.error,
                           ),
-                          tone: shop.notice == ShopNotice.conflict
-                              ? NoticeTone.warning
-                              : NoticeTone.error,
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      SurfaceCard(
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-                        child: ShopFormFields(
+                          const SizedBox(height: 16),
+                        ] else if (shop.notice == ShopNotice.conflict ||
+                            shop.failure != null) ...[
+                          NoticeBanner(
+                            shopFailureMessage(
+                              context,
+                              shop.failure ??
+                                  const ShopFailure(
+                                    'MERCHANT_PROFILE_CONFLICT',
+                                  ),
+                            ),
+                            tone: shop.notice == ShopNotice.conflict
+                                ? NoticeTone.warning
+                                : NoticeTone.error,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        ShopFormFields(
                           key: ValueKey(base.version),
                           form: form,
                           enabled: editable && !busy,
                           onChanged: () => setState(() {}),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      SurfaceCard(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.badge_outlined,
-                              color: merchantNavy(context),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    t(context, 'Merchant ID', 'លេខសម្គាល់ហាង'),
-                                    style: mText(
-                                      context,
-                                      12,
-                                      18,
-                                      color: colors.disabledBackground,
-                                    ),
-                                  ),
-                                  Text(
-                                    base.merchantId,
-                                    style: mText(
-                                      context,
-                                      14,
-                                      22,
-                                      weight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            StatusChip(base.status),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (shop.submitting) ...[
-                        const LinearProgressIndicator(),
-                        const SizedBox(height: 12),
                       ],
-                      FilledButton(
-                        key: const ValueKey('save-shop-profile'),
-                        onPressed: editable && changed && !busy ? _save : null,
-                        child: Text(
-                          t(context, 'Save changes', 'រក្សាទុកការផ្លាស់ប្ដូរ'),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

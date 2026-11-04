@@ -1,3 +1,5 @@
+import 'support/merchant_navigation.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,7 +9,10 @@ import 'package:merchant_app/core/merchant_config.dart';
 import 'package:merchant_app/core/merchant_preferences.dart';
 import 'package:merchant_app/features/auth/merchant_session.dart';
 
-class ControlledMerchantAuth implements MerchantAuthGateway {
+class ControlledMerchantAuth
+    implements MerchantAuthGateway, MerchantApprovalTiming {
+  @override
+  Duration get approvalRemaining => const Duration(seconds: 102);
   final approval = Completer<MerchantIdentity>();
   int starts = 0, cancellations = 0, signOuts = 0;
   @override
@@ -255,24 +260,26 @@ void main() {
         MerchantApp(preferences: prefs, session: session),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Lotus Coffee'), findsOneWidget);
+      expect(find.text('Lotus Coffee'), findsWidgets);
       // Without the shop service nothing is invented: no wallets or balances.
       expect(
         find.text('Shop details are currently unavailable.'),
         findsOneWidget,
       );
       expect(find.text('200.00'), findsNothing);
-      await tester.tap(find.byType(NavigationDestination).at(1));
+      await openMerchantSection(tester, 1);
       await tester.pumpAndSettle();
       expect(find.text('Collection unavailable'), findsOneWidget);
-      await tester.tap(find.byType(NavigationDestination).at(2));
+      await openMerchantSection(tester, 2);
       await tester.pumpAndSettle();
       expect(find.text('Sales unavailable'), findsOneWidget);
-      await tester.tap(find.byType(NavigationDestination).at(3));
+      await openMerchantSection(tester, 3);
       await tester.pumpAndSettle();
       // The lazy More list builds Sign out only once it is scrolled near.
       await tester.scrollUntilVisible(find.text('Sign out'), 300);
       await tester.tap(find.text('Sign out'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Sign out'));
       await tester.pumpAndSettle();
       expect(find.text('Lotus Coffee'), findsNothing);
       expect(find.byKey(const ValueKey('continue-with-kesor')), findsOneWidget);
@@ -303,7 +310,7 @@ void main() {
     expect(find.text('Private Shop'), findsNothing);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text('Private Shop'), findsOneWidget);
+    expect(find.text('Private Shop'), findsWidgets);
     await tester.pumpWidget(const SizedBox.shrink());
     session.dispose();
     prefs.dispose();

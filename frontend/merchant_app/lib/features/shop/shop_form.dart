@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import 'merchant_shop.dart';
 import 'shop_widgets.dart';
 
@@ -171,7 +172,6 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
           decoration: InputDecoration(
             hintText: t(context, 'e.g. Sokha Coffee', 'ឧ. កាហ្វេសុខា'),
             counterText: '',
-            prefixIcon: const Icon(Icons.storefront_outlined),
           ),
         ),
         const SizedBox(height: 16),
@@ -179,6 +179,7 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
         DropdownButtonFormField<String>(
           key: ValueKey('shop-category-${form.category}'),
           initialValue: form.category,
+          icon: const QIcon('f7f78'),
           isExpanded: true,
           onChanged: widget.enabled
               ? (v) {
@@ -191,9 +192,6 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
               : null,
           decoration: InputDecoration(
             hintText: t(context, 'Choose a category', 'ជ្រើសប្រភេទ'),
-            prefixIcon: Icon(
-              categoryFor(form.category)?.icon ?? Icons.category_outlined,
-            ),
           ),
           items: [
             for (final c in shopCategories)
@@ -220,16 +218,14 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
           ],
           onChanged: (_) => _changed(),
           validator: (v) => validatePhone(context, v),
-          decoration: const InputDecoration(
-            hintText: '012 345 678',
-            prefixIcon: Icon(Icons.call_outlined),
-          ),
+          decoration: const InputDecoration(hintText: '012 345 678'),
         ),
         const SizedBox(height: 16),
-        _Label(t(context, 'City / Province', 'ទីក្រុង / ខេត្ត')),
+        _Label(t(context, 'City or province', 'ទីក្រុង / ខេត្ត')),
         DropdownButtonFormField<String>(
           key: ValueKey('shop-city-${form.city}'),
           initialValue: form.city,
+          icon: const QIcon('f7f78'),
           isExpanded: true,
           menuMaxHeight: 360,
           onChanged: widget.enabled
@@ -247,7 +243,6 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
               : null,
           decoration: InputDecoration(
             hintText: t(context, 'Choose a location', 'ជ្រើសទីតាំង'),
-            prefixIcon: const Icon(Icons.location_city_outlined),
           ),
           items: [
             for (final p in provinces)
@@ -267,7 +262,7 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
           controller: form.address,
           enabled: widget.enabled,
           maxLength: 255,
-          minLines: 2,
+          minLines: 1,
           maxLines: 3,
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => _changed(),
@@ -279,28 +274,22 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
               'ផ្លូវ លេខផ្ទះ សង្កាត់',
             ),
             counterText: '',
-            prefixIcon: const Icon(Icons.place_outlined),
           ),
         ),
         const SizedBox(height: 16),
-        _Label(
-          t(context, 'About your shop (optional)', 'អំពីហាង (ស្រេចចិត្ត)'),
-        ),
+        _Label(t(context, 'Description', 'អំពីហាង (ស្រេចចិត្ត)')),
         TextFormField(
           key: const ValueKey('shop-description'),
           controller: form.description,
           enabled: widget.enabled,
           maxLength: 500,
-          minLines: 2,
+          minLines: 1,
           maxLines: 4,
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => _changed(),
           decoration: InputDecoration(
-            hintText: t(
-              context,
-              'What do you sell? Opening hours?',
-              'អ្នកលក់អ្វី? ម៉ោងបើក?',
-            ),
+            counterText: '',
+            hintText: t(context, 'Optional', 'អ្នកលក់អ្វី? ម៉ោងបើក?'),
           ),
         ),
       ],
@@ -313,21 +302,20 @@ class _Label extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8, left: 2),
+    padding: const EdgeInsets.only(bottom: 6),
     child: Text(
       text,
       style: mText(
         context,
-        14,
-        20,
-        weight: FontWeight.w500,
-        color: merchantNavy(context),
+        13,
+        18,
+        color: AppColors.of(context).disabledBackground,
       ),
     ),
   );
 }
 
-/// Large avatar with a change/remove action, used above the form.
+/// Inline logo editor shared by registration and shop profile.
 class LogoEditor extends StatelessWidget {
   const LogoEditor({
     required this.name,
@@ -335,80 +323,89 @@ class LogoEditor extends StatelessWidget {
     required this.busy,
     required this.onPick,
     this.onRemove,
+    this.editing = false,
     super.key,
   });
   final String name;
   final Uint8List? logo;
-  final bool busy;
-  final VoidCallback? onPick;
-  final VoidCallback? onRemove;
+  final bool busy, editing;
+  final VoidCallback? onPick, onRemove;
   @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return Column(
-      children: [
-        Semantics(
-          button: true,
-          label: t(context, 'Choose shop logo', 'ជ្រើសរូបសញ្ញាហាង'),
-          child: InkWell(
-            key: const ValueKey('shop-logo-pick'),
-            onTap: busy ? null : onPick,
-            borderRadius: BorderRadius.circular(32),
-            child: Stack(
-              clipBehavior: Clip.none,
+  Widget build(BuildContext context) => Row(
+    children: [
+      Semantics(
+        button: true,
+        label: t(context, 'Choose shop logo', 'ជ្រើសរូបសញ្ញាហាង'),
+        child: InkWell(
+          key: const ValueKey('shop-logo-pick'),
+          onTap: busy ? null : onPick,
+          borderRadius: BorderRadius.circular(16),
+          child: ShopAvatar(name: name, logo: logo, size: 56),
+        ),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 16,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                ShopAvatar(name: name, logo: logo, size: 96),
-                Positioned(
-                  right: -6,
-                  bottom: -6,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppPalette.navy500,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.background, width: 3),
-                    ),
-                    child: busy
-                        ? const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.photo_camera_outlined,
-                            size: 18,
-                            color: Colors.white,
-                          ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 24),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: busy ? null : onPick,
+                  child: Text(
+                    editing
+                        ? t(context, 'Change logo', 'ប្ដូររូបសញ្ញា')
+                        : t(context, 'Add a logo', 'បន្ថែមរូបសញ្ញា'),
+                    style: mText(context, 15, 24, color: merchantNavy(context)),
                   ),
                 ),
+                if (editing && logo != null && onRemove != null)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 24),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: busy ? null : onRemove,
+                    child: Text(
+                      t(context, 'Remove', 'លុប'),
+                      style: mText(
+                        context,
+                        15,
+                        24,
+                        color: AppColors.of(context).disabledBackground,
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          logo == null
-              ? t(
+            if (!editing) ...[
+              const SizedBox(height: 2),
+              Text(
+                t(
                   context,
-                  'Add a logo (optional)',
-                  'បន្ថែមរូបសញ្ញា (ស្រេចចិត្ត)',
-                )
-              : t(context, 'Shop logo', 'រូបសញ្ញាហាង'),
-          style: mText(context, 13, 20, weight: FontWeight.w500),
+                  'Optional · JPG or PNG, up to 5 MB',
+                  'ស្រេចចិត្ត · JPG ឬ PNG មិនលើស ៥ MB',
+                ),
+                style: mText(
+                  context,
+                  13,
+                  18,
+                  color: AppColors.of(context).disabledBackground,
+                ),
+              ),
+            ],
+            if (busy) const LinearProgressIndicator(),
+          ],
         ),
-        Text(
-          t(context, 'JPG or PNG, up to 5 MB', 'JPG ឬ PNG មិនលើស ៥ MB'),
-          style: mText(context, 12, 18, color: colors.disabledBackground),
-        ),
-        if (logo != null && onRemove != null)
-          TextButton(
-            onPressed: busy ? null : onRemove,
-            child: Text(t(context, 'Remove logo', 'លុបរូបសញ្ញា')),
-          ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }

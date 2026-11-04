@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:customer_app/shared/widgets/figma_presentation.dart';
+
 import 'package:customer_app/app/app_preferences.dart';
 import 'package:customer_app/app/app_theme.dart';
 import 'package:customer_app/app/design_system/design_system.dart';
@@ -426,13 +428,21 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final viewport = tester.getRect(find.byType(RefreshIndicator));
-        expect(viewport.bottom, lessThanOrEqualTo(size.height - 34 - 102 - 20));
         await tester.drag(
-          find.byType(SingleChildScrollView),
+          find.byKey(const PageStorageKey('analytics-scroll')),
           const Offset(0, -5000),
         );
         await tester.pumpAndSettle();
+        // The final real data row must scroll clear of the floating bar.
+        final lastAmount = find
+            .text(
+              analyticsMoney(model.snapshot!.expense, model.snapshot!.currency),
+            )
+            .last;
+        expect(
+          tester.getRect(lastAmount).bottom,
+          lessThanOrEqualTo(size.height - 34 - 102 - 20),
+        );
         expect(tester.takeException(), isNull, reason: '$size');
       }
     },
@@ -510,9 +520,8 @@ void main() {
       expect(find.text('2026-10-01'), findsOneWidget);
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('analytics-currency')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('KHR').last);
+      await tester.ensureVisible(find.text('៛ KHR'));
+      await tester.tap(find.text('៛ KHR'));
       await tester.pumpAndSettle();
       expect(model.currency, 'KHR');
       expect(tester.takeException(), isNull);
@@ -549,23 +558,23 @@ void main() {
           )
           .tint;
       String nextIcon() => tester
-          .widget<AnalyticsAsset>(
+          .widget<CustomerDesignIcon>(
             find.descendant(
               of: find.byKey(const ValueKey('analytics-next')),
-              matching: find.byType(AnalyticsAsset),
+              matching: find.byType(CustomerDesignIcon),
             ),
           )
-          .name;
+          .asset;
 
       expect(model.showIncome, isFalse);
       expect(dot(), AppPalette.navy500);
-      expect(nextIcon(), 'next', reason: 'The future month stays disabled');
+      expect(nextIcon(), '205d9', reason: 'The future month stays disabled');
 
       model.selectSeries(true);
       await model.selectMonth(-1);
       await tester.pumpAndSettle();
       expect(dot(), AppPalette.gold500);
-      expect(nextIcon(), 'previous', reason: 'Gold chevron, like Previous');
+      expect(nextIcon(), '16298', reason: 'Gold chevron, like Previous');
       expect(tester.takeException(), isNull);
     },
   );
@@ -604,7 +613,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.drag(
-      find.byType(SingleChildScrollView),
+      find.byKey(const PageStorageKey('analytics-scroll')),
       const Offset(0, -900),
     );
     await tester.pumpAndSettle();

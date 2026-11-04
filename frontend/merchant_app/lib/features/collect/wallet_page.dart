@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
 import '../sales/receipt_page.dart';
@@ -94,198 +95,147 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: RefreshIndicator(
-              onRefresh: () => _load(reset: true),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                children: [
-                  Row(
-                    children: [
-                      CircleAction(
-                        tooltip: t(context, 'Back', 'ថយក្រោយ'),
-                        icon: Icons.arrow_back_rounded,
-                        onPressed: () => Navigator.of(context).pop(),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      leading: const QBack(),
+      title: Text(walletLabel(context, wallet.currency)),
+    ),
+    body: SafeArea(
+      top: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: RefreshIndicator(
+            onRefresh: () => _load(reset: true),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              children: [
+                Column(
+                  key: const ValueKey('wallet-detail-card'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t(context, 'Available balance', 'សមតុល្យដែលអាចប្រើបាន'),
+                      style: mText(
+                        context,
+                        15,
+                        24,
+                        color: AppColors.of(context).disabledBackground,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          walletLabel(context, wallet.currency),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: mText(
-                            context,
-                            20,
-                            28,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  NavyCard(
-                    key: const ValueKey('wallet-detail-card'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                    const SizedBox(height: 4),
+                    AmountText(
+                      shopAmount(wallet.balance, wallet.currency),
+                      style: mText(context, 36, 48, weight: FontWeight.w300),
+                    ),
+                    Row(
                       children: [
-                        Text(
-                          t(
-                            context,
-                            'Available balance',
-                            'សមតុល្យដែលអាចប្រើបាន',
-                          ),
-                          style: mText(
-                            context,
-                            14,
-                            22,
-                            weight: FontWeight.w500,
-                            color: AppPalette.gold200,
+                        Flexible(
+                          child: Text(
+                            wallet.accountNumber,
+                            style: mText(context, 15, 24),
                           ),
                         ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: AlignmentDirectional.centerStart,
-                          child: AmountText(
-                            shopAmount(wallet.balance, wallet.currency),
-                            key: const ValueKey('wallet-detail-balance'),
-                            style: mText(
-                              context,
-                              30,
-                              40,
-                              weight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
+                        IconButton(
+                          tooltip: t(
+                            context,
+                            'Copy account number',
+                            'ចម្លងលេខគណនី',
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(height: 1, color: Colors.white24),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                wallet.accountNumber,
-                                style: mText(
-                                  context,
-                                  14,
-                                  22,
-                                  weight: FontWeight.w500,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: t(
-                                context,
-                                'Copy account number',
-                                'ចម្លងលេខគណនី',
-                              ),
-                              color: Colors.white,
-                              icon: const Icon(Icons.copy_rounded, size: 20),
-                              onPressed: () async {
-                                await Clipboard.setData(
-                                  ClipboardData(text: wallet.accountNumber),
-                                );
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        t(
-                                          context,
-                                          'Account number copied',
-                                          'បានចម្លងលេខគណនី',
-                                        ),
-                                      ),
+                          icon: const QIcon('015d6'),
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: wallet.accountNumber),
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    t(
+                                      context,
+                                      'Account number copied',
+                                      'បានចម្លងលេខគណនី',
                                     ),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ],
                     ),
+                  ],
+                ),
+                if (widget.transfer != null) ...[
+                  const SizedBox(height: 12),
+                  ListenableBuilder(
+                    listenable: widget.transfer!,
+                    builder: (context, _) => FilledButton(
+                      key: const ValueKey('wallet-transfer'),
+                      onPressed: _canTransfer ? _openTransfer : null,
+                      child: Text(
+                        widget.transfer!.waiting
+                            ? t(context, 'Continue transfer', 'បន្តការផ្ទេរ')
+                            : t(
+                                context,
+                                'Transfer to my wallet',
+                                'ផ្ទេរទៅកាបូបខ្ញុំ',
+                              ),
+                      ),
+                    ),
                   ),
-                  if (widget.transfer != null) ...[
-                    const SizedBox(height: 16),
-                    ListenableBuilder(
-                      listenable: widget.transfer!,
-                      builder: (context, _) => FilledButton.icon(
-                        key: const ValueKey('wallet-transfer'),
-                        onPressed: _canTransfer ? _openTransfer : null,
-                        icon: const Icon(Icons.swap_horiz_rounded),
-                        label: Text(
-                          widget.transfer!.waiting
-                              ? t(context, 'Continue transfer', 'បន្តការផ្ទេរ')
-                              : t(
-                                  context,
-                                  'Transfer to my wallet',
-                                  'ផ្ទេរទៅកាបូបខ្ញុំ',
-                                ),
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  SectionTitle(t(context, 'Activity', 'សកម្មភាព')),
-                  const SizedBox(height: 8),
-                  if (failure != null) ...[
-                    NoticeBanner(
-                      shopFailureMessage(context, failure!),
-                      tone: NoticeTone.error,
-                      action: TextButton(
-                        onPressed: loading
-                            ? null
-                            : () => _load(reset: activity.isEmpty),
-                        child: Text(t(context, 'Try again', 'ព្យាយាមម្ដងទៀត')),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  if (loading && activity.isEmpty)
-                    const LinearProgressIndicator(),
-                  if (!loading && failure == null && activity.isEmpty)
-                    NoticeBanner(
-                      t(
-                        context,
-                        'No activity yet. QR payments to this wallet will appear here.',
-                        'មិនទាន់មានសកម្មភាពទេ។ ការទូទាត់ QR ចូលកាបូបនេះនឹងបង្ហាញនៅទីនេះ។',
-                      ),
-                    ),
-                  for (final item in activity)
-                    ActivityRow(
-                      item,
-                      onTap: item.kind == 'QR_PAYMENT'
-                          ? () => openReceipt(
-                              context,
-                              widget.gateway,
-                              item.reference,
-                              onExpired: widget.onExpired,
-                            )
-                          : null,
-                    ),
-                  if (hasMore)
-                    TextButton(
-                      onPressed: loading ? null : _load,
-                      child: Text(t(context, 'Load more', 'ផ្ទុកបន្ថែម')),
-                    ),
                 ],
-              ),
+                const SizedBox(height: 32),
+                SectionTitle(t(context, 'Activity', 'សកម្មភាព')),
+                const SizedBox(height: 4),
+                if (failure != null) ...[
+                  NoticeBanner(
+                    shopFailureMessage(context, failure!),
+                    tone: NoticeTone.error,
+                    action: TextButton(
+                      onPressed: loading
+                          ? null
+                          : () => _load(reset: activity.isEmpty),
+                      child: Text(t(context, 'Try again', 'ព្យាយាមម្ដងទៀត')),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (loading && activity.isEmpty)
+                  const LinearProgressIndicator(),
+                if (!loading && failure == null && activity.isEmpty)
+                  NoticeBanner(
+                    t(
+                      context,
+                      'No activity yet. QR payments to this wallet will appear here.',
+                      'មិនទាន់មានសកម្មភាពទេ។ ការទូទាត់ QR ចូលកាបូបនេះនឹងបង្ហាញនៅទីនេះ។',
+                    ),
+                  ),
+                for (final item in activity)
+                  ActivityRow(
+                    item,
+                    onTap: item.kind == 'QR_PAYMENT'
+                        ? () => openReceipt(
+                            context,
+                            widget.gateway,
+                            item.reference,
+                            onExpired: widget.onExpired,
+                          )
+                        : null,
+                  ),
+                if (hasMore)
+                  TextButton(
+                    onPressed: loading ? null : _load,
+                    child: Text(t(context, 'Load more', 'ផ្ទុកបន្ថែម')),
+                  ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class ActivityRow extends StatelessWidget {
@@ -294,114 +244,132 @@ class ActivityRow extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final (title, icon) = switch (item.kind) {
-      'QR_PAYMENT' => (
-        t(context, 'QR payment', 'ការទូទាត់ QR'),
-        Icons.qr_code_2_rounded,
-      ),
-      'DEPOSIT' => (
-        t(context, 'Deposit', 'ការដាក់ប្រាក់'),
-        Icons.account_balance_rounded,
-      ),
-      'TRANSFER_OUT' => (
-        t(context, 'Transfer out', 'ផ្ទេរចេញ'),
-        Icons.north_east_rounded,
-      ),
-      _ => (t(context, 'Transfer in', 'ផ្ទេរចូល'), Icons.south_west_rounded),
-    };
-    final subtitle = [
-      if (item.payerName != null) '${item.payerName} · ${item.payerAccount}',
-      shortTime(item.createdAt),
-    ].join('\n');
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: item.incoming
-                  ? AppPalette.semanticSuccessMuted
-                  : colors.accent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: item.incoming
-                  ? AppPalette.semanticSuccess
-                  : merchantNavy(context),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: mText(context, 14, 22, weight: FontWeight.w600),
-                ),
-                Text(
-                  subtitle,
-                  style: mText(
-                    context,
-                    12,
-                    18,
-                    color: colors.disabledBackground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: AmountText(
-              '${item.incoming ? '+' : '−'}${shopAmount(item.amount, item.currency)}',
-              textAlign: TextAlign.end,
-              style: mText(
-                context,
-                14,
-                22,
-                weight: FontWeight.w600,
-                color: item.incoming
-                    ? AppPalette.semanticSuccess
-                    : colors.foreground,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final title = item.payerName != null
+        ? '${item.payerName} · ${item.payerAccount}'
+        : item.kind == 'TRANSFER_OUT'
+        ? t(context, 'To your wallet', 'ទៅកាបូបរបស់អ្នក')
+        : t(context, 'Transfer in', 'ផ្ទេរចូល');
+    final kind = item.kind == 'QR_PAYMENT'
+        ? t(context, 'QR payment', 'ការទូទាត់ QR')
+        : t(context, 'Owner transfer', 'ការផ្ទេររបស់ម្ចាស់');
+    return _PaymentRow(
+      title: title,
+      detail: '$kind · ${shortTime(item.createdAt).split(' ').last}',
+      amount:
+          '${item.incoming ? '+' : '−'}${shopAmount(item.amount, item.currency)}',
+      onTap: onTap,
     );
-    return onTap == null
-        ? row
-        : Material(
-            color: Colors.transparent,
-            child: InkWell(onTap: onTap, child: row),
-          );
   }
 }
 
-/// A confirmed payment row for Home and Sales.
 class ReceiptRow extends StatelessWidget {
   const ReceiptRow(this.receipt, {this.onTap, super.key});
   final ShopReceipt receipt;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => ActivityRow(
+  Widget build(BuildContext context) => _PaymentRow(
+    title: '${receipt.payerName} · ${receipt.payerAccount}',
+    detail: [
+      shortTime(receipt.paidAt).split(' ').last,
+      if (receipt.orderReference != null) receipt.orderReference!,
+    ].join(' · '),
+    amount: '+${shopAmount(receipt.amount, receipt.currency)}',
     onTap: onTap,
-    WalletActivity(
-      reference: receipt.reference,
-      kind: 'QR_PAYMENT',
-      incoming: true,
-      amount: receipt.amount,
-      currency: receipt.currency,
-      payerName: receipt.payerName,
-      payerAccount: receipt.payerAccount,
-      createdAt: receipt.paidAt,
+  );
+}
+
+class _PaymentRow extends StatelessWidget {
+  const _PaymentRow({
+    required this.title,
+    required this.detail,
+    required this.amount,
+    this.onTap,
+  });
+  final String title, detail, amount;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: AppColors.of(context).border),
+          ),
+        ),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final amountPainter = TextPainter(
+              text: TextSpan(
+                text: amount,
+                style: mText(context, 15, 24, weight: FontWeight.w500),
+              ),
+              textDirection: TextDirection.ltr,
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final large =
+                amountPainter.width > box.maxWidth * .45 ||
+                MediaQuery.textScalerOf(context).scale(15) > 22 ||
+                box.maxWidth < 280;
+            final money = AmountText(
+              amount,
+              textAlign: large ? TextAlign.start : TextAlign.end,
+              style: mText(context, 15, 24, weight: FontWeight.w500),
+            );
+            final words = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: large ? null : 1,
+                  overflow: large ? null : TextOverflow.ellipsis,
+                  style: mText(context, 15, 24),
+                ),
+                Text(
+                  detail,
+                  maxLines: large ? null : 1,
+                  overflow: large ? null : TextOverflow.ellipsis,
+                  style: mText(
+                    context,
+                    13,
+                    17,
+                    color: AppColors.of(context).disabledBackground,
+                  ),
+                ),
+                if (large) ...[const SizedBox(height: 4), money],
+              ],
+            );
+            return Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.of(context).surface,
+                  ),
+                  child: Text(
+                    title.characters.first.toUpperCase(),
+                    style: mText(
+                      context,
+                      14,
+                      18,
+                      weight: FontWeight.w500,
+                      color: merchantNavy(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: words),
+                if (!large) ...[const SizedBox(width: 12), money],
+              ],
+            );
+          },
+        ),
+      ),
     ),
   );
 }

@@ -8,15 +8,38 @@ String aiText(BuildContext context, String english) =>
     ? (_khmer[english] ?? tx(context, english))
     : english;
 const _khmer = <String, String>{
-  'Questions and minimal financial summaries are sent to Gemini. Conversations are kept for 30 days.': 'សំណួរ និងសេចក្តីសង្ខេបហិរញ្ញវត្ថុតិចតួចត្រូវបានផ្ញើទៅ Gemini។ ការសន្ទនាត្រូវបានរក្សាទុករយៈពេល ៣០ ថ្ងៃ។',
+  'AI Assistant': 'ជំនួយការ AI',
+  'How can I help you today?': 'តើខ្ញុំអាចជួយអ្នកអ្វីបានថ្ងៃនេះ?',
+  'Ask about your spending, transfers or account security.':
+      'សួរអំពីចំណាយ ការផ្ទេរ ឬសុវត្ថិភាពគណនីរបស់អ្នក។',
+  'Try asking': 'សាកល្បងសួរ',
+  'How much have I spent this month?': 'តើខ្ញុំបានចំណាយអស់ប៉ុន្មានក្នុងខែនេះ?',
+  'Can you show my recent transfers?':
+      'តើអ្នកអាចបង្ហាញការផ្ទេរថ្មីៗរបស់ខ្ញុំបានទេ?',
+  'How can I keep my account secure?':
+      'តើខ្ញុំអាចរក្សាសុវត្ថិភាពគណនីបានយ៉ាងដូចម្តេច?',
+  'Ask Kesor Assistant…': 'សួរជំនួយការ Kesor…',
+  'Never share your PIN, password or OTP.':
+      'កុំចែករំលែក PIN ពាក្យសម្ងាត់ ឬ OTP របស់អ្នក។',
+  'Your question and only the figures needed to answer it are sent to the AI service; names and account numbers are not. General answers are information, not financial advice. Conversations are kept for 30 days.': 'សំណួររបស់អ្នក និងតួលេខចាំបាច់សម្រាប់ការឆ្លើយតបប៉ុណ្ណោះ ត្រូវបានផ្ញើទៅសេវាកម្ម AI ឈ្មោះ និងលេខគណនីមិនត្រូវបានផ្ញើទេ។ ចម្លើយទូទៅគ្រាន់តែជាព័ត៌មាន មិនមែនជាដំបូន្មានហិរញ្ញវត្ថុទេ។ ការសន្ទនាត្រូវបានរក្សាទុករយៈពេល ៣០ ថ្ងៃ។',
+  'AI-written general information': 'ព័ត៌មានទូទៅដែល AI សរសេរ',
+  'AI-written general information · Account figures are verified':
+      'ព័ត៌មានទូទៅដែល AI សរសេរ · តួលេខគណនីត្រូវបានផ្ទៀងផ្ទាត់',
+  'Compare this month with last month': 'ប្រៀបធៀបខែនេះនឹងខែមុន',
+  'How much did I spend this week?':
+      'តើខ្ញុំបានចំណាយអស់ប៉ុន្មានក្នុងសប្តាហ៍នេះ?',
+  'How can I build an emergency fund?':
+      'តើខ្ញុំអាចបង្កើតមូលនិធិសង្គ្រោះបន្ទាន់បានយ៉ាងដូចម្តេច?',
+  'Ask about your accounts, your spending, how to use Kesor, or money in general.':
+      'សួរអំពីគណនី ការចំណាយ របៀបប្រើ Kesor ឬប្រាក់ជាទូទៅ។',
+  'Ask about your spending, your accounts, or money in general.':
+      'សួរអំពីការចំណាយ គណនីរបស់អ្នក ឬប្រាក់ជាទូទៅ។',
   'This request key belongs to a different assistant request.':
       'សោសំណើនេះជារបស់សំណើជំនួយការផ្សេង។',
   'AI assistant': 'ជំនួយការ AI',
   'Your Kesor assistant': 'ជំនួយការ Kesor របស់អ្នក',
   'Understand your money. Find the details.':
       'យល់អំពីប្រាក់របស់អ្នក និងស្វែងរកព័ត៌មាន។',
-  'Ask about your balances, transactions or how to use Kesor.':
-      'សួរអំពីសមតុល្យ ប្រតិបត្តិការ ឬរបៀបប្រើ Kesor។',
   'Show my balances': 'បង្ហាញសមតុល្យរបស់ខ្ញុំ',
   'Summarize this month': 'សង្ខេបសកម្មភាពខែនេះ',
   'Find recent transfers': 'ស្វែងរកការផ្ទេរថ្មីៗ',

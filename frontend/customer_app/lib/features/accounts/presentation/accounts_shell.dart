@@ -327,6 +327,20 @@ class _AccountsShellState extends State<AccountsShell> {
             if (!didPop) _back();
           },
           child: ReceiveQrScreen(
+            background: KesorHomeScreen(
+              data: widget.designPreview
+                  ? KesorHomeData.designPreview
+                  : (home.snapshot?.presentation(
+                              AppPreferences.of(context).locale,
+                            ) ??
+                            const KesorHomeData(
+                              khrBalance: '—',
+                              usdBalance: r'$—',
+                            ))
+                        .withRecipients(savedRecipients),
+              balanceVisible: _homeBalanceVisible,
+              showNavigation: true,
+            ),
             panel: ReceiveQrPanel(
               session: widget.session,
               gateway: qrGateway!,
@@ -695,13 +709,8 @@ class _AccountsShellState extends State<AccountsShell> {
                               }
                             }
                           },
-                          bottomClearance:
-                              KesorBottomBar.height(context) +
-                              math.max(
-                                24,
-                                MediaQuery.paddingOf(context).bottom,
-                              ) +
-                              16,
+                          onBack: () => _selectTab(0),
+                          bottomClearance: 0,
                         )
                       : tab == 2
                       ? SettingsScreen(
@@ -716,7 +725,7 @@ class _AccountsShellState extends State<AccountsShell> {
                           ),
                         ),
                 ),
-                if (!(tab == 3 && MediaQuery.viewInsetsOf(context).bottom > 0))
+                if (tab != 3)
                   Positioned(
                     left: 20,
                     right: 20,

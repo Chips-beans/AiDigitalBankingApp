@@ -322,4 +322,20 @@ void main() {
       throwsA(isA<ApiFailure>()),
     );
   });
+  test('answer mode is optional, limited to known values and drives the general-guidance flag', () {
+    Map<String, Object?> json([Object? mode]) => {
+      'reply': 'Text',
+      'cards': <Object>[],
+      'asOf': '2026-11-05T01:00:00Z',
+      'explanationStatus': 'AI',
+      'mode': ?mode,
+    };
+    expect(AiAnswer.fromJson(json()).mode, isNull);
+    expect(AiAnswer.fromJson(json()).hasGeneralGuidance, isFalse);
+    expect(AiAnswer.fromJson(json('GENERAL')).hasGeneralGuidance, isTrue);
+    expect(AiAnswer.fromJson(json('MIXED')).hasGeneralGuidance, isTrue);
+    expect(AiAnswer.fromJson(json('ACCOUNT')).hasGeneralGuidance, isFalse);
+    expect(() => AiAnswer.fromJson(json('ADVICE')), throwsA(isA<ApiFailure>()));
+    expect(() => AiAnswer.fromJson(json(5)), throwsA(isA<ApiFailure>()));
+  });
 }

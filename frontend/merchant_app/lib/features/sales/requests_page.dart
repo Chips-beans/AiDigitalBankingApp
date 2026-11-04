@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/merchant_strings.dart';
+
+import 'package:kesor_design_system/kesor_design_system.dart';
+
 import '../collect/collect_view.dart';
 import '../collect/merchant_collect.dart';
 import '../shop/merchant_shop.dart';
@@ -125,7 +128,7 @@ class _RequestsPageState extends State<RequestsPage> {
 
   @override
   Widget build(BuildContext context) => HistoryScaffold(
-    title: t(context, 'Requests', 'សំណើ'),
+    title: t(context, 'Payment requests', 'សំណើទូទាត់'),
     onRefresh: () => load(reset: true),
     onScroll: scroll,
     children: [
@@ -173,46 +176,63 @@ class _RequestsPageState extends State<RequestsPage> {
           ),
         ),
       for (final r in items)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: SurfaceCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        InkWell(
+          onTap:
+              opening ||
+                  !(r.status == RequestStatus.waiting ||
+                      r.status == RequestStatus.paid)
+              ? null
+              : () => open(r),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.of(context).border),
+              ),
+            ),
+            child: Row(
               children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    AmountText(
-                      shopAmount(r.amount, r.currency),
-                      style: mText(context, 18, 26, weight: FontWeight.w600),
-                    ),
-                    StatusChip(r.status.name.toUpperCase()),
-                  ],
-                ),
-                Text(r.reference, style: mText(context, 13, 20)),
-                if (r.orderReference != null)
-                  Text(r.orderReference!, style: mText(context, 13, 20)),
-                Text(shortTime(r.createdAt), style: mText(context, 12, 18)),
-                if (r.status == RequestStatus.waiting ||
-                    r.status == RequestStatus.paid)
-                  TextButton(
-                    onPressed: opening ? null : () => open(r),
-                    child: Text(
-                      r.status == RequestStatus.waiting
-                          ? t(
-                              context,
-                              'Open in Collect',
-                              'បើកក្នុងផ្ទាំងទទួលប្រាក់',
-                            )
-                          : t(context, 'Open receipt', 'បើកបង្កាន់ដៃ'),
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AmountText(
+                        shopAmount(r.amount, r.currency),
+                        style: mText(context, 15, 24, weight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${r.reference} · ${shortTime(r.createdAt)}',
+                        style: mText(
+                          context,
+                          13,
+                          18,
+                          color: AppColors.of(context).disabledBackground,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: StatusChip(r.status.name.toUpperCase())),
               ],
             ),
           ),
         ),
+      const SizedBox(height: 12),
+      Text(
+        t(
+          context,
+          'Unpaid requests never count as sales.',
+          'សំណើដែលមិនទាន់បង់ប្រាក់មិនរាប់ជាការលក់ទេ។',
+        ),
+        style: mText(
+          context,
+          13,
+          18,
+          color: AppColors.of(context).disabledBackground,
+        ),
+      ),
       if (cursor != null)
         TextButton(
           onPressed: loading ? null : load,

@@ -1,3 +1,5 @@
+import '../test/support/merchant_navigation.dart';
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -6,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart' as vector;
 import 'package:merchant_app/app/merchant_app.dart';
 import 'package:merchant_app/core/merchant_preferences.dart';
 import 'package:merchant_app/features/auth/merchant_session.dart';
@@ -29,6 +32,10 @@ void main() {
   testWidgets(
     'Merchant screens adapt across language, theme, size and accessibility',
     (tester) async {
+      final only = (Platform.environment['MERCHANT_QA_SCREENS'] ?? '')
+          .split(',')
+          .where((s) => s.isNotEmpty)
+          .toSet();
       await tester.runAsync(() async {
         for (final entry in {
           'MaterialIcons': ['fonts/MaterialIcons-Regular.otf'],
@@ -50,6 +57,16 @@ void main() {
             loader.addFont(rootBundle.load(file));
           }
           await loader.load();
+        }
+      });
+      // Warm exported SVG bytecode outside the fake clock before captures.
+      await tester.runAsync(() async {
+        for (final file in Directory(
+          'assets/figma',
+        ).listSync().whereType<File>().where((f) => f.path.endsWith('.svg'))) {
+          await vector.SvgAssetLoader(
+            'assets/figma/${file.uri.pathSegments.last}',
+          ).loadBytes(null);
         }
       });
       addTearDown(tester.view.resetPhysicalSize);
@@ -91,6 +108,11 @@ void main() {
             'reports-month',
             'requests',
             'more',
+            'side-menu',
+            'appearance',
+            'payment-alerts',
+            'sign-out',
+            'denied',
             'recovery',
             'shop-profile',
             'request-waiting',
@@ -99,6 +121,7 @@ void main() {
             if (variant.name == 'phone') ...[
               'collect-shop-qr',
               'request-cancelled',
+              'request-expired',
               'waiting',
               'restricted',
               'pending-review',
@@ -111,6 +134,7 @@ void main() {
               'owner-transfer-failed',
             ],
           ]) {
+            if (only.isNotEmpty && !only.contains(screen)) continue;
             final prefs = MerchantPreferences()
               ..setLanguage(variant.km ? 'km' : 'en')
               ..setTheme(
@@ -127,6 +151,11 @@ void main() {
               if (screen == 'waiting') {
                 unawaited(pending);
               } else if (screen == 'unavailable') {
+                await pending;
+              } else if (screen == 'denied') {
+                auth.approval.completeError(
+                  const MerchantAuthFailure(MerchantAuthIssue.denied),
+                );
                 await pending;
               } else {
                 auth.approval.complete(
@@ -225,7 +254,7 @@ void main() {
               ),
             );
             if (screen == 'waiting') {
-              await tester.pump(const Duration(milliseconds: 300));
+              await tester.pumpAndSettle();
             } else {
               await tester.pumpAndSettle();
             }
@@ -284,7 +313,7 @@ void main() {
               'reports-month',
               'requests',
             }.contains(screen)) {
-              await tester.tap(find.byType(NavigationDestination).at(2));
+              await openMerchantSection(tester, 2);
               await tester.pumpAndSettle();
               if (screen == 'receipt') {
                 await tester.scrollUntilVisible(
@@ -295,22 +324,24 @@ void main() {
                 await tester.pumpAndSettle();
                 await tester.tap(find.byType(ReceiptRow));
               } else if (screen == 'requests') {
-                await tester.tap(find.byKey(const ValueKey('sales-requests')));
+                await openMerchantMenu(tester, 'dc524');
               } else {
-                await tester.tap(find.byKey(const ValueKey('sales-reports')));
+                await openMerchantMenu(tester, '8b848');
               }
               await tester.pumpAndSettle();
               if (screen == 'reports-month') {
-                await tester.tap(find.byKey(const ValueKey('report-MONTH')));
+                await tester.tap(
+                  find.text(variant.km ? 'ប្រចាំខែ' : 'Monthly'),
+                );
                 await tester.pumpAndSettle();
               }
             } else if (screen == 'shop-profile') {
-              await tester.tap(find.byType(NavigationDestination).at(3));
+              await openMerchantSection(tester, 3);
               await tester.pumpAndSettle();
               await tester.tap(find.byKey(const ValueKey('open-shop-profile')));
               await tester.pumpAndSettle();
             } else if (tab > 0) {
-              await tester.tap(find.byType(NavigationDestination).at(tab));
+              await openMerchantSection(tester, tab);
               await tester.pumpAndSettle();
             } else if (screen == 'wallet') {
               await tester.ensureVisible(
@@ -319,14 +350,39 @@ void main() {
               await tester.pumpAndSettle();
               await tester.tap(find.byKey(const ValueKey('open-wallet-KHR')));
               await tester.pumpAndSettle();
-            } else if (screen == 'collect-shop-qr') {
-              await tester.tap(find.byType(NavigationDestination).at(1));
+            } else if (screen == 'side-menu') {
+              await tester.tap(find.byKey(const ValueKey('merchant-menu')));
               await tester.pumpAndSettle();
-              await tester.tap(find.byKey(const ValueKey('collect-mode')));
-              await tester.tap(find.byIcon(Icons.qr_code_2_rounded).last);
+            } else if ({
+              'appearance',
+              'payment-alerts',
+              'sign-out',
+            }.contains(screen)) {
+              await openMerchantSection(tester, 3);
+              final item = find.byKey(
+                ValueKey(
+                  screen == 'appearance'
+                      ? 'more-language'
+                      : screen == 'payment-alerts'
+                      ? 'more-alerts'
+                      : 'more-signout',
+                ),
+              );
+              await tester.scrollUntilVisible(
+                item,
+                200,
+                scrollable: find.byType(Scrollable).last,
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(item);
+              await tester.pumpAndSettle();
+            } else if (screen == 'collect-shop-qr') {
+              await openMerchantSection(tester, 1);
+              await tester.pumpAndSettle();
+              await tester.tap(find.text(variant.km ? 'QR ហាង' : 'Shop QR'));
               await tester.pumpAndSettle();
             } else if (live) {
-              await tester.tap(find.byType(NavigationDestination).at(1));
+              await openMerchantSection(tester, 1);
               await tester.pumpAndSettle();
               await tester.enterText(
                 find.byKey(const ValueKey('collect-amount')),
@@ -347,6 +403,21 @@ void main() {
                 gateway.pay(gateway.requests.keys.single);
                 await tester.pump(const Duration(seconds: 2));
                 await tester.pump(const Duration(milliseconds: 200));
+              } else if (screen == 'request-expired') {
+                final id = gateway.requests.keys.single,
+                    old = gateway.requests.values.single;
+                gateway.requests[id] = PaymentRequest(
+                  id: id,
+                  reference: old.reference,
+                  status: RequestStatus.expired,
+                  currency: old.currency,
+                  amount: old.amount,
+                  orderReference: old.orderReference,
+                  expiresAt: old.expiresAt,
+                  serverTime: old.serverTime,
+                );
+                await tester.pump(const Duration(seconds: 2));
+                await tester.pump(const Duration(milliseconds: 200));
               } else if (screen == 'request-cancelled') {
                 await tester.ensureVisible(
                   find.byKey(const ValueKey('request-cancel')),
@@ -363,6 +434,13 @@ void main() {
                   .jumpTo(0);
               await tester.pump(const Duration(milliseconds: 500));
             }
+            if (screen == 'collect') {
+              await tester.enterText(
+                find.byKey(const ValueKey('collect-amount')),
+                '25000',
+              );
+              await tester.pump();
+            }
             expect(
               tester.takeException(),
               isNull,
@@ -375,11 +453,22 @@ void main() {
             );
             // Reach lower form/settings content and catch overflow there too.
             if (screen != 'waiting' &&
+                screen != 'sign-out' &&
                 find.byType(Scrollable).evaluate().isNotEmpty) {
-              await tester.drag(
-                find.byType(Scrollable).first,
-                const Offset(0, -2000),
-              );
+              final vertical = find
+                  .byType(Scrollable)
+                  .evaluate()
+                  .map(
+                    (element) =>
+                        (element as StatefulElement).state as ScrollableState,
+                  )
+                  .where((state) => state.position.axis == Axis.vertical)
+                  .toList();
+              if (vertical.isNotEmpty) {
+                vertical.last.position.jumpTo(
+                  vertical.last.position.maxScrollExtent,
+                );
+              }
               if (live ||
                   screen == 'owner-transfer-waiting' ||
                   screen == 'owner-transfer-completed' ||
@@ -445,7 +534,8 @@ Future<void> renderFixture(
     final image = await boundary.toImage();
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      final file = File('.local/qa/m8/$name.png');
+      final output = Platform.environment['MERCHANT_QA_OUT'] ?? '.local/qa/m8';
+      final file = File('$output/$name.png');
       await file.parent.create(recursive: true);
       await file.writeAsBytes(data!.buffer.asUint8List());
     } finally {

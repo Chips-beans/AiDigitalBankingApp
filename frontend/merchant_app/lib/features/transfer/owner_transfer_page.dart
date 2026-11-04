@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
-import '../collect/collect_view.dart' show amountError;
+import '../../core/merchant_ui.dart';
+import '../collect/collect_view.dart' show amountError, shortTime;
 import '../collect/merchant_collect.dart' show moneyUnits;
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
@@ -29,7 +29,7 @@ class OwnerTransferPage extends StatefulWidget {
 }
 
 class _OwnerTransferPageState extends State<OwnerTransferPage> {
-  final amount = TextEditingController();
+  final amount = QMoneyController();
   String? amountProblem;
   Timer? tick;
 
@@ -86,418 +86,359 @@ class _OwnerTransferPageState extends State<OwnerTransferPage> {
     return '${parts.first}.${(parts.length > 1 ? parts[1] : '').padRight(2, '0')}';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListenableBuilder(
-              listenable: widget.controller,
-              builder: (context, _) => ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                children: [
-                  Row(
-                    children: [
-                      CircleAction(
-                        tooltip: t(context, 'Back', 'ថយក្រោយ'),
-                        icon: Icons.arrow_back_rounded,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          t(
-                            context,
-                            'Transfer to my wallet',
-                            'ផ្ទេរទៅកាបូបខ្ញុំ',
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: mText(
-                            context,
-                            20,
-                            28,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ..._body(context),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _finish() async {
+    final navigator = Navigator.of(context);
+    await widget.controller.reset();
+    if (mounted) navigator.pop();
   }
 
-  List<Widget> _body(BuildContext context) {
-    final controller = widget.controller;
-    final transfer = controller.transfer;
-    final colors = AppColors.of(context);
-    if (transfer == null) return _form(context);
-    final amountText = shopAmount(transfer.amount, transfer.currency);
-    final summary = NavyCard(
-      key: const ValueKey('transfer-summary'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t(context, 'Amount', 'ចំនួនទឹកប្រាក់'),
-            style: mText(
-              context,
-              14,
-              22,
-              weight: FontWeight.w500,
-              color: AppPalette.gold200,
-            ),
-          ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: AmountText(
-              amountText,
-              key: const ValueKey('transfer-amount'),
-              style: mText(
-                context,
-                30,
-                40,
-                weight: FontWeight.w600,
-                color: Colors.white,
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) {
+      final controller = widget.controller, transfer = controller.transfer;
+      final wallet = widget.wallet, colors = AppColors.of(context);
+      if (transfer == null) {
+        return QPage(
+          title: t(context, 'Transfer to my wallet', 'ផ្ទេរទៅកាបូបខ្ញុំ'),
+          footer: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              QNumberPad(
+                controller: amount,
+                decimal: wallet.currency == 'USD',
+                onChanged: () => setState(() => amountProblem = null),
               ),
-            ),
+              const SizedBox(height: 12),
+              if (controller.creating) const LinearProgressIndicator(),
+              FilledButton(
+                key: const ValueKey('transfer-create'),
+                onPressed: controller.creating ? null : _create,
+                child: Text(t(context, 'Continue', 'បន្ត')),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Container(height: 1, color: Colors.white24),
-          const SizedBox(height: 8),
-          _line(
-            context,
-            t(context, 'From business wallet', 'ពីកាបូបអាជីវកម្ម'),
-            transfer.sourceAccountNumber,
-          ),
-          _line(
-            context,
-            t(context, 'To your wallet', 'ទៅកាបូបរបស់អ្នក'),
-            transfer.destinationAccount,
-            key: const ValueKey('transfer-destination'),
-          ),
-        ],
-      ),
-    );
-    switch (transfer.status) {
-      case TransferStatus.pending:
-        final left = controller.remaining;
-        return [
-          summary,
-          const SizedBox(height: 16),
-          NoticeBanner(
-            controller.reconnecting
-                ? t(
-                    context,
-                    'Can’t reach the server. We’ll keep checking — approve in Kesor Bank if you haven’t yet.',
-                    'មិនអាចភ្ជាប់ម៉ាស៊ីនមេ។ យើងនឹងបន្តពិនិត្យ — សូមអនុម័តក្នុងធនាគារកេសរ ប្រសិនបើមិនទាន់។',
-                  )
-                : t(
-                    context,
-                    'Waiting for your approval in Kesor Bank. Nothing moves until you approve with your PIN.',
-                    'កំពុងរង់ចាំការអនុម័តរបស់អ្នកក្នុងធនាគារកេសរ។ គ្មានអ្វីផ្លាស់ទីទេ រហូតដល់អ្នកអនុម័តដោយ PIN។',
-                  ),
-            tone: controller.reconnecting
-                ? NoticeTone.warning
-                : NoticeTone.info,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${t(context, 'Expires in', 'ផុតកំណត់ក្នុង')} ${left.inMinutes}:${(left.inSeconds % 60).toString().padLeft(2, '0')}',
-            key: const ValueKey('transfer-countdown'),
-            textAlign: TextAlign.center,
-            style: mText(context, 13, 20, color: colors.disabledBackground),
-          ),
-          if (controller.failure != null) ...[
-            const SizedBox(height: 12),
-            NoticeBanner(
-              transferFailureMessage(context, controller.failure!),
-              tone: NoticeTone.error,
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (controller.opening || controller.cancelling)
-            const LinearProgressIndicator(),
-          FilledButton.icon(
-            key: const ValueKey('transfer-open'),
-            onPressed: controller.opening || controller.cancelling
-                ? null
-                : controller.openApproval,
-            icon: const Icon(Icons.open_in_new),
-            label: Text(
-              t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            key: const ValueKey('transfer-cancel'),
-            onPressed: controller.cancelling || controller.opening
-                ? null
-                : controller.cancel,
-            child: Text(t(context, 'Cancel transfer', 'បោះបង់ការផ្ទេរ')),
-          ),
-        ];
-      case TransferStatus.completed:
-        return [
-          NoticeBanner(
-            key: const ValueKey('transfer-completed'),
-            t(
-              context,
-              'Transferred $amountText to your wallet in Kesor Bank.',
-              'បានផ្ទេរ $amountText ទៅកាបូបរបស់អ្នកក្នុងធនាគារកេសរ។',
-            ),
-            tone: NoticeTone.success,
-          ),
-          const SizedBox(height: 16),
-          summary,
-          if (transfer.receiptReference != null) ...[
-            const SizedBox(height: 12),
-            SurfaceCard(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 12),
+              QGroup(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          t(context, 'Reference', 'លេខយោង'),
-                          style: mText(
-                            context,
-                            12,
-                            18,
-                            color: colors.disabledBackground,
+                        Expanded(
+                          child: Text(
+                            t(context, 'From', 'ពី'),
+                            style: mText(
+                              context,
+                              13,
+                              18,
+                              color: colors.disabledBackground,
+                            ),
                           ),
                         ),
-                        SelectableText(
-                          transfer.receiptReference!,
-                          key: const ValueKey('transfer-reference'),
-                          style: mText(
-                            context,
-                            14,
-                            22,
-                            weight: FontWeight.w600,
+                        Flexible(
+                          child: AmountText(
+                            '${shopAmount(wallet.balance, wallet.currency)} ${t(context, 'available', 'អាចប្រើបាន')}',
+                            textAlign: TextAlign.end,
+                            style: mText(
+                              context,
+                              13,
+                              18,
+                              color: colors.disabledBackground,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    tooltip: t(context, 'Copy reference', 'ចម្លងលេខយោង'),
-                    icon: const Icon(Icons.copy_rounded, size: 20),
-                    onPressed: () => Clipboard.setData(
-                      ClipboardData(text: transfer.receiptReference!),
+                    Text(
+                      walletLabel(context, wallet.currency),
+                      style: mText(context, 15, 24),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          ..._done(context),
-        ];
-      default:
-        final (message, tone) = switch (transfer.status) {
-          TransferStatus.denied => (
-            t(
-              context,
-              'You declined this transfer in Kesor Bank. Nothing was moved.',
-              'អ្នកបានបដិសេធការផ្ទេរនេះក្នុងធនាគារកេសរ។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
-            ),
-            NoticeTone.warning,
-          ),
-          TransferStatus.cancelled => (
-            t(
-              context,
-              'This transfer was cancelled. Nothing was moved.',
-              'ការផ្ទេរនេះត្រូវបានបោះបង់។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
-            ),
-            NoticeTone.warning,
-          ),
-          TransferStatus.expired => (
-            t(
-              context,
-              'This transfer expired before it was approved. Nothing was moved.',
-              'ការផ្ទេរនេះផុតកំណត់មុនពេលអនុម័ត។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
-            ),
-            NoticeTone.warning,
-          ),
-          _ => (
-            transfer.failureCode == 'INSUFFICIENT_FUNDS'
-                ? t(
-                    context,
-                    'The business wallet balance was not enough when you approved. Nothing was moved.',
-                    'សមតុល្យកាបូបអាជីវកម្មមិនគ្រប់គ្រាន់ពេលអ្នកអនុម័ត។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
-                  )
-                : t(
-                    context,
-                    'The transfer could not be completed. Nothing was moved.',
-                    'មិនអាចបញ្ចប់ការផ្ទេរបានទេ។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
-                  ),
-            NoticeTone.error,
-          ),
-        };
-        return [
-          NoticeBanner(
-            message,
-            key: ValueKey('transfer-${transfer.status.name}'),
-            tone: tone,
-          ),
-          ..._done(context),
-        ];
-    }
-  }
-
-  List<Widget> _done(BuildContext context) => [
-    const SizedBox(height: 16),
-    FilledButton(
-      key: const ValueKey('transfer-done'),
-      onPressed: () async {
-        final navigator = Navigator.of(context);
-        await widget.controller.reset();
-        if (mounted) navigator.pop();
-      },
-      child: Text(t(context, 'Done', 'រួចរាល់')),
-    ),
-  ];
-
-  Widget _line(BuildContext context, String label, String value, {Key? key}) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: mText(context, 13, 20, color: AppPalette.gold200),
-              ),
-            ),
-            Flexible(
-              child: Text(
-                value,
-                key: key,
-                textAlign: TextAlign.end,
-                style: mText(
-                  context,
-                  14,
-                  22,
-                  weight: FontWeight.w500,
-                  color: Colors.white,
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Text(
+                      t(context, 'To', 'ទៅ'),
+                      style: mText(
+                        context,
+                        13,
+                        18,
+                        color: colors.disabledBackground,
+                      ),
+                    ),
+                    Text(
+                      t(
+                        context,
+                        'Your Kesor Bank wallet',
+                        'កាបូបធនាគារកេសររបស់អ្នក',
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Semantics(
+                label: t(context, 'Amount', 'ចំនួនទឹកប្រាក់'),
+                child: QAmountField(
+                  controller: amount,
+                  currency: wallet.currency,
+                  fieldKey: const ValueKey('transfer-amount-field'),
+                  error: amountProblem,
+                  onChanged: (_) => setState(() => amountProblem = null),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                t(
+                  context,
+                  'You’ll approve it with your PIN in Kesor Bank.',
+                  'អ្នកនឹងអនុម័តដោយ PIN ក្នុងធនាគារកេសរ។',
+                ),
+                textAlign: TextAlign.center,
+                style: mText(context, 13, 18, color: colors.disabledBackground),
+              ),
+              if (controller.failure != null) ...[
+                const SizedBox(height: 12),
+                NoticeBanner(
+                  controller.failure!.uncertain
+                      ? t(
+                          context,
+                          'We couldn’t confirm the transfer was created. Try again — the same request is reused.',
+                          'យើងមិនអាចបញ្ជាក់ថាការផ្ទេរត្រូវបានបង្កើតទេ។ សូមព្យាយាមម្ដងទៀត — សំណើដដែលនឹងត្រូវប្រើឡើងវិញ។',
+                        )
+                      : transferFailureMessage(context, controller.failure!),
+                  tone: NoticeTone.error,
+                ),
+              ],
+            ],
+          ),
+        );
+      }
+      final waiting = transfer.waiting,
+          completed = transfer.status == TransferStatus.completed;
+      final amountText = shopAmount(transfer.amount, transfer.currency);
+      final left = controller.remaining;
+      final title = switch (transfer.status) {
+        TransferStatus.pending => t(
+          context,
+          'Approve in Kesor Bank',
+          'អនុម័តក្នុងធនាគារកេសរ',
         ),
-      );
-
-  List<Widget> _form(BuildContext context) {
-    final controller = widget.controller;
-    final wallet = widget.wallet;
-    return [
-      SurfaceCard(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-        child: Column(
+        TransferStatus.completed => t(
+          context,
+          'Transfer completed',
+          'ការផ្ទេរបានបញ្ចប់',
+        ),
+        TransferStatus.denied => t(
+          context,
+          'Transfer declined',
+          'ការផ្ទេរត្រូវបានបដិសេធ',
+        ),
+        TransferStatus.cancelled => t(
+          context,
+          'Transfer cancelled',
+          'ការផ្ទេរត្រូវបានបោះបង់',
+        ),
+        TransferStatus.expired => t(
+          context,
+          'Transfer expired',
+          'ការផ្ទេរផុតកំណត់',
+        ),
+        TransferStatus.failed => t(
+          context,
+          'Transfer not completed',
+          'ការផ្ទេរមិនបានបញ្ចប់',
+        ),
+      };
+      return QPage(
+        title: t(context, 'Transfer to my wallet', 'ផ្ទេរទៅកាបូបខ្ញុំ'),
+        footer: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              walletLabel(context, wallet.currency),
-              style: mText(
-                context,
-                14,
-                20,
-                weight: FontWeight.w500,
-                color: merchantNavy(context),
-              ),
-            ),
-            Text(
-              '${t(context, 'Available', 'អាចប្រើបាន')}: ${shopAmount(wallet.balance, wallet.currency)}',
-              style: mText(
-                context,
-                13,
-                20,
-                color: AppColors.of(context).disabledBackground,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey('transfer-amount-field'),
-              controller: amount,
-              keyboardType: TextInputType.numberWithOptions(
-                decimal: wallet.currency == 'USD',
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                  RegExp(wallet.currency == 'USD' ? r'[0-9.]' : r'[0-9]'),
+            if (waiting) ...[
+              if (controller.opening || controller.cancelling)
+                const LinearProgressIndicator(),
+              FilledButton(
+                key: const ValueKey('transfer-open'),
+                onPressed: controller.opening || controller.cancelling
+                    ? null
+                    : controller.openApproval,
+                child: Text(
+                  t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
+                  textAlign: TextAlign.center,
                 ),
-                LengthLimitingTextInputFormatter(16),
-              ],
-              textAlign: TextAlign.center,
-              style: mText(context, 32, 40, weight: FontWeight.w600),
-              onChanged: (_) {
-                if (amountProblem != null) setState(() => amountProblem = null);
-              },
-              onSubmitted: (_) => _create(),
-              decoration: InputDecoration(
-                hintText: wallet.currency == 'USD' ? '0.00' : '0',
-                errorText: amountProblem,
-                prefixText: wallet.currency == 'USD' ? r'$ ' : null,
-                suffixText: wallet.currency == 'KHR' ? ' ៛' : null,
               ),
-            ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                key: const ValueKey('transfer-cancel'),
+                onPressed: controller.cancelling || controller.opening
+                    ? null
+                    : controller.cancel,
+                child: Text(t(context, 'Cancel transfer', 'បោះបង់ការផ្ទេរ')),
+              ),
+            ] else
+              FilledButton(
+                key: const ValueKey('transfer-done'),
+                onPressed: _finish,
+                child: Text(t(context, 'Done', 'រួចរាល់')),
+              ),
           ],
         ),
-      ),
-      if (controller.failure != null) ...[
-        const SizedBox(height: 12),
-        NoticeBanner(
-          controller.failure!.uncertain
-              ? t(
-                  context,
-                  'We couldn’t confirm the transfer was created. Try again — the same request is reused.',
-                  'យើងមិនអាចបញ្ជាក់ថាការផ្ទេរត្រូវបានបង្កើតទេ។ សូមព្យាយាមម្ដងទៀត — សំណើដដែលនឹងត្រូវប្រើឡើងវិញ។',
+        child: Padding(
+          padding: EdgeInsets.only(top: waiting ? 64 : 48),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              QStatusIcon(
+                completed
+                    ? '1e3d7'
+                    : waiting
+                    ? 'e33d1'
+                    : '00600',
+                tone: completed
+                    ? 'success'
+                    : waiting
+                    ? 'info'
+                    : 'error',
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                key: ValueKey('transfer-${transfer.status.name}'),
+                textAlign: TextAlign.center,
+                style: mText(context, 20, 27, weight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              AmountText(
+                amountText,
+                key: const ValueKey('transfer-amount'),
+                textAlign: TextAlign.center,
+                style: mText(context, 40, 54, weight: FontWeight.w300),
+              ),
+              const SizedBox(height: 12),
+              if (waiting) ...[
+                Text(
+                  t(
+                    context,
+                    'From your ${transfer.currency == 'USD' ? 'US Dollar' : 'Khmer Riel'} business wallet to your wallet ${transfer.destinationAccount}',
+                    'ពីកាបូបអាជីវកម្មទៅកាបូបរបស់អ្នក ${transfer.destinationAccount}',
+                  ),
+                  key: const ValueKey('transfer-destination'),
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    15,
+                    24,
+                    color: colors.disabledBackground,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${t(context, 'Expires in', 'ផុតកំណត់ក្នុង')} ${left.inMinutes}:${(left.inSeconds % 60).toString().padLeft(2, '0')}',
+                  key: const ValueKey('transfer-countdown'),
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    13,
+                    18,
+                    weight: FontWeight.w500,
+                    color: merchantNavy(context),
+                  ),
+                ),
+                if (controller.reconnecting) ...[
+                  const SizedBox(height: 12),
+                  NoticeBanner(
+                    t(
+                      context,
+                      'Can’t reach the server. We’ll keep checking — approve in Kesor Bank if you haven’t yet.',
+                      'មិនអាចភ្ជាប់ម៉ាស៊ីនមេ។ យើងនឹងបន្តពិនិត្យ — សូមអនុម័តក្នុងធនាគារកេសរ ប្រសិនបើមិនទាន់។',
+                    ),
+                    tone: NoticeTone.warning,
+                  ),
+                ],
+              ] else if (completed)
+                QGroup(
+                  key: const ValueKey('transfer-summary'),
+                  child: Column(
+                    children: [
+                      QDetail(
+                        t(context, 'From', 'ពី'),
+                        '${transfer.currency} ${t(context, 'wallet', 'កាបូប')} •••• ${transfer.sourceAccountNumber.substring(transfer.sourceAccountNumber.length - 4)}',
+                      ),
+                      QDetail(
+                        t(context, 'To', 'ទៅ'),
+                        '${t(context, 'Your wallet', 'កាបូបរបស់អ្នក')} ${transfer.destinationAccount}',
+                        valueKey: const ValueKey('transfer-destination'),
+                      ),
+                      if (transfer.receiptReference != null)
+                        QDetail(
+                          t(context, 'Reference', 'លេខយោង'),
+                          transfer.receiptReference!,
+                          valueKey: const ValueKey('transfer-reference'),
+                        ),
+                      if (transfer.completedAt != null)
+                        QDetail(
+                          t(context, 'Time', 'ពេលវេលា'),
+                          shortTime(transfer.completedAt!),
+                        ),
+                    ],
+                  ),
                 )
-              : transferFailureMessage(context, controller.failure!),
-          tone: NoticeTone.error,
+              else
+                Text(
+                  switch (transfer.status) {
+                    TransferStatus.denied => t(
+                      context,
+                      'You declined this transfer in Kesor Bank. Nothing was moved.',
+                      'អ្នកបានបដិសេធការផ្ទេរនេះក្នុងធនាគារកេសរ។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
+                    ),
+                    TransferStatus.cancelled => t(
+                      context,
+                      'This transfer was cancelled. Nothing was moved.',
+                      'ការផ្ទេរនេះត្រូវបានបោះបង់។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
+                    ),
+                    TransferStatus.expired => t(
+                      context,
+                      'This transfer expired before it was approved. Nothing was moved.',
+                      'ការផ្ទេរនេះផុតកំណត់មុនពេលអនុម័ត។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
+                    ),
+                    _ =>
+                      transfer.failureCode == 'INSUFFICIENT_FUNDS'
+                          ? t(
+                              context,
+                              'The business wallet balance was not enough when you approved. Nothing was moved.',
+                              'សមតុល្យកាបូបអាជីវកម្មមិនគ្រប់គ្រាន់ពេលអ្នកអនុម័ត។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
+                            )
+                          : t(
+                              context,
+                              'The transfer could not be completed. Nothing was moved.',
+                              'មិនអាចបញ្ចប់ការផ្ទេរបានទេ។ គ្មានប្រាក់ត្រូវបានផ្ទេរទេ។',
+                            ),
+                  },
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    15,
+                    24,
+                    color: colors.disabledBackground,
+                  ),
+                ),
+              if (controller.failure != null) ...[
+                const SizedBox(height: 12),
+                NoticeBanner(
+                  transferFailureMessage(context, controller.failure!),
+                  tone: NoticeTone.error,
+                ),
+              ],
+            ],
+          ),
         ),
-      ],
-      const SizedBox(height: 16),
-      if (controller.creating) ...[
-        const LinearProgressIndicator(),
-        const SizedBox(height: 12),
-      ],
-      FilledButton.icon(
-        key: const ValueKey('transfer-create'),
-        onPressed: controller.creating ? null : _create,
-        icon: const Icon(Icons.swap_horiz_rounded),
-        label: Text(t(context, 'Continue', 'បន្ត')),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        t(
-          context,
-          'Money goes to your own wallet in Kesor Bank in the same currency. You approve it with your PIN in Kesor Bank.',
-          'ប្រាក់ទៅកាបូបផ្ទាល់ខ្លួនរបស់អ្នកក្នុងធនាគារកេសរ ជារូបិយប័ណ្ណដូចគ្នា។ អ្នកអនុម័តដោយ PIN ក្នុងធនាគារកេសរ។',
-        ),
-        textAlign: TextAlign.center,
-        style: mText(
-          context,
-          12,
-          18,
-          color: AppColors.of(context).disabledBackground,
-        ),
-      ),
-    ];
-  }
+      );
+    },
+  );
 }
 
 String transferFailureMessage(BuildContext context, ShopFailure failure) =>

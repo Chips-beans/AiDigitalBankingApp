@@ -45,6 +45,11 @@ abstract interface class RestorableMerchantAuth implements MerchantAuthGateway {
   Future<void> reopen();
 }
 
+/// Read-only approval timing for presentation; the server still enforces expiry.
+abstract interface class MerchantApprovalTiming {
+  Duration? get approvalRemaining;
+}
+
 /// Supplies the current Merchant access token to shop APIs, rotating it first
 /// when it is about to expire. Never exposes refresh credentials.
 abstract interface class MerchantAccess {
@@ -88,6 +93,9 @@ class MerchantSession extends ChangeNotifier {
   MerchantPhase phase = MerchantPhase.signedOut;
   MerchantIdentity? identity;
   MerchantAuthIssue? failure;
+  Duration? get approvalRemaining => gateway is MerchantApprovalTiming
+      ? (gateway as MerchantApprovalTiming).approvalRemaining
+      : null;
   bool get unavailable => failure == MerchantAuthIssue.unavailable;
   int _generation = 0;
   bool _disposed = false, _running = false, _ending = false;

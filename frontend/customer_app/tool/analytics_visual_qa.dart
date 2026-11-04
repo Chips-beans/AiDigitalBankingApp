@@ -103,7 +103,7 @@ void main() {
           await save(stem);
           if (narrow) {
             await tester.drag(
-              find.byType(SingleChildScrollView),
+              find.byKey(const PageStorageKey('analytics-scroll')),
               const Offset(0, -5000),
             );
             await tester.pumpAndSettle();

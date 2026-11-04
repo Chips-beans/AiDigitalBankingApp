@@ -6,7 +6,7 @@ import 'package:customer_app/features/assistant/assistant_models.dart';
 
 const aiConversationId = '11111111-2222-4333-8444-555555555555';
 const aiSecondConversationId = '11111111-2222-4333-8444-666666666666';
-AiAnswer fixtureAnswer({String locale = 'en'}) => AiAnswer(
+AiAnswer fixtureAnswer({String locale = 'en', String? mode}) => AiAnswer(
   locale == 'km'
       ? 'នេះជាសមតុល្យគណនីដែលបានផ្ទៀងផ្ទាត់របស់អ្នក។'
       : 'Here are your verified account balances.',
@@ -36,10 +36,12 @@ AiAnswer fixtureAnswer({String locale = 'en'}) => AiAnswer(
   ],
   DateTime.utc(2026, 10, 30, 7, 15),
   'AI',
+  mode: mode,
 );
 
 class FakeAssistant implements AssistantGateway {
   bool enabled = true, loseSendResponse = false, loseCreateResponse = false;
+  String? answerMode;
   ApiFailure? sendFailure, statusFailure, listFailure;
   Completer<void>? sendGate;
   int creates = 0, statusReads = 0, creationReads = 0, listReads = 0;
@@ -124,7 +126,7 @@ class FakeAssistant implements AssistantGateway {
       throw sendFailure!;
     }
     final turn = turns.putIfAbsent(pending.key, () {
-      final answer = fixtureAnswer(locale: pending.locale);
+      final answer = fixtureAnswer(locale: pending.locale, mode: answerMode);
       (history[pending.conversation!] ??= []).insert(
         0,
         AiMessage(

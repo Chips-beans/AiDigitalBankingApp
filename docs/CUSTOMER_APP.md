@@ -103,7 +103,7 @@ and recovery of uncertain requests are enforced on every financial operation.
 
 ## 6. QR payments (internal Kesor QR only)
 
-- **Receive:** *My QR* opens a full-screen dark sheet with a wallet drop-down, reusable static QR, and
+- **Receive:** *My QR* opens a full-screen dark overlay over a blurred Home, with separate wallet selector rows, reusable static QR, and
   **Request an amount** for a one-time fixed request (distinct server reference each time). Save (MediaStore
   `Pictures/Kesor Bank`, Android 10+) and Share (FileProvider) render the card PNG. QR modules stay dark on
   white because inverted codes scan unreliably.
@@ -132,29 +132,66 @@ own accounts are excluded; fees are zero; no conversion or cross-currency total.
 App: injectable `AnalyticsGateway` (API or explicit demo, never an error fallback); defaults to the current
 Phnom Penh month, USD, Expense; at most 24 snapshots cached in memory; cache invalidated by transfers and
 account opening. Chart is a `CustomPainter` (no chart package) with exact integer scaling, accessible daily
-values, tap/hover details and keyboard arrows. The large faded lotus area at the top is intentional.
+values, tap/hover details and keyboard arrows. The 4 November Figma redesign (§14) replaces the earlier
+large faded lotus header with a flat title and currency selector.
+
+4 November 2026: generated `frontend/customer_app/assets/analytics/khmer-money-planning.png`
+as an optional Analytics header illustration: a Khmer woman reviewing a journal and chart beside
+the Phnom Penh riverside, matching the existing watercolor artwork and navy/gold accents.
+The PNG has transparent edges. Asset delivered separately; screen integration remains unchanged.
 
 ## 8. AI assistant (read-only)
 
-Interprets questions, retrieves the authenticated customer's data, renders verified cards, and may add a
-short Gemini explanation. It **cannot** prepare or submit a payment.
+Interprets questions, retrieves the authenticated customer's data, renders verified cards, and writes a
+short model-written answer. It also answers **general money questions** (education + budgeting tips) with no
+customer data. It **cannot** prepare or submit a payment.
+
+- **General guidance (5 Nov 2026):** intent adds `TOTALS`, `COMPARE`, `GENERAL` and a `general` flag.
+  `GENERAL` turns read **no** customer data and send the model only the sanitized question; the server appends
+  "General information only, not financial advice." and sets `Answer.mode=GENERAL`. A data question that also asks
+  for tips (`general=true`) is `MIXED`: verified cards plus brief tips, same disclaimer. Specific stocks, crypto,
+  loans, insurance, tax actions, payments and off-topic requests stay `UNSUPPORTED`. `Answer.mode` is null for
+  data/help answers and for answers stored before the field existed (Flutter treats null as the old behaviour).
+- **Number checking (`AssistantEngine.render`):** the composer returns text with `{{fact}}` placeholders. With
+  customer facts, prose may contain **no digits (Latin or Khmer), `%`, currency symbols/codes, status words or
+  magnitude words**, and needs at least one placeholder; every figure, change and percentage is computed by the
+  server (`TOTALS`/`COMPARE` facts). `GENERAL`-only text may use ordinary numbers (e.g. 50/30/20) but no
+  placeholder and no 6+ digit run. All modes reject links, `@`, braces, directives to send money/contact someone,
+  and any sentence that mentions a PIN/OTP/password without a negation. Failure: data turns fall back to verified
+  cards (`FALLBACK`); a `GENERAL` turn returns `AI_INVALID_RESPONSE` (nothing verified to show). Known limit:
+  spelled-out small numbers in prose cannot be detected reliably; the prompt forbids them.
+- **New tools:** `TOTALS` sums the Monthly Analytics daily rows over a date range (≤ 366 days, per currency, never
+  mixed), so it always matches Analytics; facts `<CUR>_income|outgoing|net|avg_daily_outgoing`. `COMPARE` compares a
+  month with the previous one (`<CUR>_*_change`, `_outgoing_change_pct` only when the previous outgoing is non-zero,
+  `current_month_note` while the month is open). Largest/count per period and counterparty names are not yet included.
 
 - **Capabilities:** balances (customer-wide totals + up to ten account links per currency); transaction search
   (date, currency, exact amount, direction, type, status, reference, account; default current month, ranges
   ≤ 366 days); receipt details; monthly cash flow (reuses Analytics); approved EN/KM help from
   `backend/digital-banking/src/main/resources/ai/kesor-help-v1.json`. Category spending, budgets, goals, voice,
   conversion and payment execution are out of scope.
-- **Provider:** Gemini via Spring `RestClient`, `x-goog-api-key`, stateless, no redirects, no agent loop.
+- **Provider (changed 5 Nov 2026: Gemini removed):** any **OpenAI-compatible chat-completions gateway**, by default **Groq**
+  (`https://api.groq.com/openai/v1`, model `qwen/qwen3.8-27b`, `POST {base}/chat/completions`, `Authorization: Bearer <key>`),
+  via Spring `RestClient` (`GatewayAdapter`), stateless, no redirects, no agent loop. `AI_JSON_MODE=schema` (default) sends
+  `response_format` strict `json_schema` (Groq supports it on qwen/gpt-oss models), `object` sends `json_object`, `prompt` only
+  instructs; a markdown fence/preamble or inline `<think>…</think>` is stripped, and every reply is still validated strictly.
+  `AI_REASONING_EFFORT` (default `none`, fastest on qwen; gpt-oss accepts only `low|medium|high`; blank = not sent). The key is
+  only sent over HTTPS or to a loopback host. `model` must exactly match an id from `GET {base}/models`. Model choice: Qwen3
+  officially lists Khmer; a third-party model card reported heavy language bleed for gpt-oss-120b in Khmer (thin evidence).
+- **Language check (`AssistantEngine.requireLanguage`):** a `km` answer must be mostly Khmer script (Khmer letters ≥ 2× Latin
+  letters, so terms like PIN/QR are fine); an `en` answer must contain no Khmer; any other script (Thai, Chinese, Cyrillic…)
+  rejects the answer. Rejection = `FALLBACK` to verified cards, or `AI_INVALID_RESPONSE` for a general-only turn.
   At most two provider calls per turn (intent extraction, optional explanation); 25 s overall deadline,
   10 s read, 3 s connect, no retries, 2,048 output tokens, two concurrent calls per instance. Limits:
   2,000 chars/question, 10 turns/min and 100/day per customer. Full account numbers/references use opaque
   aliases; names, emails, phones, links and tokens are stripped; labelled PIN/OTP/password input is rejected.
-  Explanations may only reference verified fact placeholders; on failure verified cards are returned with
-  `explanationStatus=FALLBACK`. Flags default off: `GEMINI_ENABLED`, `GEMINI_CUSTOMER_CONTEXT_ENABLED`
+  Text about customer figures may only reference verified fact placeholders (see *Number checking* above); on failure verified cards are returned with
+  `explanationStatus=FALLBACK`. Settings (backend `.env`): `AI_API_URL`, `AI_API_KEY`, `AI_MODEL`, `AI_ENABLED`, `AI_CUSTOMER_CONTEXT_ENABLED` (flags default off;
+  the second is the operator assertion below)
   (operator assertion that billing/data handling is reviewed).
 - **Routes:** `GET /ai/capabilities`; `GET|POST /ai/conversations`; `PATCH|DELETE /ai/conversations/{id}`;
   `GET|POST /ai/conversations/{id}/messages` (POST needs `Idempotency-Key`, `{message, locale en|km, context}`,
-  201 or 202 while pending); `GET /ai/conversations/{id}/requests/{key}` (never calls Gemini);
+  201 or 202 while pending); `GET /ai/conversations/{id}/requests/{key}` (never calls the provider);
   `GET /transactions/search`. Card types `BALANCE MONTHLY TRANSACTION HELP MORE`; actions are server-created
   (`ACCOUNT ACCOUNTS TRANSACTION ANALYTICS HELP_SCREEN MORE`). Errors: `AI_UNAVAILABLE AI_TIMEOUT
   AI_INVALID_RESPONSE AI_RATE_LIMITED AI_PROVIDER_RATE_LIMITED AI_BUSY AI_SENSITIVE_INPUT
@@ -163,10 +200,10 @@ short Gemini explanation. It **cannot** prepare or submit a payment.
   conversation; pending older than 2 minutes reported interrupted; messages expire after 30 days with daily
   cleanup. Flutter uses a 35 s AI client, saves only the pending question/key before sending, recovers lost
   responses by status reads, polls every 2 s (≤ 30 s) while visible, and never auto-resends.
-- **Live status:** several Gemini models stalled or returned 503 (provider capacity). `gemini-3.5-flash-lite`
-  answered in ≤ 3.6 s; six Khmer turns completed correctly (balance cards, help, refusal of out-of-scope advice).
-  Unverified: any `explanationStatus=AI` prose, an English-locale turn, a monthly summary, a payment-request
-  refusal. Config availability is not provider health. Keep the key private.
+- **Live status:** history with Gemini (now removed): several models stalled or returned 503; `gemini-3.5-flash-lite` answered
+  Khmer intent turns in ≤ 3.6 s. **Groq has not been called live yet** (Rayu Code was dropped: its API needs a paid plan) (adapter proven only against a loopback
+  fixture). Unverified: latency, JSON reliability and Khmer quality of the chosen model, any `explanationStatus=AI` prose,
+  English turns, `TOTALS`/`COMPARE`/`GENERAL`. Config availability is not provider health. Keep the key private.
 
 ## 9. Merchant touchpoints in the Customer App
 
@@ -184,11 +221,12 @@ short Gemini explanation. It **cannot** prepare or submit a payment.
 
 ## 10. Home, Wallet, Settings, scanner (UI notes)
 
-- **Home:** three equal actions (Transfer, Scan QR, My QR); balance/transaction amounts stay on one line and
+- **Home:** three equal actions (Wallet, Scan QR, Transfer); balance/transaction amounts stay on one line and
   scale down; Favorite Recipients; recent activity with photo/initial + counterparty name + amount + time.
   Header keeps the Figma layout (logo, inbox, My QR) with no profile slot.
-- **Wallet & Accounts** (`WalletAccountsScreen`): navy total-balance card with KHR/USD totals and hide toggle,
-  actions (Transfer, My QR, Open accounts), wallet tiles with status chips, selected-wallet card.
+- **Wallet** (`WalletAccountsScreen`): separate KHR/USD cards, account copy controls, an explicitly
+  unconfigured Merchant Wallet, and per-currency guidance. Tap a live wallet for details; existing
+  profile, account-opening and activity actions remain below the cards.
 - **Settings** (Figma `320:308`): profile name/photo/contact editing, PIN change, local Android alert
   preferences with test alert, English/Khmer, System/Light/Dark, FAQ/AI help, support email, demo policy readers,
   confirmed sign-out. Alerts are local and carry no account values; background push does not exist.
@@ -219,10 +257,41 @@ V18 Merchant approval sessions · V19 shop registration · V20 collections + pay
 
 Last full evidence (4 Nov 2026): backend 234/234, Customer 273/273, analysis clean. Earlier per-feature counts
 (PIN 123 backend tests, Analytics 114 backend + 134 Flutter, etc.) are superseded by those totals.
-Automated tests use embedded PostgreSQL, a local SMTP fixture and a fake/loopback Gemini; they never send real mail
+Automated tests use embedded PostgreSQL, a local SMTP fixture and a fake/loopback AI gateway; they never send real mail
 or use a paid provider.
 
 User-confirmed on device: native Telegram return, Settings appearance/navigation, corrected transfer icons/flags,
 the Analytics screen. **Not personally verified:** notification delivery, PIN change/recovery, gallery photo,
-camera QR, fresh signup, masked-Home/idle-lock flow, Favorite Recipients, new Home/Wallet UI, live Gemini prose,
+camera QR, fresh signup, masked-Home/idle-lock flow, Favorite Recipients, new Home/Wallet UI, live gateway prose,
 iOS, production deployment.
+
+## 14. Customer Figma section redesign — 4 November 2026
+
+Source: Kesor Bank file `Mkhqgqnt1SQoq4pn9INLY5`, section `387:6034`.
+All five frames were inspected with high-fidelity design context and source renders:
+
+| Figma frame | Flutter implementation |
+| --- | --- |
+| Home `387:6035` | Existing `KesorHomeScreen`: Wallet / Scan QR / Transfer actions, refined glass tiles, current motif and navigation artwork. My QR remains in the header. |
+| Wallet `387:6617` | `WalletAccountsScreen` and `FigmaWalletCard`: KHR then USD cards, balance and number copy, Merchant Wallet explicitly unconfigured, currency information. Tap a live card for account details. Existing profile, activity and account-opening actions remain below the main content. |
+| Analytics `166:177` | Flat white page, title/subtitle, KHR/USD segmented control, month controls, pale summary cards, interactive daily chart and cash-flow rows. Existing exact amounts, cache, stale/error states and daily-value access remain. |
+| AI Assistant `385:2708` | Standalone page with Back, centered emblem, live first name, welcome headline, three working suggestions, ambient gold glow and inset composer. Floating navigation is hidden here. Conversation history opens from the welcome emblem; history/new-chat controls appear during a conversation. Recovery, privacy and PIN-lock behavior remain. |
+| My QR `328:458` | Real Home backdrop blurred behind the dark overlay, gold/navy QR card, optional amount, both live wallet selector rows, Save/Share and Close. QR is generated from the server payload, never from the Figma sample code. |
+
+Assets: 28 unchanged SVG exports (~53 KB) in `assets/figma`; exact matching original
+Home assets reused. The folder README maps exports to source frames. Static source
+screenshots are not bundled or rendered as UI. No temporary Figma URLs are runtime dependencies.
+
+Data limits: the monthly API has income/expense and daily totals, **not payment-method
+categories**. The two breakdown rows therefore show real income/expense totals rather
+than inventing QR-payment percentages from the sample design. The Merchant Wallet
+placeholder does not assert that a shop wallet is configured or expose Merchant-session APIs.
+
+Responsive evidence lives in `tool/customer_figma_visual_qa.dart`, covering every frame,
+English/Khmer, both themes, 1×/1.3×/2× text, phone/landscape/tablet and scrolling to the
+bottom. Automated result: **273/273 Customer tests**, plus focused checks after final spacing
+adjustments; **300 responsive renders without layout exceptions**, and clean analysis. Evidence logs and renders:
+`frontend/customer_app/.local/qa/figma-redesign/`.
+
+Uncommitted. No APK build/install, backend restart, live database action or real payment.
+Native device appearance and personal acceptance remain pending.

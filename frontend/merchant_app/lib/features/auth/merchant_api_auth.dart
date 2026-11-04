@@ -7,7 +7,8 @@ import '../../core/merchant_config.dart';
 import 'merchant_session.dart';
 
 /// One durable journal per installation/API origin. Credentials never enter UI or links.
-class MerchantApiAuth implements RestorableMerchantAuth, MerchantAccess {
+class MerchantApiAuth
+    implements RestorableMerchantAuth, MerchantAccess, MerchantApprovalTiming {
   MerchantApiAuth(
     this.config, {
     HandoffApi? api,
@@ -59,6 +60,14 @@ class MerchantApiAuth implements RestorableMerchantAuth, MerchantAccess {
 
   Map<String, dynamic>? get _pending =>
       journal['pending'] as Map<String, dynamic>?;
+  @override
+  Duration? get approvalRemaining {
+    final expiry = DateTime.tryParse(_pending?['expiresAt'] as String? ?? '');
+    if (expiry == null) return null;
+    final left = expiry.difference(clock());
+    return left.isNegative ? Duration.zero : left;
+  }
+
   Map<String, dynamic>? get _tokens =>
       journal['tokens'] as Map<String, dynamic>?;
   bool _current(int generation) => generation == _generation;

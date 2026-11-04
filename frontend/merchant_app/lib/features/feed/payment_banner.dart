@@ -5,6 +5,7 @@ import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_preferences.dart';
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../shop/shop_widgets.dart';
 import 'payment_feed_controller.dart';
 
@@ -59,50 +60,113 @@ class PaymentAlertSettings extends StatelessWidget {
   final MerchantPreferences preferences;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    return ListenableBuilder(
-      listenable: preferences,
-      builder: (context, _) => Material(
-        color: colors.surface,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colors.border),
-        ),
-        child: Column(
-          children: [
-            SwitchListTile(
-              key: const ValueKey('alert-sound'),
-              secondary: const Icon(Icons.volume_up_outlined),
-              title: Text(t(context, 'Sound', 'សំឡេង')),
-              value: preferences.alertSound,
-              onChanged: preferences.setAlertSound,
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: preferences,
+    builder: (context, _) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final item in <(String, String, String, bool, ValueChanged<bool>)>[
+          (
+            'alert-sound',
+            t(context, 'Sound', 'សំឡេង'),
+            t(
+              context,
+              'A short sound for each payment',
+              'សំឡេងខ្លីសម្រាប់ការទូទាត់នីមួយៗ',
             ),
-            const Divider(height: 1),
-            SwitchListTile(
-              key: const ValueKey('alert-vibration'),
-              secondary: const Icon(Icons.vibration),
-              title: Text(t(context, 'Vibration', 'ការញ័រ')),
-              value: preferences.alertVibration,
-              onChanged: preferences.setAlertVibration,
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Text(
-                t(
-                  context,
-                  'Alerts work while Kesor Merchant is open. Background notifications are coming later.',
-                  'ការជូនដំណឹងដំណើរការពេលកម្មវិធី Kesor Merchant បើកនៅឡើយ។ ការជូនដំណឹងផ្ទៃខាងក្រោយនឹងមកនៅពេលក្រោយ។',
-                ),
-                style: mText(context, 12, 18, color: colors.disabledBackground),
+            preferences.alertSound,
+            preferences.setAlertSound,
+          ),
+          (
+            'alert-vibration',
+            t(context, 'Vibration', 'ការញ័រ'),
+            t(context, 'Vibrate for each payment', 'ញ័រសម្រាប់ការទូទាត់នីមួយៗ'),
+            preferences.alertVibration,
+            preferences.setAlertVibration,
+          ),
+        ])
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.of(context).border),
               ),
             ),
-          ],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(item.$2),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.$3,
+                        style: mText(
+                          context,
+                          13,
+                          18,
+                          color: AppColors.of(context).disabledBackground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Semantics(
+                  toggled: item.$4,
+                  label: item.$2,
+                  child: InkWell(
+                    key: ValueKey(item.$1),
+                    onTap: () => item.$5(!item.$4),
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: item.$4
+                            ? const QIcon('c24d4', darkAdaptive: false)
+                            : Container(
+                                width: 44,
+                                height: 26,
+                                padding: const EdgeInsets.all(3),
+                                alignment: Alignment.centerLeft,
+                                decoration: BoxDecoration(
+                                  color: AppColors.of(context)
+                                      .disabledBackground,
+                                  borderRadius: BorderRadius.circular(13),
+                                ),
+                                child: const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: SizedBox(width: 20, height: 20),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        Text(
+          t(
+            context,
+            'Alerts work while Kesor Merchant is open. Background notifications are coming later.',
+            'ការជូនដំណឹងដំណើរការពេលកម្មវិធី Kesor Merchant បើកនៅឡើយ។ ការជូនដំណឹងផ្ទៃខាងក្រោយនឹងមកនៅពេលក្រោយ។',
+          ),
+          style: mText(
+            context,
+            13,
+            18,
+            color: AppColors.of(context).disabledBackground,
+          ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 String paymentBannerText(BuildContext context, FeedBanner banner) {
@@ -158,9 +222,8 @@ class _BannerState extends State<_Banner> {
       liveRegion: true,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppPalette.navy500,
+          color: AppColors.of(context).background,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppPalette.gold400.withValues(alpha: .5)),
           boxShadow: const [
             BoxShadow(
               color: Color(0x33000000),
@@ -178,9 +241,15 @@ class _BannerState extends State<_Banner> {
               padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.payments_outlined,
-                    color: AppPalette.gold400,
+                  Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppPalette.semanticSuccessMuted,
+                    ),
+                    child: const QIcon('849ed', darkAdaptive: false),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -193,7 +262,7 @@ class _BannerState extends State<_Banner> {
                             context,
                             12,
                             18,
-                            color: AppPalette.gold400,
+                            color: AppColors.of(context).disabledBackground,
                           ),
                         ),
                         AmountText(
@@ -205,8 +274,8 @@ class _BannerState extends State<_Banner> {
                             context,
                             15,
                             22,
-                            weight: FontWeight.w600,
-                            color: Colors.white,
+                            weight: FontWeight.w500,
+                            color: AppColors.of(context).foreground,
                           ),
                         ),
                       ],
@@ -215,11 +284,7 @@ class _BannerState extends State<_Banner> {
                   IconButton(
                     tooltip: t(context, 'Dismiss', 'បិទ'),
                     onPressed: widget.onClose,
-                    icon: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    icon: const QIcon('7827e'),
                   ),
                 ],
               ),

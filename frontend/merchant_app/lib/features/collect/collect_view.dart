@@ -1,22 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../../core/platform/image_share.dart';
 import '../shop/merchant_shop.dart';
 import '../shop/shop_widgets.dart';
 import '../sales/receipt_page.dart';
 import 'collect_controller.dart';
 import 'merchant_collect.dart';
-
-// Same QR card palette as the Customer App's My QR.
-const _qrSurface = Color(0xFF1F1F21);
-const _qrMuted = Color(0xFFA1A1A6);
-const _qrRed = AppPalette.semanticError;
 
 /// Validates amount text for the currency's precision (USD 2 places, KHR whole).
 String? amountError(BuildContext context, String currency, String raw) {
@@ -50,9 +45,8 @@ class CollectView extends StatefulWidget {
 }
 
 class _CollectViewState extends State<CollectView> {
-  bool shopQr = false;
   String currency = 'KHR';
-  final amount = TextEditingController();
+  final amount = QMoneyController();
   final order = TextEditingController();
   String? amountProblem;
 
@@ -97,168 +91,145 @@ class _CollectViewState extends State<CollectView> {
       if (collect.request != null) {
         return RequestView(controller: collect, storeName: widget.storeName);
       }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SegmentedButton<bool>(
-            key: const ValueKey('collect-mode'),
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(
-                value: false,
-                icon: const Icon(Icons.dialpad_rounded),
-                label: Text(t(context, 'Enter amount', 'បញ្ចូលចំនួន')),
-              ),
-              ButtonSegment(
-                value: true,
-                icon: const Icon(Icons.qr_code_2_rounded),
-                label: Text(t(context, 'Shop QR', 'QR ហាង')),
-              ),
-            ],
-            selected: {shopQr},
-            onSelectionChanged: (v) => setState(() => shopQr = v.first),
-          ),
-          const SizedBox(height: 16),
-          _CurrencyPicker(
-            value: currency,
-            onChanged: (v) => setState(() {
-              currency = v;
-              amountProblem = null;
-            }),
-          ),
-          const SizedBox(height: 16),
-          if (shopQr)
-            ShopQrPanel(
-              key: ValueKey('shop-qr-$currency'),
-              gateway: widget.gateway,
-              currency: currency,
-            )
-          else ...[
-            SurfaceCard(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    t(context, 'Amount', 'ចំនួនទឹកប្រាក់'),
-                    style: mText(
-                      context,
-                      14,
-                      20,
-                      weight: FontWeight.w500,
-                      color: merchantNavy(context),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    key: const ValueKey('collect-amount'),
-                    controller: amount,
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: currency == 'USD',
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(currency == 'USD' ? r'[0-9.]' : r'[0-9]'),
-                      ),
-                      LengthLimitingTextInputFormatter(16),
-                    ],
-                    textAlign: TextAlign.center,
-                    style: mText(context, 32, 40, weight: FontWeight.w600),
-                    onChanged: (_) {
-                      if (amountProblem != null) {
-                        setState(() => amountProblem = null);
-                      }
-                    },
-                    onSubmitted: (_) => _create(),
-                    decoration: InputDecoration(
-                      hintText: currency == 'USD' ? '0.00' : '0',
-                      errorText: amountProblem,
-                      prefixText: currency == 'USD' ? r'$ ' : null,
-                      suffixText: currency == 'KHR' ? ' ៛' : null,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const ValueKey('collect-order'),
-                    controller: order,
-                    maxLength: 50,
-                    textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      labelText: t(
-                        context,
-                        'Order note (optional)',
-                        'កំណត់ចំណាំការបញ្ជាទិញ (ស្រេចចិត្ត)',
-                      ),
-                      hintText: t(context, 'e.g. Table 4', 'ឧ. តុលេខ ៤'),
-                      prefixIcon: const Icon(Icons.sticky_note_2_outlined),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (collect.failure != null) ...[
-              const SizedBox(height: 12),
-              NoticeBanner(
-                collect.failure!.uncertain
-                    ? t(
-                        context,
-                        'We couldn’t confirm the QR was created. Try again — the same request is reused.',
-                        'យើងមិនអាចបញ្ជាក់ថា QR ត្រូវបានបង្កើតទេ។ សូមព្យាយាមម្ដងទៀត — សំណើដដែលនឹងត្រូវប្រើឡើងវិញ។',
-                      )
-                    : shopFailureMessage(context, collect.failure!),
-                tone: NoticeTone.error,
-              ),
-            ],
-            const SizedBox(height: 16),
-            if (collect.creating) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 12),
-            ],
-            FilledButton.icon(
+      return QStage(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        footer: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (collect.creating) const LinearProgressIndicator(),
+            FilledButton(
               key: const ValueKey('collect-create'),
               onPressed: collect.creating ? null : _create,
-              icon: const Icon(Icons.qr_code_2_rounded),
-              label: Text(t(context, 'Show payment QR', 'បង្ហាញ QR ទូទាត់')),
+              child: Text(t(context, 'Show QR', 'បង្ហាញ QR')),
             ),
-            const SizedBox(height: 12),
-            Text(
-              t(
-                context,
-                'The QR is valid for a few minutes and can be paid once. You’ll see the payment here the moment it’s confirmed.',
-                'QR មានសុពលភាពប៉ុន្មាននាទី ហើយអាចបង់បានតែម្ដង។ អ្នកនឹងឃើញការទូទាត់នៅទីនេះភ្លាមៗពេលត្រូវបានបញ្ជាក់។',
-              ),
-              textAlign: TextAlign.center,
-              style: mText(
-                context,
-                12,
-                18,
-                color: AppColors.of(context).disabledBackground,
-              ),
+            const SizedBox(height: 8),
+            QNumberPad(
+              controller: amount,
+              decimal: currency == 'USD',
+              onChanged: () => setState(() => amountProblem = null),
             ),
           ],
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              key: const ValueKey('collect-mode'),
+              children: [
+                for (final mode in [false, true])
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: !mode
+                                ? merchantNavy(context)
+                                : AppColors.of(context).border,
+                            width: !mode ? 2 : 1,
+                          ),
+                        ),
+                      ),
+                      child: TextButton(
+                        onPressed: () {
+                          if (mode) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    MerchantShopQrPage(gateway: widget.gateway),
+                              ),
+                            );
+                          }
+                        },
+                        child: Text(
+                          mode
+                              ? t(context, 'Shop QR', 'QR ហាង')
+                              : t(context, 'Amount', 'ចំនួនទឹកប្រាក់'),
+                          style: mText(
+                            context,
+                            15,
+                            24,
+                            weight: FontWeight.w500,
+                            color: !mode
+                                ? merchantNavy(context)
+                                : AppColors.of(context).disabledBackground,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: QSegments<String>(
+                key: const ValueKey('collect-currency'),
+                values: const ['KHR', 'USD'],
+                labels: const ['KHR', 'USD'],
+                compact: true,
+                value: currency,
+                onChanged: (v) => setState(() {
+                  currency = v;
+                  amount.clear();
+                  amountProblem = null;
+                }),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...[
+              Semantics(
+                label: t(context, 'Amount', 'ចំនួនទឹកប្រាក់'),
+                child: QAmountField(
+                  controller: amount,
+                  currency: currency,
+                  fieldKey: const ValueKey('collect-amount'),
+                  error: amountProblem,
+                  onChanged: (_) => setState(() => amountProblem = null),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Semantics(
+                label: t(
+                  context,
+                  'Order note (optional)',
+                  'កំណត់ចំណាំការបញ្ជាទិញ (ស្រេចចិត្ត)',
+                ),
+                child: TextField(
+                  key: const ValueKey('collect-order'),
+                  controller: order,
+                  maxLength: 50,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    hintText: t(
+                      context,
+                      'Add an order note',
+                      'បន្ថែមកំណត់ចំណាំ',
+                    ),
+                    counterText: '',
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: QIcon('1409f'),
+                    ),
+                  ),
+                ),
+              ),
+              if (collect.failure != null) ...[
+                const SizedBox(height: 12),
+                NoticeBanner(
+                  collect.failure!.uncertain
+                      ? t(
+                          context,
+                          'We couldn’t confirm the QR was created. Try again — the same request is reused.',
+                          'យើងមិនអាចបញ្ជាក់ថា QR ត្រូវបានបង្កើតទេ។ សូមព្យាយាមម្ដងទៀត — សំណើដដែលនឹងត្រូវប្រើឡើងវិញ។',
+                        )
+                      : shopFailureMessage(context, collect.failure!),
+                  tone: NoticeTone.error,
+                ),
+              ],
+            ],
+          ],
+        ),
       );
     },
-  );
-}
-
-class _CurrencyPicker extends StatelessWidget {
-  const _CurrencyPicker({required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-  @override
-  Widget build(BuildContext context) => SegmentedButton<String>(
-    key: const ValueKey('collect-currency'),
-    showSelectedIcon: false,
-    segments: [
-      ButtonSegment(value: 'KHR', label: Text(t(context, 'KHR ៛', 'រៀល ៛'))),
-      ButtonSegment(
-        value: 'USD',
-        label: Text(t(context, r'USD $', r'ដុល្លារ $')),
-      ),
-    ],
-    selected: {value},
-    onSelectionChanged: (v) => onChanged(v.first),
   );
 }
 
@@ -294,36 +265,38 @@ class _RequestViewState extends State<RequestView> {
 
   @override
   Widget build(BuildContext context) {
-    final collect = widget.controller;
-    final request = collect.request!;
-    final colors = AppColors.of(context);
+    final collect = widget.controller, request = widget.controller.request!;
     final amount = shopAmount(request.amount, request.currency);
+    final colors = AppColors.of(context);
+    Widget newPayment() => FilledButton(
+      key: const ValueKey('request-new'),
+      onPressed: collect.reset,
+      child: Text(t(context, 'New payment', 'ការទូទាត់ថ្មី')),
+    );
     switch (request.status) {
       case RequestStatus.waiting:
-        final left = collect.remaining;
-        final total = request.expiresAt.difference(request.serverTime);
-        final minutes = left.inMinutes, seconds = left.inSeconds % 60;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            KesorQrCard(
-              key: const ValueKey('request-qr'),
-              title: widget.storeName,
-              qrString: request.qrString ?? '',
-              headline: amount,
-              caption: request.orderReference,
-            ),
-            const SizedBox(height: 16),
-            Semantics(
-              liveRegion: true,
-              child: Row(
+        final left = collect.remaining,
+            total = request.expiresAt.difference(request.serverTime);
+        return QStage(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          footer: OutlinedButton(
+            key: const ValueKey('request-cancel'),
+            onPressed: collect.cancelling ? null : collect.cancel,
+            child: Text(t(context, 'Cancel request', 'បោះបង់សំណើ')),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              KesorQrCard(
+                key: const ValueKey('request-qr'),
+                title: widget.storeName,
+                qrString: request.qrString ?? '',
+                headline: amount,
+                caption: request.orderReference,
+              ),
+              const SizedBox(height: 16),
+              Row(
                 children: [
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       collect.reconnecting
@@ -334,185 +307,155 @@ class _RequestViewState extends State<RequestView> {
                             )
                           : t(
                               context,
-                              'Waiting for payment',
-                              'កំពុងរង់ចាំការទូទាត់',
+                              'Waiting for the customer',
+                              'កំពុងរង់ចាំអតិថិជន',
                             ),
-                      style: mText(context, 14, 22, weight: FontWeight.w600),
-                    ),
-                  ),
-                  Text(
-                    '$minutes:${seconds.toString().padLeft(2, '0')}',
-                    key: const ValueKey('request-countdown'),
-                    style: mText(
-                      context,
-                      14,
-                      22,
-                      weight: FontWeight.w600,
-                      color: left.inSeconds < 30
-                          ? colors.error
-                          : merchantNavy(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: total.inSeconds <= 0
-                    ? 0
-                    : left.inSeconds / total.inSeconds,
-                minHeight: 6,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${t(context, 'Reference', 'លេខយោង')} ${request.reference}',
-              textAlign: TextAlign.center,
-              style: mText(context, 12, 18, color: colors.disabledBackground),
-            ),
-            if (collect.failure != null) ...[
-              const SizedBox(height: 12),
-              NoticeBanner(
-                shopFailureMessage(context, collect.failure!),
-                tone: NoticeTone.error,
-              ),
-            ],
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const ValueKey('request-cancel'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(48, 52),
-                foregroundColor: colors.error,
-                side: BorderSide(color: colors.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: collect.cancelling ? null : collect.cancel,
-              icon: const Icon(Icons.close_rounded),
-              label: Text(t(context, 'Cancel request', 'បោះបង់សំណើ')),
-            ),
-          ],
-        );
-      case RequestStatus.paid:
-        final receipt = request.receipt;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SurfaceCard(
-              key: const ValueKey('request-paid'),
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-              child: Column(
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: const BoxDecoration(
-                      color: AppPalette.semanticSuccessMuted,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_rounded,
-                      size: 40,
-                      color: AppPalette.semanticSuccess,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      t(context, 'Payment received', 'បានទទួលការទូទាត់'),
-                      style: mText(context, 18, 26, weight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      amount,
                       style: mText(
                         context,
-                        32,
-                        40,
-                        weight: FontWeight.w700,
-                        color: merchantNavy(context),
+                        15,
+                        24,
+                        color: colors.disabledBackground,
                       ),
                     ),
                   ),
-                  if (receipt != null) ...[
-                    const SizedBox(height: 16),
-                    ReceiptLines(receipt: receipt),
-                  ],
+                  const SizedBox(width: 12),
+                  Text(
+                    '${left.inMinutes}:${(left.inSeconds % 60).toString().padLeft(2, '0')}',
+                    key: const ValueKey('request-countdown'),
+                    style: mText(
+                      context,
+                      15,
+                      24,
+                      weight: FontWeight.w500,
+                      color: merchantNavy(context),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            if (receipt != null)
-              OutlinedButton.icon(
-                onPressed: () => openReceipt(
-                  context,
-                  collect.gateway,
-                  receipt.reference,
-                  onExpired: collect.onExpired,
-                ),
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: Text(t(context, 'Open receipt', 'បើកបង្កាន់ដៃ')),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: total.inSeconds <= 0
+                    ? 0
+                    : (left.inSeconds / total.inSeconds).clamp(0, 1),
+                minHeight: 4,
+                color: merchantNavy(context),
+                backgroundColor: colors.surface,
               ),
-            FilledButton.icon(
-              key: const ValueKey('request-new'),
-              onPressed: collect.reset,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(t(context, 'New payment', 'ការទូទាត់ថ្មី')),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                '${t(context, 'Reference', 'លេខយោង')} ${request.reference}',
+                textAlign: TextAlign.center,
+                style: mText(context, 13, 18, color: colors.disabledBackground),
+              ),
+              if (collect.failure != null) ...[
+                const SizedBox(height: 12),
+                NoticeBanner(
+                  shopFailureMessage(context, collect.failure!),
+                  tone: NoticeTone.error,
+                ),
+              ],
+            ],
+          ),
+        );
+      case RequestStatus.paid:
+        final receipt = request.receipt;
+        return QStage(
+          padding: const EdgeInsets.fromLTRB(20, 48, 20, 12),
+          footer: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (receipt != null) ...[
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => openReceipt(
+                      context,
+                      collect.gateway,
+                      receipt.reference,
+                      onExpired: collect.onExpired,
+                    ),
+                    child: Text(
+                      t(context, 'View receipt', 'មើលបង្កាន់ដៃ'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(child: newPayment()),
+            ],
+          ),
+          child: Column(
+            key: const ValueKey('request-paid'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const QStatusIcon('1e3d7', tone: 'success'),
+              const SizedBox(height: 12),
+              Text(
+                t(context, 'Payment received', 'បានទទួលការទូទាត់'),
+                textAlign: TextAlign.center,
+                style: mText(context, 20, 27, weight: FontWeight.w500),
+              ),
+              const SizedBox(height: 12),
+              AmountText(
+                amount,
+                textAlign: TextAlign.center,
+                style: mText(context, 40, 54, weight: FontWeight.w300),
+              ),
+              const SizedBox(height: 12),
+              if (receipt != null)
+                QGroup(
+                  child: Column(
+                    children: [
+                      QDetail(
+                        t(context, 'From', 'ពី'),
+                        '${receipt.payerName} · ${receipt.payerAccount}',
+                      ),
+                      if (receipt.converted)
+                        QDetail(
+                          t(context, 'Customer paid', 'អតិថិជនបានបង់'),
+                          shopAmount(receipt.paidAmount, receipt.paidCurrency),
+                        ),
+                      if (receipt.orderReference != null)
+                        QDetail(
+                          t(context, 'Order note', 'កំណត់ចំណាំ'),
+                          receipt.orderReference!,
+                        ),
+                      QDetail(
+                        t(context, 'Reference', 'លេខយោង'),
+                        receipt.reference,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         );
       case RequestStatus.expired:
       case RequestStatus.cancelled:
         final expired = request.status == RequestStatus.expired;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SurfaceCard(
-              key: const ValueKey('request-closed'),
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              child: Column(
-                children: [
-                  Icon(
-                    expired ? Icons.timer_off_outlined : Icons.cancel_outlined,
-                    size: 48,
-                    color: colors.disabledBackground,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    expired
-                        ? t(context, 'QR expired', 'QR ផុតកំណត់')
-                        : t(context, 'Request cancelled', 'សំណើត្រូវបានបោះបង់'),
-                    style: mText(context, 18, 26, weight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$amount · ${t(context, 'No money was received', 'មិនបានទទួលប្រាក់ទេ')}',
-                    textAlign: TextAlign.center,
-                    style: mText(
-                      context,
-                      13,
-                      20,
-                      color: colors.disabledBackground,
-                    ),
-                  ),
-                ],
+        return QStage(
+          padding: const EdgeInsets.fromLTRB(20, 120, 20, 12),
+          footer: newPayment(),
+          child: Column(
+            key: const ValueKey('request-closed'),
+            children: [
+              const QStatusIcon('08603'),
+              const SizedBox(height: 12),
+              Text(
+                expired
+                    ? t(context, 'Request expired', 'សំណើផុតកំណត់')
+                    : t(context, 'Request cancelled', 'សំណើត្រូវបានបោះបង់'),
+                textAlign: TextAlign.center,
+                style: mText(context, 20, 27, weight: FontWeight.w500),
               ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              key: const ValueKey('request-new'),
-              onPressed: collect.reset,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(t(context, 'New payment', 'ការទូទាត់ថ្មី')),
-            ),
-          ],
+              const SizedBox(height: 12),
+              AmountText(
+                '$amount · ${t(context, 'No money was received', 'មិនបានទទួលប្រាក់ទេ')}',
+                textAlign: TextAlign.center,
+                style: mText(context, 15, 24, color: colors.disabledBackground),
+              ),
+            ],
+          ),
         );
     }
   }
@@ -659,47 +602,48 @@ class _ShopQrPanelState extends State<ShopQrPanel> {
           child: Center(child: CircularProgressIndicator()),
         );
       }
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RepaintBoundary(
-            key: cardKey,
-            child: KesorQrCard(
-              key: const ValueKey('shop-qr'),
-              title: data.storeName,
-              qrString: data.qrString,
-              headline: walletLabel(context, data.currency),
-              caption: data.accountNumber,
+      return QStage(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        footer: ImageActions(
+          cardKey: cardKey,
+          name: 'kesor-shop-qr',
+          text: '${data.storeName}\n${data.currency}',
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            RepaintBoundary(
+              key: cardKey,
+              child: KesorQrCard(
+                key: const ValueKey('shop-qr'),
+                title: data.storeName,
+                qrString: data.qrString,
+                headline: '',
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          ImageActions(
-            cardKey: cardKey,
-            name: 'kesor-shop-qr',
-            text: '${data.storeName}\n${data.currency}',
-          ),
-          const SizedBox(height: 12),
-          Text(
-            t(
-              context,
-              'Customers scan this QR and enter the amount themselves. Check each payment on Home before handing over goods.',
-              'អតិថិជនស្កេន QR នេះ ហើយបញ្ចូលចំនួនដោយខ្លួនឯង។ សូមពិនិត្យការទូទាត់នីមួយៗនៅទំព័រដើម មុនប្រគល់ទំនិញ។',
+            const SizedBox(height: 20),
+            Text(
+              t(
+                context,
+                'Check each payment on Home before handing over goods.',
+                'សូមពិនិត្យការទូទាត់នីមួយៗនៅទំព័រដើម មុនប្រគល់ទំនិញ។',
+              ),
+              textAlign: TextAlign.center,
+              style: mText(
+                context,
+                13,
+                18,
+                color: AppColors.of(context).disabledBackground,
+              ),
             ),
-            textAlign: TextAlign.center,
-            style: mText(
-              context,
-              12,
-              18,
-              color: AppColors.of(context).disabledBackground,
-            ),
-          ),
-        ],
+          ],
+        ),
       );
     },
   );
 }
 
-/// Dark QR card matching the Customer App, with dark modules on white for scanners.
+/// The QR payload is always live server data, never the Figma sample code.
 class KesorQrCard extends StatelessWidget {
   const KesorQrCard({
     required this.title,
@@ -711,104 +655,152 @@ class KesorQrCard extends StatelessWidget {
   final String title, qrString, headline;
   final String? caption;
   @override
-  Widget build(BuildContext context) {
-    TextStyle text(
-      double size, {
-      Color color = Colors.white,
-      FontWeight? weight,
-    }) => mText(
-      context,
-      size,
-      size * 1.4,
-      color: color,
-      weight: weight ?? FontWeight.w400,
-    );
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 340),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: ColoredBox(
-            color: _qrSurface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 300),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(24, 20, 24, headline.isEmpty ? 28 : 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppPalette.neutralLightBorder),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  color: _qrRed,
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                const QIcon('cf7f4', darkAdaptive: false),
+                const SizedBox(width: 8),
+                Flexible(
                   child: Text(
-                    t(context, 'Kesor Merchant QR', 'QR អាជីវករកេសរ'),
-                    style: text(17, weight: FontWeight.w600),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: text(15, color: _qrMuted),
-                  ),
-                ),
-                const Divider(height: 1, color: Color(0x22FFFFFF)),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-                  child: Center(
-                    child: Semantics(
-                      image: true,
-                      label: t(context, 'Payment QR', 'QR ទូទាត់'),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, box) => QrImageView(
-                            data: qrString,
-                            size: box.maxWidth.clamp(140, 220),
-                            padding: const EdgeInsets.all(6),
-                            backgroundColor: Colors.white,
-                            eyeStyle: const QrEyeStyle(
-                              eyeShape: QrEyeShape.square,
-                              color: Colors.black,
-                            ),
-                            dataModuleStyle: const QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.square,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                      ),
+                    'Kesor Merchant',
+                    style: mText(
+                      context,
+                      12,
+                      20,
+                      weight: FontWeight.w500,
+                      color: AppPalette.neutralLightDisabledBackground,
                     ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Column(
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          headline,
-                          key: const ValueKey('qr-headline'),
-                          style: text(22, weight: FontWeight.w600),
-                        ),
-                      ),
-                      if (caption != null && caption!.isNotEmpty)
-                        Text(
-                          caption!,
-                          textAlign: TextAlign.center,
-                          style: text(13, color: _qrMuted),
-                        ),
-                    ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: mText(
+                context,
+                15,
+                24,
+                weight: FontWeight.w500,
+                color: AppPalette.neutralLightForegroundAndBase,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Semantics(
+              image: true,
+              label: t(context, 'Payment QR', 'QR ទូទាត់'),
+              child: LayoutBuilder(
+                builder: (context, box) => Center(
+                  child: QrImageView(
+                    data: qrString,
+                    size: box.maxWidth.clamp(0, 184),
+                    padding: EdgeInsets.zero,
+                    backgroundColor: Colors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: AppPalette.navy700,
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: AppPalette.navy700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (headline.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              AmountText(
+                headline,
+                key: const ValueKey('qr-headline'),
+                textAlign: TextAlign.center,
+                style: mText(
+                  context,
+                  30,
+                  39,
+                  weight: FontWeight.w300,
+                  color: AppPalette.neutralLightForegroundAndBase,
+                ),
+              ),
+            ],
+            if (caption != null && caption!.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                caption!,
+                textAlign: TextAlign.center,
+                style: mText(
+                  context,
+                  13,
+                  18,
+                  color: AppPalette.neutralLightDisabledBackground,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class MerchantShopQrPage extends StatefulWidget {
+  const MerchantShopQrPage({required this.gateway, super.key});
+  final MerchantCollectGateway gateway;
+  @override
+  State<MerchantShopQrPage> createState() => _MerchantShopQrPageState();
+}
+
+class _MerchantShopQrPageState extends State<MerchantShopQrPage> {
+  String currency = 'KHR';
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      leadingWidth: 52,
+      leading: const QBack(),
+      title: Text(t(context, 'Shop QR', 'QR ហាង')),
+    ),
+    body: SafeArea(
+      top: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            children: [
+              const SizedBox(height: 8),
+              Center(
+                child: QSegments(
+                  values: const ['KHR', 'USD'],
+                  labels: const ['KHR', 'USD'],
+                  compact: true,
+                  value: currency,
+                  onChanged: (v) => setState(() => currency = v),
+                ),
+              ),
+              Expanded(
+                child: ShopQrPanel(
+                  key: ValueKey(currency),
+                  gateway: widget.gateway,
+                  currency: currency,
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

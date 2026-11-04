@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import 'merchant_shop.dart';
 
 String paymentCount(BuildContext context, int count) => t(
@@ -83,6 +84,8 @@ class AmountText extends Text {
         overflow: overflow ?? defaults.overflow,
         softWrap: softWrap ?? defaults.softWrap,
         textScaler: MediaQuery.textScalerOf(context),
+        // Keep currency glyphs on the same amount baseline as plain USD Text.
+        strutStyle: StrutStyle.fromTextStyle(base, forceStrutHeight: true),
       ),
     );
   }
@@ -114,12 +117,8 @@ class ShopAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: onDark ? AppPalette.gold100 : AppColors.of(context).primary100,
-        borderRadius: BorderRadius.circular(size * .3),
-        border: Border.all(
-          color: onDark ? Colors.white24 : AppPalette.gold400,
-          width: 1.5,
-        ),
+        color: AppColors.of(context).surface,
+        borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
@@ -149,8 +148,8 @@ class _Initial extends StatelessWidget {
       context,
       size * .42,
       size * .5,
-      weight: FontWeight.w600,
-      color: AppPalette.navy700,
+      weight: FontWeight.w500,
+      color: merchantNavy(context),
     ),
   );
 }
@@ -232,22 +231,15 @@ class StatusChip extends StatelessWidget {
       ),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: mText(
-          context,
-          12,
-          18,
-          weight: FontWeight.w600,
-          color: foreground,
-        ),
+        style: AppTextStyles.of(context).caption
+            .copyWith(fontWeight: FontWeight.w400, color: foreground),
       ),
     );
   }
@@ -261,14 +253,12 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Expanded(
-        child: Text(
-          title,
-          style: mText(
-            context,
-            16,
-            24,
-            weight: FontWeight.w600,
-            color: merchantNavy(context),
+        child: Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: AppTextStyles.of(context).titleM
+                .copyWith(color: AppColors.of(context).foreground),
           ),
         ),
       ),
@@ -317,13 +307,11 @@ class CircleAction extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 22),
+      icon: icon == Icons.arrow_back_rounded
+          ? const QIcon('20fad')
+          : Icon(icon, size: 22),
       color: colors.foreground,
-      style: IconButton.styleFrom(
-        fixedSize: const Size(48, 48),
-        backgroundColor: colors.surface,
-        side: BorderSide(color: colors.border),
-      ),
+      style: IconButton.styleFrom(fixedSize: const Size(48, 48)),
     );
   }
 }
@@ -439,7 +427,7 @@ class NoticeBanner extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -447,7 +435,11 @@ class NoticeBanner extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 20, color: foreground),
+                tone == NoticeTone.warning
+                    ? const QIcon('a9d14', darkAdaptive: false)
+                    : tone == NoticeTone.error
+                    ? const QIcon('cbe0a', darkAdaptive: false)
+                    : Icon(icon, size: 18, color: foreground),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -455,8 +447,8 @@ class NoticeBanner extends StatelessWidget {
                     style: mText(
                       context,
                       13,
-                      20,
-                      weight: FontWeight.w500,
+                      18,
+                      weight: FontWeight.w400,
                       color: AppPalette.navy700,
                     ),
                   ),
@@ -476,46 +468,55 @@ class NoticeBanner extends StatelessWidget {
 
 enum NoticeTone { info, success, warning, error }
 
-/// Navy hero card with a faded Kesor mark, matching the Customer balance card.
+/// Merchant emphasis surface, with the original branded treatment available for Home.
 class NavyCard extends StatelessWidget {
-  const NavyCard({required this.child, super.key});
+  const NavyCard({required this.child, this.branded = false, super.key});
   final Widget child;
+  final bool branded;
   @override
   Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(24),
     child: DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppPalette.navy400, AppPalette.navy500, AppPalette.navy700],
-          stops: [0, .45, 1],
-        ),
+      decoration: BoxDecoration(
+        color: branded ? null : AppPalette.navy500,
+        gradient: branded
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppPalette.navy400,
+                  AppPalette.navy500,
+                  AppPalette.navy700,
+                ],
+                stops: [0, .45, 1],
+              )
+            : null,
       ),
       child: Stack(
         children: [
-          Positioned(
-            right: -28,
-            top: -18,
-            child: ExcludeSemantics(
-              child: Opacity(
-                opacity: .12,
-                child: Transform.rotate(
-                  angle: -.26,
-                  child: SvgPicture.asset(
-                    'assets/kesor-logo.svg',
-                    package: 'kesor_design_system',
-                    width: 132,
-                    height: 165,
-                    colorFilter: const ColorFilter.mode(
-                      AppPalette.gold200,
-                      BlendMode.srcIn,
+          if (branded)
+            Positioned(
+              right: -28,
+              top: -18,
+              child: ExcludeSemantics(
+                child: Opacity(
+                  opacity: .12,
+                  child: Transform.rotate(
+                    angle: -.26,
+                    child: SvgPicture.asset(
+                      'assets/kesor-logo.svg',
+                      package: 'kesor_design_system',
+                      width: 132,
+                      height: 165,
+                      colorFilter: const ColorFilter.mode(
+                        AppPalette.gold200,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
           Padding(padding: const EdgeInsets.all(20), child: child),
         ],
       ),

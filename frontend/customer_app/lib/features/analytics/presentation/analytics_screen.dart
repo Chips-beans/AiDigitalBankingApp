@@ -6,7 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/design_system/design_system.dart';
 import '../../../app/app_preferences.dart';
 import '../../../shared/widgets/kesor_bottom_bar.dart';
-import '../../home/presentation/kesor_home_screen.dart';
+import '../../../shared/widgets/figma_presentation.dart';
 import '../analytics_controller.dart';
 import '../analytics_gateway.dart';
 import 'daily_chart.dart';
@@ -46,361 +46,290 @@ class AnalyticsScreen extends StatelessWidget {
     listenable: controller,
     builder: (context, _) {
       final colors = AppColors.of(context);
-      final dark = Theme.of(context).brightness == Brightness.dark;
       final snapshot = controller.snapshot;
-      final bottom = math.max(24.0, MediaQuery.paddingOf(context).bottom);
       return ColoredBox(
-        color: colors.surface,
-        child: LayoutBuilder(
-          builder: (context, bounds) {
-            final bannerHeight = math.max(220.0, bounds.maxHeight * 383 / 956);
-            final motifScale = math.min(1.0, (bannerHeight - 110) / 187);
-            return Stack(
+        color: colors.background,
+        child: SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: controller.refresh,
+            child: ListView(
+              key: const PageStorageKey('analytics-scroll'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                showDeviceChrome ? 61 : 7,
+                20,
+                math.max(24, MediaQuery.paddingOf(context).bottom) +
+                    KesorBottomBar.height(context) +
+                    32,
+              ),
               children: [
-                Positioned.fill(
-                  top: bannerHeight,
-                  child: ColoredBox(color: colors.background),
-                ),
-                Positioned.fill(
-                  bottom: bottom + KesorBottomBar.height(context) + 20,
-                  child: RefreshIndicator(
-                    onRefresh: controller.refresh,
-                    child: SingleChildScrollView(
-                      key: const PageStorageKey('analytics-scroll'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: bannerHeight,
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  left: 20,
-                                  right: 20,
-                                  top:
-                                      (showDeviceChrome
-                                          ? 54
-                                          : MediaQuery.paddingOf(context).top) +
-                                      10,
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const SizedBox(
-                                        width: 56,
-                                        height: 56,
-                                        child: Center(
-                                          child: AnalyticsAsset(
-                                            'logo',
-                                            width: 37.3334,
-                                            height: 46.6627,
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color: colors.border,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          _label(
-                                            context,
-                                            'Monthly',
-                                            'ប្រចាំខែ',
-                                          ),
-                                          style: _text(context, 12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Positioned(
-                                  top: math.max(100, bannerHeight * .34),
-                                  left:
-                                      (bounds.maxWidth - 187) / 2 +
-                                      48 * motifScale,
-                                  child: ExcludeSemantics(
-                                    child: Transform.scale(
-                                      scale: motifScale,
-                                      alignment: Alignment.topCenter,
-                                      child: const KesorBalanceMotif(
-                                        asset: 'assets/analytics/motif.svg',
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (showDeviceChrome)
-                                  Positioned(
-                                    left: 36,
-                                    top: 15,
-                                    child: Text(
-                                      '9:41',
-                                      style: _text(
-                                        context,
-                                        17,
-                                        weight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                if (showDeviceChrome)
-                                  Positioned(
-                                    right: 20,
-                                    top: 0,
-                                    child: AnalyticsAsset(
-                                      'levels',
-                                      width: 143.003,
-                                      height: 54,
-                                      tint: dark ? colors.foreground : null,
-                                    ),
-                                  ),
-                              ],
-                            ),
+                LayoutBuilder(
+                  builder: (context, bounds) {
+                    final heading = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _label(context, 'Analytic', 'ការវិភាគ'),
+                          style: customerText(
+                            context,
+                            24,
+                            36,
+                            color: customerNavy(context),
+                            weight: FontWeight.w600,
                           ),
-                          Container(
-                            key: const ValueKey('analytics-sheet'),
-                            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                            decoration: BoxDecoration(
-                              color: colors.background,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(24),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _label(
+                            context,
+                            'Track and Manage Your Money',
+                            'តាមដាន និងគ្រប់គ្រងប្រាក់របស់អ្នក',
+                          ),
+                          style: customerText(
+                            context,
+                            12,
+                            20,
+                            color: colors.disabledBackground,
+                          ),
+                        ),
+                      ],
+                    );
+                    final currencies = Container(
+                      key: const ValueKey('analytics-currency'),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(32),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final currency in ['KHR', 'USD'])
+                            TextButton(
+                              onPressed: () =>
+                                  controller.selectCurrency(currency),
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(68, 40),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                backgroundColor: controller.currency == currency
+                                    ? colors.primary100
+                                    : Colors.transparent,
+                                foregroundColor: colors.foreground,
+                              ),
+                              child: Text(
+                                currency == 'KHR' ? '៛ KHR' : r'$ USD',
+                                style: customerText(
+                                  context,
+                                  12,
+                                  20,
+                                  weight: FontWeight.w600,
+                                ).copyWith(fontFamily: 'Google Sans'),
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      key: const ValueKey('analytics-previous'),
-                                      tooltip: _label(
-                                        context,
-                                        'Previous month',
-                                        'ខែមុន',
-                                      ),
-                                      onPressed: controller.canPrevious
-                                          ? () => controller.selectMonth(-1)
-                                          : null,
-                                      icon: Transform.flip(
-                                        flipX: true,
-                                        child: const AnalyticsAsset(
-                                          'previous',
-                                          width: 32,
-                                          height: 32,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        _monthLabel(context),
-                                        textAlign: TextAlign.center,
-                                        style: _text(
-                                          context,
-                                          14,
-                                          color: dark
-                                              ? AppPalette.gold400
-                                              : AppPalette.gold700,
-                                          weight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                    DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        key: const ValueKey(
-                                          'analytics-currency',
-                                        ),
-                                        value: controller.currency,
-                                        icon: RotatedBox(
-                                          quarterTurns: 1,
-                                          child: AnalyticsAsset(
-                                            'dropdown',
-                                            width: 22,
-                                            height: 22,
-                                            tint: dark
-                                                ? AppPalette.navy200
-                                                : null,
-                                          ),
-                                        ),
-                                        style: _text(context, 12),
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            controller.selectCurrency(value);
-                                          }
-                                        },
-                                        items: const ['USD', 'KHR']
-                                            .map(
-                                              (v) => DropdownMenuItem(
-                                                value: v,
-                                                child: Text(v),
-                                              ),
-                                            )
-                                            .toList(),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      key: const ValueKey('analytics-next'),
-                                      tooltip: _label(
-                                        context,
-                                        'Next month',
-                                        'ខែបន្ទាប់',
-                                      ),
-                                      onPressed: controller.canNext
-                                          ? () => controller.selectMonth(1)
-                                          : null,
-                                      // Gold like Previous; a future month stays disabled grey.
-                                      icon: controller.canNext
-                                          ? const AnalyticsAsset(
-                                              'previous',
-                                              width: 32,
-                                              height: 32,
-                                            )
-                                          : const Opacity(
-                                              opacity: .45,
-                                              child: AnalyticsAsset(
-                                                'next',
-                                                width: 32,
-                                                height: 32,
-                                              ),
-                                            ),
-                                    ),
-                                  ],
+                        ],
+                      ),
+                    );
+                    return bounds.maxWidth < 370 ||
+                            MediaQuery.textScalerOf(context).scale(1) > 1.3
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              heading,
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: currencies,
+                              ),
+                            ],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(child: heading),
+                              currencies,
+                            ],
+                          );
+                  },
+                ),
+                const SizedBox(height: 40),
+                Row(
+                  children: [
+                    IconButton(
+                      key: const ValueKey('analytics-previous'),
+                      tooltip: _label(context, 'Previous month', 'ខែមុន'),
+                      onPressed: controller.canPrevious
+                          ? () => controller.selectMonth(-1)
+                          : null,
+                      icon: Transform.flip(
+                        flipX: true,
+                        child: const CustomerDesignIcon('16298', size: 32),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _monthLabel(context),
+                        textAlign: TextAlign.center,
+                        style: customerText(
+                          context,
+                          14,
+                          22,
+                          color: colors.primary700,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('analytics-next'),
+                      tooltip: _label(context, 'Next month', 'ខែបន្ទាប់'),
+                      onPressed: controller.canNext
+                          ? () => controller.selectMonth(1)
+                          : null,
+                      icon: controller.canNext
+                          ? const CustomerDesignIcon('16298', size: 32)
+                          : const Opacity(
+                              opacity: .45,
+                              child: CustomerDesignIcon('205d9', size: 32),
+                            ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, bounds) {
+                    final cards = [
+                      _SummaryCard(
+                        income: true,
+                        amount: snapshot == null
+                            ? null
+                            : analyticsMoney(
+                                snapshot.income,
+                                snapshot.currency,
+                              ),
+                      ),
+                      _SummaryCard(
+                        income: false,
+                        amount: snapshot == null
+                            ? null
+                            : analyticsMoney(
+                                snapshot.expense,
+                                snapshot.currency,
+                              ),
+                      ),
+                    ];
+                    return bounds.maxWidth < 300 ||
+                            MediaQuery.textScalerOf(context).scale(1) > 1.5
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              cards[0],
+                              const SizedBox(height: 12),
+                              cards[1],
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(child: cards[0]),
+                              const SizedBox(width: 16),
+                              Expanded(child: cards[1]),
+                            ],
+                          );
+                  },
+                ),
+                const SizedBox(height: 20),
+                if (controller.loading)
+                  const LinearProgressIndicator(
+                    key: ValueKey('analytics-loading'),
+                  ),
+                if (controller.error != null) ...[
+                  Text(
+                    snapshot == null
+                        ? _label(
+                            context,
+                            'Analytics could not load. Please retry.',
+                            'មិនអាចផ្ទុកការវិភាគបានទេ។ សូមព្យាយាមម្ដងទៀត។',
+                          )
+                        : _label(
+                            context,
+                            'Showing previously loaded values. Refresh failed.',
+                            'កំពុងបង្ហាញទិន្នន័យមុន។ មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។',
+                          ),
+                    key: const ValueKey('analytics-error'),
+                  ),
+                  TextButton(
+                    onPressed: controller.refresh,
+                    child: Text(_label(context, 'Retry', 'ព្យាយាមម្ដងទៀត')),
+                  ),
+                ],
+                if (snapshot != null) ...[
+                  _ChartCard(
+                    snapshot: snapshot,
+                    showIncome: controller.showIncome,
+                    onSeries: controller.selectSeries,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    _label(context, 'Cash flow breakdown', 'ចំណូល និងចំណាយ'),
+                    style: customerText(
+                      context,
+                      17,
+                      28,
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final income in [true, false])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: AppPalette.navy500,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: CustomerDesignIcon(
+                              income ? 'c35b5' : '9e3ed',
+                              size: 22,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              income
+                                  ? _label(context, 'Income', 'ផ្ទេរចូល')
+                                  : _label(context, 'Expense', 'ផ្ទេរចេញ'),
+                              style: customerText(context, 15, 24),
+                            ),
+                          ),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                analyticsMoney(
+                                  income ? snapshot.income : snapshot.expense,
+                                  snapshot.currency,
                                 ),
-                                const SizedBox(height: 12),
-                                LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final cards = [
-                                      _SummaryCard(
-                                        income: true,
-                                        amount: snapshot == null
-                                            ? null
-                                            : analyticsMoney(
-                                                snapshot.income,
-                                                snapshot.currency,
-                                              ),
-                                      ),
-                                      _SummaryCard(
-                                        income: false,
-                                        amount: snapshot == null
-                                            ? null
-                                            : analyticsMoney(
-                                                snapshot.expense,
-                                                snapshot.currency,
-                                              ),
-                                      ),
-                                    ];
-                                    return constraints.maxWidth < 300 ||
-                                            MediaQuery.textScalerOf(context)
-                                                    .scale(1) >
-                                                1.5
-                                        ? Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              cards[0],
-                                              const SizedBox(height: 12),
-                                              cards[1],
-                                            ],
-                                          )
-                                        : Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Expanded(child: cards[0]),
-                                              const SizedBox(width: 16),
-                                              Expanded(child: cards[1]),
-                                            ],
-                                          );
-                                  },
+                                style: customerText(
+                                  context,
+                                  17,
+                                  28,
+                                  weight: FontWeight.w500,
                                 ),
-                                const SizedBox(height: 20),
-                                if (controller.loading)
-                                  LinearProgressIndicator(
-                                    key: const ValueKey('analytics-loading'),
-                                    semanticsLabel: _label(
-                                      context,
-                                      'Loading analytics',
-                                      'កំពុងផ្ទុកការវិភាគ',
-                                    ),
-                                  ),
-                                if (controller.error != null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          snapshot == null
-                                              ? _label(
-                                                  context,
-                                                  'Analytics could not load. Please retry.',
-                                                  'មិនអាចផ្ទុកការវិភាគបានទេ។ សូមព្យាយាមម្ដងទៀត។',
-                                                )
-                                              : _label(
-                                                  context,
-                                                  'Showing previously loaded values. Refresh failed.',
-                                                  'កំពុងបង្ហាញទិន្នន័យមុន។ មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។',
-                                                ),
-                                          key: const ValueKey(
-                                            'analytics-error',
-                                          ),
-                                          style: _text(context, 13),
-                                        ),
-                                        TextButton(
-                                          onPressed: controller.refresh,
-                                          child: Text(
-                                            _label(
-                                              context,
-                                              'Retry',
-                                              'ព្យាយាមម្ដងទៀត',
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (snapshot != null)
-                                  _ChartCard(
-                                    snapshot: snapshot,
-                                    showIncome: controller.showIncome,
-                                    onSeries: controller.selectSeries,
-                                  )
-                                else if (controller.loading)
-                                  const SizedBox(height: 264)
-                                else
-                                  const SizedBox(height: 32),
-                              ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-                if (showDeviceChrome)
-                  Positioned(
-                    bottom: 5,
-                    left: (bounds.maxWidth - 134) / 2,
-                    child: Container(
-                      width: 134,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: colors.foreground,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ),
+                ],
               ],
-            );
-          },
+            ),
+          ),
         ),
       );
     },
@@ -481,11 +410,7 @@ class _SummaryCard extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 101),
       padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
       decoration: BoxDecoration(
-        color: income
-            ? (dark
-                  ? AppPalette.gold700.withValues(alpha: .28)
-                  : AppPalette.gold100)
-            : (dark ? AppPalette.navy600 : AppPalette.navy100),
+        color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
@@ -493,17 +418,10 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Transform.rotate(
-                angle: income ? 0 : math.pi,
-                child: Transform.flip(
-                  flipY: !income,
-                  child: AnalyticsAsset(
-                    income ? 'income' : 'expense',
-                    width: 20,
-                    height: 20,
-                    tint: dark ? accent : null,
-                  ),
-                ),
+              CustomerDesignIcon(
+                income ? 'c35b5' : '9e3ed',
+                size: 20,
+                color: accent,
               ),
               const SizedBox(width: 8),
               Expanded(

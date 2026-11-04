@@ -1,3 +1,5 @@
+import 'support/merchant_navigation.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -392,7 +394,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('0 ៛'), findsWidgets);
       expect(find.text('0 payments'), findsWidgets);
-      await tester.tap(find.byKey(const ValueKey('report-MONTH')));
+      await tester.tap(find.text('Monthly'));
       await tester.pumpAndSettle();
       expect(find.text(dateKey(businessToday()).substring(0, 7)), findsWidgets);
       await tester.tap(find.text('USD'));
@@ -415,7 +417,7 @@ void main() {
       expect(find.text('Original shop'), findsOneWidget);
       expect(find.text('Changed shop'), findsNothing);
       expect(find.text('TXN-0001'), findsOneWidget);
-      expect(find.text('KHR · •••• 7890'), findsOneWidget);
+      expect(find.text('KHR •••• 7890'), findsOneWidget);
       final context = tester.element(find.byType(ReceiptCard));
       final text = receiptShareText(context, receiptFixture());
       expect(text, contains('25,000'));
@@ -540,16 +542,16 @@ void main() {
         MerchantApp(preferences: prefs, session: session, shopGateway: gateway),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(NavigationDestination).at(2));
+      await openMerchantSection(tester, 2);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('QR payment'));
+      await tester.tap(find.text('Sophea · •••• 4321'));
       await tester.pumpAndSettle();
       expect(find.text('Original shop'), findsOneWidget);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('sales-requests')));
+      await openMerchantMenu(tester, 'dc524');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Open in Collect'));
+      await tester.tap(find.text('500 ៛'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byKey(const ValueKey('request-qr')), findsOneWidget);

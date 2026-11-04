@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
+import '../../core/merchant_ui.dart';
 import '../../core/platform/image_share.dart';
 import '../collect/collect_view.dart';
 import '../collect/merchant_collect.dart';
@@ -86,40 +87,48 @@ class _ReceiptPageState extends State<ReceiptPage> {
   @override
   Widget build(BuildContext context) {
     final r = receipt;
-    return HistoryScaffold(
+    return QPage(
       title: t(context, 'Receipt', 'បង្កាន់ដៃ'),
-      children: [
-        if (loading)
-          NoticeBanner(t(context, 'Loading receipt…', 'កំពុងផ្ទុកបង្កាន់ដៃ…')),
-        if (failure != null)
-          NoticeBanner(
-            shopFailureMessage(context, failure!),
-            tone: NoticeTone.error,
-            action: TextButton(
-              onPressed: load,
-              child: Text(t(context, 'Try again', 'ព្យាយាមម្ដងទៀត')),
+      footer: r == null
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ImageActions(
+                  cardKey: cardKey,
+                  name: 'kesor-receipt',
+                  receipt: true,
+                  text: receiptShareText(context, r),
+                ),
+                TextButton(
+                  onPressed: copy,
+                  child: Text(t(context, 'Copy reference', 'ចម្លងលេខយោង')),
+                ),
+              ],
             ),
-          ),
-        if (r != null) ...[
-          RepaintBoundary(
-            key: cardKey,
-            child: ReceiptCard(receipt: r),
-          ),
-          const SizedBox(height: 16),
-          ImageActions(
-            cardKey: cardKey,
-            name: 'kesor-receipt',
-            receipt: true,
-            text: receiptShareText(context, r),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: copy,
-            icon: const Icon(Icons.copy_outlined),
-            label: Text(t(context, 'Copy reference', 'ចម្លងលេខយោង')),
-          ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (loading)
+            NoticeBanner(
+              t(context, 'Loading receipt…', 'កំពុងផ្ទុកបង្កាន់ដៃ…'),
+            ),
+          if (failure != null)
+            NoticeBanner(
+              shopFailureMessage(context, failure!),
+              tone: NoticeTone.error,
+              action: TextButton(
+                onPressed: load,
+                child: Text(t(context, 'Try again', 'ព្យាយាមម្ដងទៀត')),
+              ),
+            ),
+          if (r != null)
+            RepaintBoundary(
+              key: cardKey,
+              child: ReceiptCard(receipt: r),
+            ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -145,57 +154,66 @@ class ReceiptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = receipt;
-    return SurfaceCard(
-      padding: EdgeInsets.zero,
+    return ColoredBox(
+      color: AppColors.of(context).background,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NavyCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.check_circle_outline_rounded,
-                  color: AppPalette.gold200,
-                  size: 40,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  r.storeName ?? 'Kesor Merchant',
-                  textAlign: TextAlign.center,
-                  style: mText(
-                    context,
-                    18,
-                    28,
-                    color: Colors.white,
-                    weight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t(context, 'Payment received', 'បានទទួលការទូទាត់'),
-                  textAlign: TextAlign.center,
-                  style: mText(context, 14, 22, color: AppPalette.gold200),
-                ),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: AmountText(
-                    shopAmount(r.amount, r.currency),
-                    style: mText(
-                      context,
-                      32,
-                      44,
-                      color: Colors.white,
-                      weight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 8),
+          const Center(child: QIcon('923a9', darkAdaptive: false)),
+          const SizedBox(height: 12),
+          Text(
+            r.storeName ?? 'Kesor Merchant',
+            textAlign: TextAlign.center,
+            style: mText(context, 17, 23, weight: FontWeight.w500),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            t(context, 'Payment received', 'បានទទួលការទូទាត់'),
+            textAlign: TextAlign.center,
+            style: mText(
+              context,
+              15,
+              24,
+              color: AppColors.of(context).disabledBackground,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: ReceiptLines(receipt: r, fullReference: true),
+          const SizedBox(height: 4),
+          AmountText(
+            shopAmount(r.amount, r.currency),
+            textAlign: TextAlign.center,
+            style: mText(context, 36, 48, weight: FontWeight.w300),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 12),
+          QDetail(
+            t(context, 'From', 'ពី'),
+            '${r.payerName} · ${r.payerAccount}',
+          ),
+          if (r.converted)
+            QDetail(
+              t(context, 'Customer paid', 'អតិថិជនបានបង់'),
+              shopAmount(r.paidAmount, r.paidCurrency),
+            ),
+          if (r.converted && r.exchangeRate != null)
+            QDetail(
+              t(context, 'Exchange rate', 'អត្រាប្ដូរប្រាក់'),
+              receiptExchangeRate(context, r)!,
+            ),
+          if (r.orderReference != null)
+            QDetail(t(context, 'Order note', 'កំណត់ចំណាំ'), r.orderReference!),
+          if (r.requestReference != null)
+            QDetail(t(context, 'Request', 'សំណើ'), r.requestReference!),
+          QDetail(t(context, 'Transaction', 'ប្រតិបត្តិការ'), r.reference),
+          if (r.walletAccountNumber != null)
+            QDetail(
+              t(context, 'Wallet', 'កាបូប'),
+              '${r.currency} •••• ${r.walletAccountNumber!.substring(r.walletAccountNumber!.length - 4)}',
+            ),
+          QDetail(
+            t(context, 'Time (UTC+7)', 'ពេលវេលា (UTC+7)'),
+            shortTime(r.paidAt),
           ),
         ],
       ),
@@ -203,7 +221,6 @@ class ReceiptCard extends StatelessWidget {
   }
 }
 
-/// Shared Customer-style page shell for receipt, requests and reports.
 class HistoryScaffold extends StatelessWidget {
   const HistoryScaffold({
     required this.title,
@@ -221,34 +238,16 @@ class HistoryScaffold extends StatelessWidget {
     Widget list = ListView(
       controller: onScroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      children: [
-        Row(
-          children: [
-            CircleAction(
-              tooltip: t(context, 'Back', 'ថយក្រោយ'),
-              icon: Icons.arrow_back_rounded,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                style: mText(context, 20, 28, weight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        ...children,
-      ],
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      children: children,
     );
     if (onRefresh != null) {
       list = RefreshIndicator(onRefresh: onRefresh!, child: list);
     }
     return Scaffold(
-      backgroundColor: AppColors.of(context).background,
+      appBar: AppBar(leading: const QBack(), title: Text(title)),
       body: SafeArea(
+        top: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),

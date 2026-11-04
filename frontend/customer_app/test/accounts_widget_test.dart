@@ -69,7 +69,11 @@ void main() {
 
         await tap('View accounts');
         expect(find.text('Frozen'), findsWidgets);
-        await tap('View account details');
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('wallet-tile-1000000001')),
+        );
+        await tester.tap(find.byKey(const ValueKey('wallet-tile-1000000001')));
+        await tester.pumpAndSettle();
         expect(find.text('Currency: USD'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
@@ -77,7 +81,7 @@ void main() {
         expect(find.text('Opening balances'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
-        await tap('Home');
+        await tap('Back');
         await tap('All transactions');
         expect(find.text('No activity yet for this account.'), findsOneWidget);
         await tester.binding.handlePopRoute();

@@ -161,11 +161,24 @@ List<T> aiList<T>(Object? value, T Function(Object?) parse, int max) {
 }
 
 class AiAnswer {
-  const AiAnswer(this.reply, this.cards, this.asOf, this.explanationStatus);
+  const AiAnswer(
+    this.reply,
+    this.cards,
+    this.asOf,
+    this.explanationStatus, {
+    this.mode,
+  });
   factory AiAnswer.fromJson(Object? value) {
     final m = objectData(value),
         status = aiString(objectData(value)['explanationStatus'], max: 30);
     if (!{'AI', 'FALLBACK', 'NOT_NEEDED'}.contains(status)) {
+      throw invalidAssistant;
+    }
+    // Absent on answers stored before general guidance existed; only GENERAL and MIXED are meaningful.
+    final rawMode = m['mode'];
+    if (rawMode != null &&
+        (rawMode is! String ||
+            !{'GENERAL', 'MIXED', 'ACCOUNT'}.contains(rawMode))) {
       throw invalidAssistant;
     }
     return AiAnswer(
@@ -173,9 +186,12 @@ class AiAnswer {
       aiList(m['cards'], AiCard.fromJson, 60),
       aiDate(m['asOf']),
       status,
+      mode: rawMode as String?,
     );
   }
+  bool get hasGeneralGuidance => mode == 'GENERAL' || mode == 'MIXED';
   final String reply, explanationStatus;
+  final String? mode;
   final List<AiCard> cards;
   final DateTime asOf;
 }

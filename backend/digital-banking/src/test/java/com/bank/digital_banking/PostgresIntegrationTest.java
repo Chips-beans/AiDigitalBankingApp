@@ -41,8 +41,8 @@ abstract class PostgresIntegrationTest {
         r.add("spring.mail.properties.mail.smtp.starttls.enable", () -> false);
         r.add("spring.mail.properties.mail.smtp.starttls.required", () -> false);
         r.add("app.ai.enabled", () -> false);
-        r.add("app.ai.gemini.enabled", () -> false);
-        r.add("app.ai.gemini.customer-context-enabled", () -> false);
+        r.add("app.ai.gateway.enabled", () -> false);
+        r.add("app.ai.gateway.customer-context-enabled", () -> false);
         r.add("spring.main.banner-mode", () -> "off");
         r.add("logging.level.root", () -> "WARN");
         r.add("logging.level.org.springframework.boot.autoconfigure", () -> "ERROR");
