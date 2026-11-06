@@ -71,6 +71,170 @@ class AccountPairQrTests extends PostgresIntegrationTest {
             assertThat(data(ar)).isEqualTo(data(br));
         }
     }
+
+    @Test void foreignEmptyMerchantCannotReceiveCallerOwnedOrFundedWallets() throws Exception {
+        long merchant = merchant(ownerId(bob));
+        assertRejectedMerchantOpening(merchant, 404);
+    }
+
+    @Test void foreignSparseMerchantCannotReceiveCallerOwnedOrFundedWallets() throws Exception {
+        long merchant = merchant(ownerId(bob));
+        var existing = call("POST", "/accounts", bob, null, Map.of("accountType", "CHECKING",
+                "currency", "USD", "initialDeposit", 0, "accountCategory", "MERCHANT", "merchantId", merchant));
+        assertThat(existing.statusCode()).as(existing.body()).isEqualTo(201);
+        assertRejectedMerchantOpening(merchant, 404);
+    }
+
+    @Test void missingMerchantIsNotFoundAndCreatesNoOpeningRequest() throws Exception {
+        assertRejectedMerchantOpening(Long.MAX_VALUE, 404);
+    }
+
+    @Test void ownerCanOpenAndReplayImplicitMerchantPair() throws Exception {
+        long owner = ownerId(alice), merchant = merchant(owner);
+        String key = UUID.randomUUID().toString();
+        var body = Map.of("accountType", "CHECKING", "accountCategory", "MERCHANT");
+        var opened = call("POST", "/accounts/pairs", alice, key, body);
+        assertThat(opened.statusCode()).as(opened.body()).isEqualTo(201);
+        assertThat(data(opened).path("accounts").size()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts WHERE merchant_id=? AND user_id=?",
+                Integer.class, merchant, owner)).isEqualTo(2);
+        assertThat(data(call("POST", "/accounts/pairs", alice, key, body))).isEqualTo(data(opened));
+    }
+
+    @Test void changedCategoryConflictsWithoutCreatingMerchantAccounts() throws Exception {
+        long merchant = merchant(ownerId(alice));
+        String key = UUID.randomUUID().toString();
+        assertThat(call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "SAVINGS")).statusCode()).isEqualTo(201);
+        assertConflict(key, merchantBody(merchant));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts WHERE merchant_id=?", Integer.class, merchant)).isZero();
+    }
+
+    @Test void changedMerchantConflictsWithoutCreatingAnotherPair() throws Exception {
+        long owner = ownerId(alice), first = merchant(owner), second = merchant(owner);
+        String key = UUID.randomUUID().toString();
+        assertThat(call("POST", "/accounts/pairs", alice, key, merchantBody(first)).statusCode()).isEqualTo(201);
+        assertConflict(key, merchantBody(second));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts WHERE merchant_id=?", Integer.class, second)).isZero();
+    }
+
+    @Test void changedMerchantFieldOnWalletRequestConflicts() throws Exception {
+        String key = UUID.randomUUID().toString();
+        assertThat(call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "SAVINGS")).statusCode()).isEqualTo(201);
+        assertConflict(key, Map.of("accountType", "SAVINGS", "merchantId", 123));
+    }
+
+    @Test void omittedAndExplicitWalletCategoryReplayIdentically() throws Exception {
+        String key = UUID.randomUUID().toString();
+        var first = call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "SAVINGS"));
+        var replay = call("POST", "/accounts/pairs", alice, key,
+                Map.of("accountType", "SAVINGS", "accountCategory", "WALLET"));
+        assertThat(replay.statusCode()).as(replay.body()).isEqualTo(201);
+        assertThat(data(replay)).isEqualTo(data(first));
+    }
+
+    @Test void legacyWalletReplayUpgradesFingerprintWithoutFundingAgain() throws Exception {
+        String key = UUID.randomUUID().toString();
+        var body = Map.of("accountType", "SAVINGS");
+        var first = call("POST", "/accounts/pairs", alice, key, body);
+        assertThat(first.statusCode()).as(first.body()).isEqualTo(201);
+        makeLegacy(key);
+        long postings = jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class);
+        var replay = call("POST", "/accounts/pairs", alice, key, body);
+        assertThat(replay.statusCode()).as(replay.body()).isEqualTo(201);
+        assertThat(data(replay)).isEqualTo(data(first));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class)).isEqualTo(postings);
+        assertThat(storedHash(key)).isNotEqualTo(legacyHash());
+        assertConflict(key, Map.of("accountType", "SAVINGS", "merchantId", 123));
+    }
+
+    @Test void legacyWalletResponseCannotReplayAsMerchantRequest() throws Exception {
+        long merchant = merchant(ownerId(alice));
+        String key = UUID.randomUUID().toString();
+        assertThat(call("POST", "/accounts/pairs", alice, key, Map.of("accountType", "SAVINGS")).statusCode()).isEqualTo(201);
+        makeLegacy(key);
+        assertConflict(key, merchantBody(merchant));
+        assertThat(storedHash(key)).isEqualTo(legacyHash());
+    }
+
+    @Test void legacyMerchantReplayRequiresMatchingMerchantAndUpgradesSafely() throws Exception {
+        long owner = ownerId(alice), firstMerchant = merchant(owner), secondMerchant = merchant(owner);
+        String key = UUID.randomUUID().toString();
+        var first = call("POST", "/accounts/pairs", alice, key, merchantBody(firstMerchant));
+        assertThat(first.statusCode()).as(first.body()).isEqualTo(201);
+        makeLegacy(key);
+        assertConflict(key, merchantBody(secondMerchant));
+        assertThat(storedHash(key)).isEqualTo(legacyHash());
+        long postings = jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class);
+        var replay = call("POST", "/accounts/pairs", alice, key, merchantBody(firstMerchant));
+        assertThat(replay.statusCode()).as(replay.body()).isEqualTo(201);
+        assertThat(data(replay)).isEqualTo(data(first));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class)).isEqualTo(postings);
+        assertThat(storedHash(key)).isNotEqualTo(legacyHash());
+    }
+
+    @Test void legacyUnverifiableRequestsFailClosed() throws Exception {
+        long owner = ownerId(alice);
+        for (String response : Arrays.asList(null, "null", "{\"accounts\":[],\"testFundingApplied\":false}")) {
+            String key = UUID.randomUUID().toString();
+            jdbc.update("INSERT INTO account_opening_requests(actor_user_id,request_key,request_hash,response_json) VALUES (?,?,?,?)",
+                    owner, key, legacyHash(), response);
+            assertConflict(key, Map.of("accountType", "SAVINGS"));
+            assertThat(storedHash(key)).isEqualTo(legacyHash());
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts WHERE user_id=?", Integer.class, owner)).isZero();
+    }
+
+    @Test void replayRechecksMerchantOwnership() throws Exception {
+        long owner = ownerId(alice), merchant = merchant(owner);
+        String key = UUID.randomUUID().toString();
+        var body = merchantBody(merchant);
+        assertThat(call("POST", "/accounts/pairs", alice, key, body).statusCode()).isEqualTo(201);
+        jdbc.update("UPDATE merchants SET owner_user_id=? WHERE id=?", ownerId(bob), merchant);
+        try {
+            assertThat(call("POST", "/accounts/pairs", alice, key, body).statusCode()).isEqualTo(404);
+        } finally {
+            jdbc.update("UPDATE merchants SET owner_user_id=? WHERE id=?", owner, merchant);
+        }
+    }
+
+    private void assertRejectedMerchantOpening(long merchant, int status) throws Exception {
+        String key = UUID.randomUUID().toString();
+        long accounts = jdbc.queryForObject("SELECT count(*) FROM accounts", Long.class);
+        long postings = jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class);
+        var rejected = call("POST", "/accounts/pairs", alice, key, merchantBody(merchant));
+        assertThat(rejected.statusCode()).as(rejected.body()).isEqualTo(status);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounts", Long.class)).isEqualTo(accounts);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class)).isEqualTo(postings);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM account_opening_requests WHERE request_key=?", Integer.class, key)).isZero();
+    }
+
+    private void assertConflict(String key, Object body) throws Exception {
+        var conflict = call("POST", "/accounts/pairs", alice, key, body);
+        assertThat(conflict.statusCode()).as(conflict.body()).isEqualTo(409);
+        assertThat(conflict.body()).contains("IDEMPOTENCY_CONFLICT");
+    }
+
+    private long ownerId(String token) throws Exception {
+        return data(call("GET", "/auth/me", token, null, null)).path("userId").asLong();
+    }
+
+    private long merchant(long owner) {
+        String code = UUID.randomUUID().toString();
+        return jdbc.queryForObject("INSERT INTO merchants(merchant_id,store_name,bakong_account_id,merchant_city,status,owner_user_id) "
+                + "VALUES (?, 'Pair regression shop', ?, 'Phnom Penh', 'ACTIVE', ?) RETURNING id", Long.class, code, code + "@test", owner);
+    }
+
+    private Map<String, Object> merchantBody(long merchant) {
+        return Map.of("accountType", "SAVINGS", "accountCategory", "MERCHANT", "merchantId", merchant);
+    }
+
+    private String legacyHash() { return com.bank.digital_banking.common.util.HashUtils.sha256("SAVINGS"); }
+    private void makeLegacy(String key) {
+        assertThat(jdbc.update("UPDATE account_opening_requests SET request_hash=? WHERE request_key=?", legacyHash(), key)).isEqualTo(1);
+    }
+    private String storedHash(String key) {
+        return jdbc.queryForObject("SELECT request_hash FROM account_opening_requests WHERE request_key=?", String.class, key);
+    }
     @Test void secondAccountFailureRollsBackFirstAccountCreditAndRequest() throws Exception {
         long before = jdbc.queryForObject("SELECT count(*) FROM accounts", Long.class);
         long postings = jdbc.queryForObject("SELECT count(*) FROM transactions", Long.class);

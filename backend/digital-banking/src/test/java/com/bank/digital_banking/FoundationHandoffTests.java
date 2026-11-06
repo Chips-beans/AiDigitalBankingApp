@@ -218,7 +218,7 @@ class FoundationHandoffTests {
     }
 
     private ConfigurableApplicationContext start(String url, int smtpPort) {
-        return new SpringApplicationBuilder(DigitalBankingApplication.class).run(
+        var context = new SpringApplicationBuilder(DigitalBankingApplication.class).run(
                 "--spring.profiles.active=local,test", "--server.port=0",
                 "--app.ai.gateway.enabled=false", "--app.ai.gateway.customer-context-enabled=false",
                 "--spring.datasource.url=" + url, "--spring.datasource.username=postgres",
@@ -226,7 +226,7 @@ class FoundationHandoffTests {
                 "--spring.datasource.hikari.minimum-idle=0",
                 "--app.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
                 "--app.dev.seed.enabled=true", "--app.dev.seed.password=" + PASSWORD,
-                "--app.dev.qa-staff.enabled=false", "--spring.mail.host=localhost",
+                "--app.dev.qa-staff.enabled=false", "--app.mail.provider=smtp", "--spring.mail.host=localhost",
                 "--spring.mail.port=" + smtpPort, "--spring.mail.username=wallet@example.test",
                 "--spring.mail.password=", "--spring.mail.properties.mail.smtp.from=wallet@example.test",
                 "--spring.mail.properties.mail.from=wallet@example.test",
@@ -236,6 +236,16 @@ class FoundationHandoffTests {
                 // Restart/replay is the subject here; PIN proofs (and proof-free replays) are covered by TransferPinAndExchangeTests.
                 "--app.transfer.pin-proof-required=false",
                 "--app.ai.enabled=false", "--spring.main.banner-mode=off", "--logging.level.root=WARN");
+        // Check before any auth request, including when the launching shell selects Gmail.
+        try {
+            assertThat(context.getEnvironment().getProperty("app.mail.provider")).isEqualTo("smtp");
+            assertThat(context.getBean(com.bank.digital_banking.module.auth.service.EmailService.class))
+                    .isInstanceOf(com.bank.digital_banking.module.auth.service.impl.EmailServiceImpl.class);
+            return context;
+        } catch (AssertionError failure) {
+            context.close();
+            throw failure;
+        }
     }
     private String randomCredential() {
         byte[] bytes=new byte[32]; new java.security.SecureRandom().nextBytes(bytes);

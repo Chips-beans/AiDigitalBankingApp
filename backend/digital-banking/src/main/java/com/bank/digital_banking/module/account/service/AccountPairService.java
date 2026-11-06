@@ -20,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -40,16 +41,28 @@ public class AccountPairService {
         if (key == null || !key.matches("[A-Za-z0-9._:-]{1,128}"))
             throw new ApiException(HttpStatus.BAD_REQUEST, "IDEMPOTENCY_KEY_REQUIRED", "Provide an Idempotency-Key");
         locks.apply();
-        String fingerprint = HashUtils.sha256(request.accountType().name());
+        AccountCategory category = request.accountCategory() != null ? request.accountCategory() : AccountCategory.WALLET;
+        // Resolve and authorize even on replay; lock before inspecting/creating missing merchant wallets.
+        Long merchantId = category == AccountCategory.MERCHANT ? ownedMerchantId(owner, request.merchantId()) : request.merchantId();
+        String fingerprint = HashUtils.sha256("account-pair:v2|" + request.accountType().name()
+                + "|" + category.name() + "|" + merchantId);
         jdbc.update("INSERT INTO account_opening_requests(actor_user_id,request_key,request_hash) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                 owner.getId(), key, fingerprint);
         var claim = jdbc.queryForMap("SELECT request_hash,response_json FROM account_opening_requests WHERE actor_user_id=? AND request_key=? FOR UPDATE", owner.getId(), key);
-        if (!fingerprint.equals(claim.get("request_hash")))
-            throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Opening key belongs to a different request");
+        if (!fingerprint.equals(claim.get("request_hash"))) {
+            // Old rows hashed only accountType. A non-empty saved response can prove category/shop;
+            // ambiguous or incomplete legacy rows must not authorize a new operation.
+            if (!HashUtils.sha256(request.accountType().name()).equals(claim.get("request_hash"))
+                    || claim.get("response_json") == null) throw openingConflict();
+            var saved = json.readValue((String) claim.get("response_json"), AccountPairDtos.Response.class);
+            if (!matchesLegacyResponse(saved, category, merchantId)) throw openingConflict();
+            jdbc.update("UPDATE account_opening_requests SET request_hash=? WHERE actor_user_id=? AND request_key=?",
+                    fingerprint, owner.getId(), key);
+            return saved;
+        }
         if (claim.get("response_json") != null)
             return json.readValue((String) claim.get("response_json"), AccountPairDtos.Response.class);
 
-        AccountCategory category = request.accountCategory() != null ? request.accountCategory() : AccountCategory.WALLET;
         var result = new ArrayList<AccountResponseDto>();
         boolean funded = policy.enabled();
 
@@ -64,13 +77,6 @@ public class AccountPairService {
                 result.add(AccountResponseDto.fromEntity(wallet));
             }
         } else if (category == AccountCategory.MERCHANT) {
-            Long merchantId = request.merchantId();
-            if (merchantId == null) {
-                var m = merchantRepository.findByOwnerUserId(owner.getId(), PageBounds.ascendingId(0, 1));
-                if (m.isEmpty()) throw new ApiException(HttpStatus.FORBIDDEN, "MERCHANT_REGISTRATION_REQUIRED",
-                        "User must sign up for merchant app before opening merchant accounts");
-                merchantId = m.get(0).getId();
-            }
             long merchantCount = accounts.countByMerchantId(merchantId);
             if (merchantCount >= 2) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "ACCOUNT_LIMIT_EXCEEDED",
@@ -96,6 +102,31 @@ public class AccountPairService {
         jdbc.update("UPDATE account_opening_requests SET response_json=? WHERE actor_user_id=? AND request_key=?",
                 json.writeValueAsString(response), owner.getId(), key);
         return response;
+    }
+
+    private Long ownedMerchantId(User owner, Long merchantId) {
+        if (merchantId == null) {
+            var owned = merchantRepository.findByOwnerUserId(owner.getId(), PageBounds.ascendingId(0, 1));
+            if (owned.isEmpty()) throw new ApiException(HttpStatus.FORBIDDEN, "MERCHANT_REGISTRATION_REQUIRED",
+                    "User must sign up for merchant app before opening merchant accounts");
+            merchantId = owned.get(0).getId();
+        }
+        return merchantRepository.findLockedById(merchantId)
+                .filter(merchant -> owner.getId().equals(merchant.getOwnerUserId()))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MERCHANT_NOT_FOUND", "Merchant not found"))
+                .getId();
+    }
+
+    private boolean matchesLegacyResponse(AccountPairDtos.Response saved, AccountCategory category, Long merchantId) {
+        if (category == AccountCategory.WALLET && merchantId != null) return false;
+        return saved != null && saved.accounts() != null && !saved.accounts().isEmpty() && saved.accounts().stream().allMatch(account ->
+                account != null
+                && (account.getAccountCategory() == null ? AccountCategory.WALLET : account.getAccountCategory()) == category
+                && Objects.equals(account.getMerchantId(), merchantId));
+    }
+
+    private ApiException openingConflict() {
+        return new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "Opening key belongs to a different request");
     }
 
     private Account createWallet(User owner, AccountType type, String currency) {

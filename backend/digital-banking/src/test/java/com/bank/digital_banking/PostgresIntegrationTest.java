@@ -35,6 +35,8 @@ abstract class PostgresIntegrationTest {
         r.add("app.jwt.secret", () -> SECRET);
         r.add("app.dev.seed.enabled", () -> true);
         r.add("app.dev.seed.password", () -> PASSWORD);
+        // Always capture test mail locally, regardless of inherited Gmail provider configuration.
+        r.add("app.mail.provider", () -> "smtp");
         r.add("spring.mail.host", () -> "localhost");
         r.add("spring.mail.port", SMTP::port);
         r.add("spring.mail.properties.mail.smtp.auth", () -> false);
