@@ -263,8 +263,10 @@ personal evidence, remaining production dependencies) goes into the progress gui
   Merchant auth fixture **192** renders. These are separate dated runs, not a new combined suite.
   The current authoritative baseline and outstanding device gates are in the progress guide §2.
 - The 7 Nov backend review fixes verify ownership on legacy pair creation/replay and bind its
-  idempotency record to type/category/shop. Backend regression suite passes; source remains
-  committed as `9217244` and undeployed. See Customer §27. Merchant app source/APKs are unchanged.
+  idempotency record to type/category/shop. Backend regression suite passes; source committed
+  as `9217244` is deployed from `main` `c3957fc`, deployment `f97bf1e0-6079-4c16-9bd8-6bd14328a80b`
+  SUCCESS. Database/configuration preserved; schema V21, no migration. See Customer §27–28.
+  Merchant app source/APKs are unchanged; device acceptance remains pending.
 - Historical automated evidence (4 Nov 2026): backend 234/234 (V21), Merchant 106/106, Customer 273/273, Merchant fixture 232 renders,
   Customer transfer-approval fixture 24 renders, analysis clean. Earlier: M2 backend 191/191, M3 Customer 247 + Merchant 28,
   M4 backend 203/Merchant 42, M5/M6 backend 211/Merchant 53, M7 backend 220/Merchant 73. Visual fixtures render EN/KM,

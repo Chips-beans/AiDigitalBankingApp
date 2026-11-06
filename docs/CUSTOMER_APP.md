@@ -707,6 +707,25 @@ final run. The progress guide §2/§8 records commands and checks. Logs, XML rep
 `.local/backend-findings-20261107/` at the repository root.
 
 Published source/test fixes are included in the 7 November GitHub handoff alongside updated
-repository documentation and complete showcase source. No live deployment, dev-backend restart, development
-database migration, APK build/install or device/payment acceptance. The hosted backend
-and APKs do not contain these fixes until a separately authorized deployment/build.
+repository documentation and complete showcase source. The backend was subsequently deployed
+as recorded in §28. No dev-backend restart, development database migration, APK build/install
+or device/payment acceptance. APKs are unchanged; no rebuild is required for these backend-only fixes.
+
+## 28. Backend review fixes live on Railway — 7 November 2026
+
+The user authorized deployment of `main` while preserving the database and configuration.
+Deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS** runs the audited backend source
+from `main` **`c3957fc`**, including §27's ownership/idempotency fixes. Existing API URL retained.
+All 278 uploaded inputs are committed backend build files; all 276 tested source/pom inputs
+match after Git newline normalization. Existing **275/275** backend evidence retained.
+
+All 20 migration files match the preceding deployed snapshot. Startup validated schema V21
+and reported it up to date, with no migration necessary. Complete configuration/variable
+fingerprints, domain, Postgres deployment/instance/database volume and showcase service match
+the before-state. No secrets changed, printed or saved; no local .env read.
+
+Swagger/foundation OpenAPI return 200; unauthenticated accounts, Merchant and pair opening
+return 401. The foundation contract has 44 paths, including pair opening and PIN Home preview.
+These are deployment/auth-boundary checks, not an authenticated live ownership/payment test.
+No APK build/install, device acceptance or real payment. Detailed evidence and rollback
+reference are in DEPLOYMENT.md and progress guide §8. Documentation committed to `main`.

@@ -31,10 +31,20 @@ these three files. Nothing was lost: the last commit that still contains them is
 - `frontend/packages/kesor_design_system` (shared theme/tokens), `frontend/packages/kesor_auth_handoff` (app-to-app approval transport).
 - Both apps share one backend and database. The Merchant App never has its own login: it signs in through approval in the Customer App.
 - Latest schema: **V21** in source. The development database is behind (see §6).
-- **Hosted:** backend live on Railway at `https://backend-production-18646.up.railway.app` (schema V21, Gmail API OTP, native Telegram) for a short live run, deployed from branch `railway-gmail-otp`; pilot APKs point at it. See [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Hosted:** backend live on Railway at `https://backend-production-18646.up.railway.app` (schema V21, Gmail API OTP, native Telegram) for a short live run, deployed from `main` commit `c3957fc` on 7 November; pilot APKs point at it. See [DEPLOYMENT.md](DEPLOYMENT.md).
 - **Showcase live:** `https://showcase-website-production.up.railway.app`, isolated Railway `Showcase Website` service. Banking backend/database unchanged; APK hosting deferred by the user.
 
 ## 2. Progress
+
+### Railway backend matches main — 7 November 2026
+
+User-authorized backend-only deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS**,
+from `main` **`c3957fc`**, including the review fixes. Exact configuration fingerprints, variables,
+domain, Postgres deployment/instance/volume and showcase service match the before-state.
+Flyway validated all **20** migrations: schema **V21**, up to date, no migration necessary.
+Application started with Gmail API active; public/protected route checks pass. Backend **275/275**
+tested-source evidence retained. No APK/device work; M9 acceptance remains open. Deployment
+records committed to `main`. Details and evidence are in §8 and DEPLOYMENT.md.
 
 ### Default-branch handoff — 7 November 2026
 
@@ -43,7 +53,8 @@ The user authorized merging and pushing `railway-gmail-otp` into the default bra
 including backend fixes `9217244`, repository organization and the complete showcase.
 This companion documentation commit records `main` as the handoff entry point.
 Application code is identical to the tested source branch; backend **275/275** and the
-passing website-only build evidence remain applicable. Deployment and M9 acceptance stay open.
+passing website-only build evidence remain applicable. Backend deployment subsequently completed
+as recorded above; M9 acceptance remains open.
 
 ### Backend review fixes — 7 November 2026
 
@@ -53,7 +64,8 @@ cover type/category/merchant with safe promotion of verified legacy responses. N
 Baseline regressions reproduced **12 failures in 23 checks**; focused fixes **23/23** pass.
 Final backend suite **275/275** passes with Gmail selected globally, zero failures/errors/skips;
 both test harnesses override it to local SMTP. Evidence is recorded in §8 below. Backend source is
-committed; deployment and existing device/M9 acceptance gates remain open. Customer §27 has the contract.
+committed and deployed from `main` as recorded above; device/M9 acceptance remains open.
+Customer §27 has the contract and §28 has deployment evidence.
 
 ### Repository organization — 7 November 2026
 
@@ -145,7 +157,7 @@ clean, Customer handoff/payment subset 38/38; the Customer full 307/307 run is t
 linked-wallet change. Both app Kotlin compile checks pass without APK assembly.
 The backend baseline is the 7 November repository-review fix run, superseding the 6 November
 261-test PIN deployment evidence. Flutter was unchanged and its suites were not repeated for
-these backend fixes. The hosted backend still runs the earlier published source.
+these backend fixes. The hosted backend now runs `main` commit `c3957fc`; deployment evidence is below.
 
 ## 3. Rules for every agent session
 
@@ -279,6 +291,50 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 - Add every new screen to the visual fixture and inspect representative renders (EN/KM, light/dark, 2× text, tablet).
 
 ## 8. Open work and backlog
+
+### 7 November 2026 — Handoff cleanup: contributors, license, redundant briefs
+
+- README "Built with" section replaced by "Contributors" (re4chh, Chips-beans, Claude, Codex) and a
+  License section. Added MIT `LICENSE` (copyright "Kesor Bank project team"; bundled fonts keep their
+  OFL terms) — the user may change the license/holder. GitHub's sidebar list cannot include AI
+  assistants; they are credited in the README and `Co-authored-by` lines.
+- Removed `docs/MERCHANT_FEATURE_LIST.md` and `docs/MERCHANT_DESIGN_CHANGE_LIST.md` (obsolete redesign
+  briefs that referenced the ignored local `Flutter Screen/` folder); recoverable from git history.
+- Review found no tracked secrets. Possibly unreferenced images in both apps' `assets/` were
+  reported but not removed (needs a build check). Committed and pushed to `main` at user request.
+
+### 7 November 2026 — Backend fixes deployed from main; database/configuration preserved
+
+- User explicitly requested deployment while preserving database and configuration. Uploaded only
+  an audited committed backend snapshot from **`c3957fc7785dedd2ba6e77d4a0f5bd66a03611af`**,
+  `main`: **278 files / 1,203,956 bytes**, snapshot SHA-256
+  `cbb66365562007cfc18cb41c36b219797ed8c2a585dac0151912de52e217490b`.
+  Inputs are Dockerfile, .dockerignore, pom.xml and src only; no credentials, frontend or outputs.
+  All **276** tested source/pom inputs match after Git newline normalization (227 exact, 49 LF/CRLF);
+  all **20** migrations exactly match the previous deployed snapshot. Backend **275/275** reused.
+- Explicit project `c4ac8b7a-7a1a-4f08-9060-d0b444f05eda`, production environment
+  `a7d550e4-e298-45d2-9c87-5bc778731653`, backend service
+  `61f5742d-bc85-4d96-b802-0fe9915ae402`; `railway up` isolated payload with `--path-as-root`,
+  `--no-gitignore`, `--detach`, `--json` and explicit selectors. Deployment
+  **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS**; predecessor
+  `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` is the rollback reference.
+- Full environment/service configuration fingerprints match exactly; all 25 configured backend
+  variables/references, JWT/PIN secret, domain, scaling and build/deploy settings preserved.
+  No variable values were printed or saved. Postgres deployment
+  `0695dccd-17dd-4db5-ba42-8712d5fd9590` and running instance unchanged; database volume
+  `0e36244d-ce49-453e-94e5-049a137505b7` (`postgres-volume-Dubs`), attachment and mount unchanged.
+  Showcase deployment `b64073e6-b37a-448f-8425-388ebc0c1d48` and its volume/instance unchanged.
+- Startup: 20 migrations validated, current V21, up to date, no migration necessary;
+  `Started DigitalBankingApplication`, Gmail API provider active. HTTPS Swagger/foundation
+  OpenAPI **200**, accounts/Merchant/pair-opening without auth **401**, foundation **44 paths**
+  with pair-opening and PIN-preview contracts present. No authenticated money operation attempted.
+- Evidence: `.local/railway-backend-main-20261107/` contains sanitized before/after snapshots,
+  payload manifest, deployment identity, build events, startup verification, HTTP and route probes.
+  No local .env read; credentials were not printed or saved in this evidence.
+- No database recreation, new migration, configuration change, dev-backend restart, APK build/install,
+  actual sign-in/payment or device acceptance. M9/hosted APK delivery remain open. These deployment
+  records were committed to `main` on 7 November with the handoff cleanup below.
+  Earlier undeployed-backend notes below describe prior steps and are superseded by this record.
 
 ### 7 November 2026 — Handoff merged into the default branch
 

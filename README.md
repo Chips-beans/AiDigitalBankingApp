@@ -66,17 +66,20 @@ Credentials, APKs, screenshot exports, browser review output and local evidence
 stay ignored. Keep original source/assets in their component folders; record
 milestones in the existing progress guide rather than creating more reports.
 
-## Built with
+## Contributors
 
-Built by the Kesor Bank project team with the help of AI coding assistants:
+- [**re4chh**](https://github.com/re4chh): project owner and developer.
+- [**Chips-beans**](https://github.com/Chips-beans): developer.
+- **Claude** ([Claude Code](https://claude.com/claude-code), Anthropic): AI
+  coding assistant. Merchant app planning and implementation, including shop
+  registration, dashboard, wallets, QR collection and the remaining-work plan.
+- **Codex** ([OpenAI](https://openai.com/codex)): AI coding assistant.
+  Implementation and verification across the project, including Merchant sales,
+  receipts, reports and sharing.
 
-- **[Claude Code](https://claude.com/claude-code)** (Anthropic): Merchant app
-  planning and implementation, including shop registration, dashboard, wallets,
-  QR collection and the remaining-work plan.
-- **[Codex](https://openai.com/codex)** (OpenAI): implementation and
-  verification across the project, including Merchant sales, receipts, reports
-  and sharing.
+AI-assisted commits carry a `Co-authored-by` line naming the assistant.
 
-AI-assisted commits carry a `Co-authored-by` line naming the assistant. GitHub's
-Contributors list shows only commit authors with GitHub accounts, so the
-assistants appear here and in commit messages instead.
+## License
+
+Released under the [MIT License](LICENSE). Bundled fonts keep their own SIL Open
+Font License terms.

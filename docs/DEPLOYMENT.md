@@ -25,7 +25,7 @@ events in that guide's §8 log, and update this file when the setup itself chang
 | Services | `backend` (this repo, Dockerfile), `Postgres` (Railway template `postgres-ssl:18`, volume `postgres-volume-Dubs`), and the isolated `Showcase Website` (Nginx static site) |
 | Showcase website | `https://showcase-website-production.up.railway.app` — deployment `b64073e6-b37a-448f-8425-388ebc0c1d48` SUCCESS, 6 Nov 2026. APK hosting deferred by the user. |
 | Region | US East (`iad`) for both services |
-| Deployed code | 6 Nov PIN Home preview, now recorded in published banking commit `33595d6` on `railway-gmail-otp`. All 277 deployment inputs verified against the 6 Nov published source (Git newline normalization only). Original snapshot SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`; deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (**SUCCESS**), CLI upload. Already current; no redeploy needed for the 6 Nov GitHub publication. |
+| Deployed code | `main` commit **`c3957fc7785dedd2ba6e77d4a0f5bd66a03611af`**, including backend review fixes `9217244`. Deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS**, 7 Nov, isolated CLI upload. Snapshot: 278 files, SHA-256 `cbb66365562007cfc18cb41c36b219797ed8c2a585dac0151912de52e217490b`. Schema V21, configuration/database/domain preserved. Previous deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` retained as rollback reference. |
 | Spring profile | `dev` (see §4 for why) |
 | Database schema | Flyway **V21** (created from empty on first boot) |
 | OTP email | Gmail API over HTTPS (`MAIL_PROVIDER=gmail-api`), sender = the user's own Gmail account |
@@ -39,13 +39,15 @@ wallet visibility and the Merchant sign-in diagnostics/recovery refresh. Current
 are in each app's `.local/apk/20261106-161530/`; older APKs remain in their versioned/archive folders.
 Signatures match the previous APKs. Installation and device acceptance remain pending.
 
-**7 Nov local source divergence:** the three repository-review backend fixes (mail-fixture
-isolation, legacy pair merchant ownership and complete idempotency fingerprints) are committed
-as `9217244`, now on `main` after the 7 Nov `railway-gmail-otp` handoff merge. They have not been
-deployed; prior statements about deployed/source equality
-refer to the 6 Nov published baseline, not the current working tree. No migration is required.
-Read Customer §27 and the progress guide's current test evidence before any separately
-authorized backend deployment. APKs and live services were unchanged by these fixes.
+**7 Nov backend matches main:** the user-authorized deployment from `main` commit **`c3957fc`**
+is **SUCCESS**, deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b`**. It includes the review
+fixes committed in `9217244`. All environment/service configuration fingerprints, the 25
+backend variables/references, existing domain, Postgres deployment/instance/database volume
+and showcase service match the before-state. Schema remains **V21**; all 20 migrations were
+validated and Flyway reported no migration necessary. Gmail API remains active.
+Swagger/foundation OpenAPI return 200; protected accounts/Merchant/pair routes return 401
+without authentication. No authenticated money operation or APK/device work was performed.
+Evidence: `.local/railway-backend-main-20261107/`; product evidence: Customer §28.
 
 **6 Nov source publication:** banking updates were committed/pushed as `33595d6`; the live
 backend is already identical to that commit's backend source. Verified Swagger/foundation
@@ -343,6 +345,19 @@ Never request, read or enter OTP codes, PINs or Telegram codes on the user's beh
 ---
 
 ## 9. History
+
+- **7 Nov 2026 — Backend review fixes deployed from main (user authorized).** Audited committed
+  snapshot from `c3957fc7785dedd2ba6e77d4a0f5bd66a03611af`: 278 files / 1,203,956 bytes,
+  SHA-256 `cbb66365562007cfc18cb41c36b219797ed8c2a585dac0151912de52e217490b`.
+  Dockerfile/.dockerignore/pom.xml/src only; no credentials/frontend/local outputs. Existing
+  275/275 evidence applies to all 276 tested inputs after Git newline normalization.
+  Explicit project/environment/backend selectors; new deployment `f97bf1e0-6079-4c16-9bd8-6bd14328a80b`
+  SUCCESS. Source and all 20 migrations match `main`; schema V21 validated, no migration applied.
+  Environment/service configuration, variables, domain, Postgres deployment/instance/volume
+  and showcase unchanged. Healthy startup/Gmail provider and 200/401 HTTPS probes pass.
+  Previous backend **`8fc7d198-bdc9-4a93-bd16-793b8c6b9668`** is the rollback reference.
+  No DB recreation/mutation command, config change, APK build/install or authenticated/device
+  payment acceptance. Records committed to `main` on 7 November.
 
 - **6 Nov 2026 — Updated Customer and Merchant Railway APKs built (user authorized).** Sequential
   debug builds with the §6.7 flags succeeded (Customer Gradle 193.1 s, Merchant 160.1 s); Gradle
