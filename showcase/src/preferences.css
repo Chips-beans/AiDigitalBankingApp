@@ -1,0 +1,134 @@
+@font-face {
+  font-family: 'Google Sans';
+  src: url('/fonts/GoogleSans-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Google Sans';
+  src: url('/fonts/GoogleSans-Medium.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Google Sans';
+  src: url('/fonts/GoogleSans-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Match the reference's circular theme control and inset language capsule. */
+.hero-pills { align-items: center; }
+/* Keep the complete top bar above the draggable badge and its strap. */
+.hero-inner { z-index: auto; }
+.hero-top { z-index: 6; }
+.display-switches { display: flex; align-items: center; gap: 12px; }
+.theme-switch, .language-switch {
+  border: 1px solid var(--hero-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hero-ink);
+}
+.theme-switch {
+  background: var(--switch-ground, #fff);
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+}
+.theme-switch svg { width: 20px; height: 20px; }
+.language-switch { display: flex; padding: 3px; background: var(--hero-surface); }
+.language-switch button {
+  border: 0;
+  border-radius: 999px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.language-switch button[lang="en"] { font-family: 'Poppins', sans-serif; }
+.language-switch button[lang="km"] { font-family: 'Google Sans', sans-serif; }
+.language-switch button[aria-pressed="true"] { background: #fff; color: #0b1f35; }
+.theme-switch, .language-switch button { transition: background-color 160ms ease, transform 160ms ease; -webkit-tap-highlight-color: transparent; }
+.theme-switch:hover, .language-switch button[aria-pressed="false"]:hover { background: var(--hero-surface); }
+.theme-switch:active, .language-switch button:active { transform: scale(.96); }
+.display-switches :focus-visible { outline: 3px solid var(--hero-focus, #133358); outline-offset: 3px; }
+
+/* A tonal navy system; screenshot artwork and the identity assets keep their colors. */
+html[data-theme="dark"] body { background: #081626; }
+html[data-theme="dark"] .hero {
+  --hero-ink: #f4f7fa;
+  --hero-muted: #b7cbe0;
+  --hero-border: #3e566e;
+  --hero-surface: #142e47;
+  --hero-focus: #efda9b;
+  --switch-ground: #081626;
+  --accent-50: #1b3652;
+  --accent-600: #e1ebf5;
+  --gold-50: #302915;
+  --gold-100: #403519;
+  --gold-600: #efda9b;
+  background: #081626;
+}
+html[data-theme="dark"] .hero-pill:hover { background: #1b3652; border-color: #647e98; }
+html[data-theme="dark"] .github-link img,
+html[data-theme="dark"] .apk-merchant img { filter: brightness(0) invert(1); }
+html[data-theme="dark"] .showcase-content {
+  --page-ground: #0b1f35;
+  --page-ink: #e1ebf5;
+  --page-soft: #142e47;
+  --customer-ground: #102a43;
+  --merchant-ground: #0b1f35;
+  --technology-ground: #142e47;
+  --team-ground: #102a43;
+}
+html[data-theme="dark"] .splash { background: #081626; }
+html[data-theme="dark"] .apk-merchant:hover { background: #234460; }
+html[data-theme="dark"] .circular-carousel__subtitle,
+html[data-theme="dark"] .circular-carousel__count { opacity: .85; }
+
+/* Khmer uses the project's Google Sans files, including its Khmer glyph coverage. */
+html[lang="km"] body { font-family: 'Google Sans', sans-serif; }
+html[lang="km"] .showcase-content, html[lang="km"] .footer { line-height: 1.8; }
+html[lang="km"] .showcase-content h2,
+html[lang="km"] .showcase-content h3,
+html[lang="km"] .section-lead { line-height: 1.55; letter-spacing: 0; }
+html[lang="km"] .hero-line { height: 1.8em; margin-bottom: -.25em; }
+html[lang="km"] .hero-lead { font-size: 20px; line-height: 1.8; }
+html[lang="km"] .hero-apk { font-size: 18px; }
+html[lang="km"] .member-duties,
+html[lang="km"] .circular-carousel__title { line-height: 1.8; }
+.hero-brand-name, .footer h2 { font-family: 'Poppins', sans-serif; }
+.customer-copy, .merchant-copy, .tech-copy, .team-copy { min-width: 0; }
+
+@media (max-width: 1100px) {
+  .hero-brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  html[lang="km"] .hero-line { font-size: 44px; }
+  html[lang="km"] .hero-lead { width: 360px; }
+}
+@media (max-width: 760px) {
+  .hero-top { gap: 8px; }
+  .hero-logo { width: 32px; height: 44px; padding: 2px 0; display: grid; align-items: center; }
+  .hero-pills, .display-switches { gap: 6px; }
+  .hero-pill { width: 44px; height: 44px; padding: 10px; border-radius: 999px; flex: none; }
+  .language-switch { padding: 2px; }
+  .language-switch button { padding: 0 6px; height: 44px; }
+  .merchant-layout { grid-template-columns: minmax(0, 1fr); }
+  html[lang="km"] .hero-line { font-size: 9.8vw; }
+  html[lang="km"] .hero-lead { font-size: 18px; width: calc(var(--cell) * 7); }
+  html[lang="km"] .showcase-content h2 { font-size: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .display-switches *, .display-switches button { transition: none; }
+}

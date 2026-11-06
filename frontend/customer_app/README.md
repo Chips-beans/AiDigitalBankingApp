@@ -44,11 +44,12 @@ development defaults to `http://10.0.2.2:8080/api/v1`; desktop defaults to
 flutter run --dart-define=API_BASE_URL=http://192.168.1.25:8080/api/v1
 ```
 
-Create a profile with a unique username and a real email address whose inbox you
-can access. Read the latest SIGNUP or LOGIN message in that inbox (including Spam)
-and paste its six-digit code into the app. The configured Gmail sender and the
-recipient email are separate addresses. The app never reads the inbox itself.
-Signup signs you in and does not create a bank account.
+Choose Continue with Email and use a real address whose inbox you can access.
+New and returning customers use the same CONTINUE verification-code flow. Enter
+the code privately in the app; new identities then complete first/last names and
+set a PIN. Signup/profile completion automatically provisions USD and KHR personal
+wallets (V16). The app never reads the inbox itself. Telegram is the alternative
+sign-in method. See the Customer product document §2–4 for current contracts.
 
 ## Explicit demo preview
 
@@ -118,7 +119,7 @@ available in native API mode. See [CUSTOMER_APP.md](../../docs/CUSTOMER_APP.md) 
 
 ```powershell
 flutter analyze
-flutter test
+flutter test test --concurrency=1
 # Optional screenshots in ignored .local/qa (FLUTTER_ROOT must identify the SDK):
 flutter test tool/visual_qa.dart
 flutter test tool/f4_visual_qa.dart

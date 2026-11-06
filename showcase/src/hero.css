@@ -1,0 +1,412 @@
+/* Hero — Figma "Kesor Bank" 437:2492 (frame 1512 × 982).
+   Measurements below are the frame's, kept 1:1 at desktop width. */
+
+.hero {
+  overflow-x: clip; /* nothing in the hero may widen the page sideways */
+  --hero-ink: #000000;
+  --hero-muted: #717182; /* Kesor/Neutral/Light/DisabledBackground */
+  --hero-border: #e5e5e5; /* kesor-neutral-border */
+  --accent-50: #f1f5f9; /* kesor-accent-50 */
+  --accent-600: #0f2946; /* kesor-accent-600 */
+  position: relative;
+  background: var(--paper);
+  color: var(--hero-ink);
+  --hero-surface: #f8f8ff; /* kesor-neutral-surface */
+}
+/* background: React Bits CursorGrid, behind everything in the hero */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1512px;
+  margin: 0 auto;
+  padding: 36px 80px 56px;
+}
+
+/* Orbit of the app images. Wide screens: the open space right of "Connect." (the
+   headline ends ~x 585) and left of the card (centred at 70.6%, ~118px half-width),
+   centred on the first headline line. Its width shrinks so it never meets the card. */
+.hero-orbit {
+  position: absolute;
+  z-index: 2;
+  top: 140px;
+  left: 610px;
+  width: min(300px, calc(70.6% - 118px - 24px - 610px));
+}
+/* Narrower screens: the card is too close, so a flatter ring sits in the gap
+   between the top bar (ends y 100) and the headline, over "to" and "C". */
+@media (max-width: 1300px) {
+  .hero-orbit {
+    top: 102px;
+    left: 80px; /* = .hero-inner left padding: starts on the copy's left edge */
+    width: 420px;
+  }
+}
+@media (max-width: 1100px) {
+  .hero-orbit {
+    left: 48px;
+  }
+}
+@media (max-width: 760px) {
+  .hero-orbit {
+    display: none; /* on phones the card hangs in this space */
+  }
+}
+
+/* Ribbon band at the bottom of the hero. TextLoop always draws in a 1200 x 520
+   box; at curviness 26 with a 56-unit ribbon, the wave only fills rows ~175-345
+   of it, so the band shows just that strip (aspect 1200 / 180) and lifts the
+   drawing by 170. */
+.hero-ribbon {
+  position: relative;
+  z-index: 1;
+  aspect-ratio: 1200 / 180;
+  overflow: hidden;
+}
+.hero-ribbon .text-loop {
+  position: absolute;
+  left: 0;
+  top: -94.44%; /* 170 / 180 */
+  width: 100%;
+}
+
+/* top row (Figma 444:2546): 64px logo + 28px name, GitHub / Figma */
+.hero-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 64px;
+}
+.hero-brand {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--gold-500);
+}
+.hero-logo {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  padding: 6.09px 10.67px 4.58px; /* the Figma icon frame's insets */
+}
+.hero-logo img {
+  display: block;
+}
+.hero-brand-name {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.hero-pills {
+  display: flex;
+  gap: 16px;
+}
+.hero-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--hero-surface);
+  border: 1px solid var(--hero-border);
+  border-radius: 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--hero-ink);
+  text-decoration: none;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 160ms var(--ease-out);
+}
+.hero-pill + .hero-pill {
+  gap: 8px;
+}
+.hero-pill:active {
+  transform: scale(0.97);
+}
+
+/* the hanging ID card (React Bits Lanyard). Its canvas is a click-through layer
+   over the whole hero and spills past it, so the card can be dragged anywhere
+   on the first screen and below it without being clipped. Hero.jsx places the
+   strap where the Figma badge hangs (x 1067 of 1512, card top ~168px). */
+.hero-lanyard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: var(--lanyard-h, 1200px);
+  z-index: 5;
+  pointer-events: none;
+}
+.hero-lanyard-space {
+  display: none;
+}
+
+/* The copy shares the grid's origin; its internal spacing follows the content
+   so the headline, description and actions read as one clear group. */
+.hero {
+  --cell: 64px; /* = CursorGrid cellSize in Hero.jsx */
+}
+.hero-copy {
+  position: relative;
+  z-index: 2;
+  width: calc(var(--cell) * 9);
+  max-width: 100%;
+  margin-top: calc(var(--cell) * 2); /* bar bottom + 2 rows: y 228 */
+}
+.hero-title {
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+.hero-line {
+  display: block;
+  font-size: 64px;
+  /* TechText shrinks a word to fit 66% of its box height and 90% of its width.
+     The box is tall enough for "Designed" (with its descender) to draw at full
+     size like line 1, and the negative margin keeps the lines 1.2em apart. */
+  height: 1.45em;
+  margin-bottom: -0.25em;
+}
+/* A wide canvas so neither line is shrunk by width; TechText keeps 5% of its width
+   as a left margin, so pull it back by that much to line the first letter up with
+   the description and buttons below (5% of 150% = 7.5%). */
+.hero-line .tech-text {
+  width: 150%;
+  margin-left: -7.5%;
+}
+.hero-lead {
+  display: block;
+  width: calc(var(--cell) * 8);
+  max-width: 100%;
+  margin-top: 32px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--hero-muted);
+}
+.hero-apks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 32px;
+}
+.hero-apk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: calc(var(--cell) * 4);
+  height: var(--cell);
+  padding: 0 8px;
+  border-radius: 16px;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 200ms ease,
+    transform 160ms var(--ease-out);
+}
+.hero-apk:active {
+  transform: scale(0.97);
+}
+.apk-customer {
+  background: var(--gold-50);
+  color: var(--gold-600);
+}
+.apk-merchant {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-pill:hover {
+    background: #eeeef8;
+    border-color: #d6d6de;
+  }
+  .apk-customer:hover {
+    background: var(--gold-100);
+  }
+  .apk-merchant:hover {
+    background: var(--navy-100, #dde7f1);
+  }
+}
+
+/* Entrance, played once as the splash lifts (.is-ready, set by App). The grid
+   reveals from the centre and the card drops in on its own; here the top bar
+   settles, each title line rises from behind its own baseline, then the
+   description and the two buttons follow. Until then the parts wait hidden. */
+.hero-line-in {
+  display: block;
+  height: 100%;
+}
+.js .hero:not(.is-ready) .hero-orbit,
+.js .hero:not(.is-ready) .hero-ribbon,
+.js .hero:not(.is-ready) .hero-top,
+.js .hero:not(.is-ready) .hero-lead,
+.js .hero:not(.is-ready) .hero-apk {
+  opacity: 0;
+}
+.js .hero:not(.is-ready) .hero-line-in {
+  opacity: 0;
+}
+.js .hero.is-ready .hero-orbit {
+  animation: hero-up 900ms var(--ease-out) 560ms both;
+}
+.js .hero.is-ready .hero-ribbon {
+  animation: hero-up 800ms var(--ease-out) 680ms both;
+}
+.js .hero.is-ready .hero-top {
+  animation: hero-drop 700ms var(--ease-out) both;
+}
+.js .hero.is-ready .hero-line-in {
+  animation: hero-up 850ms var(--ease-out) 120ms both; /* canvas lines: rise + fade, no mask */
+}
+.js .hero.is-ready .hero-line:nth-child(2) .hero-line-in {
+  animation-delay: 230ms;
+}
+.js .hero.is-ready .hero-lead {
+  animation: hero-up 750ms var(--ease-out) 420ms both;
+}
+.js .hero.is-ready .hero-apk {
+  animation: hero-up 750ms var(--ease-out) 520ms both;
+}
+.js .hero.is-ready .hero-apk + .hero-apk {
+  animation-delay: 600ms;
+}
+@keyframes hero-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+@keyframes hero-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* tablet: badge narrows the gap, copy keeps its size */
+@media (max-width: 1100px) {
+  .hero-inner {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+}
+
+/* phone: badge hangs above the headline */
+@media (max-width: 760px) {
+  .hero-inner {
+    padding: 20px 16px 40px;
+  }
+  /* phone: draw the ribbon 2.6x the screen width so the words stay readable;
+     the band clips the sides */
+  .hero-ribbon {
+    aspect-ratio: 1200 / 468; /* 180 x 2.6 */
+  }
+  .hero-ribbon .text-loop {
+    width: 260%;
+    left: -80%;
+  }
+  .hero-top {
+    min-height: 48px;
+  }
+  .hero-brand {
+    gap: 6px;
+  }
+  .hero-logo {
+    width: 48px;
+    height: 48px;
+    padding: 4.57px 8px 3.43px;
+  }
+  .hero-logo img {
+    width: 32px;
+    height: auto;
+  }
+  .hero-brand-name {
+    font-size: 20px;
+  }
+  .hero-pills {
+    gap: 8px;
+  }
+  .hero-pill {
+    padding: 11px;
+  }
+  .hero-pill span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .hero {
+    --lanyard-h: 1000px;
+  }
+  .hero {
+    --cell: 48px;
+  }
+  .hero-lanyard-space {
+    display: block;
+    height: calc(var(--cell) * 7);
+  }
+  .hero-copy {
+    margin-top: 0;
+    width: auto;
+  }
+  .hero-line {
+    font-size: 9.8vw;
+  }
+  .hero-line .tech-text {
+    width: 111.11%;
+    margin-left: -5.556%; /* 5% of 111.11% */
+  }
+  .hero-title {
+    line-height: 1.18;
+  }
+    .hero-lead {
+    width: calc(var(--cell) * 7);
+    margin-top: 24px;
+  }
+  .hero-apks {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .hero-apk {
+    width: calc(var(--cell) * 6);
+    font-size: 17px;
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .hero:not(.is-ready) .hero-line-in {
+    transform: none;
+    opacity: 0;
+  }
+  .js .hero.is-ready .hero-orbit,
+  .js .hero.is-ready .hero-ribbon,
+  .js .hero.is-ready .hero-top,
+  .js .hero.is-ready .hero-line-in,
+  .js .hero.is-ready .hero-lead,
+  .js .hero.is-ready .hero-apk {
+    animation: hero-fade 400ms ease both;
+  }
+  @keyframes hero-fade {
+    from {
+      opacity: 0;
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Kesor Bank — deployment and operations
 
-Updated 6 November 2026, Asia/Phnom_Penh. This is the single place for **how the project is hosted
+Updated 7 November 2026, Asia/Phnom_Penh. This is the single place for **how the project is hosted
 and how to change it safely**: what is live, where every setting lives, and step-by-step runbooks for
 the usual changes. Product behaviour stays in [CUSTOMER_APP.md](CUSTOMER_APP.md) and
 [MERCHANT_APP.md](MERCHANT_APP.md); progress and agent rules stay in
@@ -22,27 +22,87 @@ events in that guide's §8 log, and update this file when the setup itself chang
 | Swagger UI (public) | `https://backend-production-18646.up.railway.app/swagger-ui/index.html` |
 | Host | Railway, **Trial** plan ($5 credit / 30 days from 5 Nov 2026 — ends about **5 Dec 2026** or when the credit is used) |
 | Railway workspace / project / environment | `re4chh's Projects` / `superb-respect` / `production` |
-| Services | `backend` (this repo, Dockerfile) and `Postgres` (Railway template `postgres-ssl:18`, volume `postgres-volume-Dubs`) |
+| Services | `backend` (this repo, Dockerfile), `Postgres` (Railway template `postgres-ssl:18`, volume `postgres-volume-Dubs`), and the isolated `Showcase Website` (Nginx static site) |
+| Showcase website | `https://showcase-website-production.up.railway.app` — deployment `b64073e6-b37a-448f-8425-388ebc0c1d48` SUCCESS, 6 Nov 2026. APK hosting deferred by the user. |
 | Region | US East (`iad`) for both services |
-| Deployed code | 6 Nov PIN Home preview, now recorded in published banking commit `33595d6` on `railway-gmail-otp`. All 277 deployment inputs verified against current/committed source (Git newline normalization only). Original snapshot SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`; deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (**SUCCESS**), CLI upload. Already current; no redeploy needed for the 6 Nov GitHub publication. |
+| Deployed code | 6 Nov PIN Home preview, now recorded in published banking commit `33595d6` on `railway-gmail-otp`. All 277 deployment inputs verified against the 6 Nov published source (Git newline normalization only). Original snapshot SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`; deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (**SUCCESS**), CLI upload. Already current; no redeploy needed for the 6 Nov GitHub publication. |
 | Spring profile | `dev` (see §4 for why) |
 | Database schema | Flyway **V21** (created from empty on first boot) |
 | OTP email | Gmail API over HTTPS (`MAIL_PROVIDER=gmail-api`), sender = the user's own Gmail account |
 | Telegram | Native Android flow enabled; browser/web flow not configured |
 | AI assistant | **On** since 6 Nov 2026: the seven `AI_*` variables were copied from `.env` (Groq, `qwen/qwen3.8-27b`). Before that the app showed "The assistant is unavailable" because Railway had none. In-app check on a device still pending. |
-| Pilot APKs | Rebuilt 6 Nov from the current working tree: `frontend/customer_app/.local/apk/Kesor Bank.apk` (245,521,948 bytes; SHA-256 `6F74DCEED6FCB7CA10030E9B2B784D469BBEF1B26DE10ED3C867A803D433A214`), `frontend/merchant_app/.local/apk/KesorMerchant.apk` (205,414,739 bytes; SHA-256 `EB495F273A84059DC4B568FFB123873CF1B125BE2B633646F3FF67EE394B6C01`) — debug builds, ignored folders, not committed |
+| Pilot APKs | Latest wallet/auth refresh from `c6a9f8b`, debug/dev. customer_app: 245,526,174 bytes, SHA-256 `03bbfe42c152ea830e358cc3995c2a4937c00fad7f6b438673ed7308aed20ec7`; merchant_app: 231,059,332 bytes, SHA-256 `ee2a462b55135fd41e7ec2146e0d550670cc51082c4f8d92f0709f8f42a18a3e`. Canonical paths unchanged, versioned `.local/apk/20261106-161530/`; old APKs archived. |
 
-Both APKs include the latest Flutter designs, including both splashes and the Customer Wallets,
-Wallet/Transaction Detail and three-question AI Assistant redesigns. Versioned copies are in each
-app's `.local/apk/20261106-055520/`; previous 5 Nov APKs are preserved under `.local/apk/archive/`.
+Both APKs include the latest recorded Flutter designs, including both splashes and the Customer
+Wallets, Wallet/Transaction Detail and three-question AI Assistant redesigns, plus linked merchant
+wallet visibility and the Merchant sign-in diagnostics/recovery refresh. Current versioned copies
+are in each app's `.local/apk/20261106-161530/`; older APKs remain in their versioned/archive folders.
 Signatures match the previous APKs. Installation and device acceptance remain pending.
+
+**7 Nov local source divergence:** the three repository-review backend fixes (mail-fixture
+isolation, legacy pair merchant ownership and complete idempotency fingerprints) are committed
+as `9217244` on `railway-gmail-otp`. They have not been deployed; prior statements about deployed/source equality
+refer to the 6 Nov published baseline, not the current working tree. No migration is required.
+Read Customer §27 and the progress guide's current test evidence before any separately
+authorized backend deployment. APKs and live services were unchanged by these fixes.
 
 **6 Nov source publication:** banking updates were committed/pushed as `33595d6`; the live
 backend is already identical to that commit's backend source. Verified Swagger/foundation
 OpenAPI 200, PIN Home preview present, personal accounts/Merchant session 401 without auth.
-Current APKs above are unchanged and **do not include** the subsequently implemented linked
-merchant-wallet visibility and Merchant auth diagnostics/recovery fixes. Updated APK packaging
-and installation remain separate, explicitly authorized work. See progress guide §8.
+The current `20261106-161530` APK refresh above includes the subsequently implemented linked
+merchant-wallet visibility and Merchant auth diagnostics/recovery fixes. Installation and device
+acceptance remain separate work. See progress guide §8.
+
+### Showcase website hosting
+
+The user authorized deployment to their empty **Showcase Website** service
+`57761625-19f6-4f2f-ba34-193668277189`, in production environment
+`a7d550e4-e298-45d2-9c87-5bc778731653`, project
+`c4ac8b7a-7a1a-4f08-9060-d0b444f05eda`. Its public domain targets Nginx port **80**.
+`showcase/hosting/` contains the Dockerfile, allowlist and Nginx configuration. The final
+website-only package is `.local/showcase-deploy-20261106/website-only-final` (80 files,
+9,169,755 bytes), with a sibling manifest and upload log. It contains public assets only,
+excluding APKs, credentials and banking source. GitHub pushes do not redeploy this service.
+
+For another authorized deployment, prepare a fresh isolated package with these hosting files
+and current built site assets, then pass **all three explicit project/environment/service IDs**
+to `railway up <package> --path-as-root --no-gitignore --detach --json`. Do not deploy the repo
+root or rely on the CLI's backend link. Verify the deployment status, public HTTPS and protected
+banking service configurations afterward.
+
+The user explicitly deferred APK hosting: deployed download routes are not ready. A separate
+showcase-only volume (`32d81461-0013-47f1-a309-020c0519c763`) remains at `/apk-downloads`;
+its incomplete staging files are not verified downloads. No banking service, deployment,
+configuration or database volume was changed. The temporary task SSH key was revoked and its
+local private/public files removed. Public UI checks at 1440/390/320px passed with EN/KM,
+no horizontal overflow, broken loaded images or runtime errors; HTTP 200 confirmed.
+
+### Showcase APK downloads (local preparation only)
+
+The showcase's two APK buttons download the existing canonical Railway builds as `Kesor Bank.apk`
+and `KesorMerchant.apk`. `npm --prefix showcase run dev` and `npm --prefix showcase run build`
+first run `showcase/scripts/sync-apks.mjs`. This reads `.local/apk-refresh-active.json` and that
+release's `verification.json`, checks the canonical files against their recorded size/SHA-256 and
+Railway/signature checks, then copies the pair into ignored `showcase/public/downloads/`.
+It does **not** build or install an APK or change Railway.
+
+The production build includes `/downloads/kesor-bank.apk`, `/downloads/kesor-merchant.apk` and
+an integrity `manifest.json` in `showcase/dist/downloads/`. Preparation fails if either canonical
+file is missing, differs from the latest verified release, or lacks the expected verification.
+After an authorized APK refresh, rerun the showcase build to pick up the latest verified pair.
+`npm --prefix showcase run sync:apks` also prepares downloads for an already-running dev server.
+
+APKs, generated download metadata, `dist/` and `dist-website/` stay out of Git. A new
+checkout needs canonical APKs and verification records only for the guarded `dev`/`build`
+commands. For website work without APKs, run `npm --prefix showcase ci`, then
+`npm --prefix showcase run dev:website` or `npm --prefix showcase run build:website`.
+The latter writes a separate `dist-website/`, filtering out `public/downloads/` even when
+it already exists. Preview it with `npm --prefix showcase run preview:website`.
+The default guarded commands and APK integrity checks are unchanged. Details:
+[showcase README](../showcase/README.md). A website-only build does not verify its download links.
+The website is now published, but its deployment deliberately excludes these
+APK artifacts at the user's request. Local download verification does not establish hosted
+download availability; APK hosting remains separate work.
 
 ### Expiry dates to watch
 
@@ -314,3 +374,7 @@ Never request, read or enter OTP codes, PINs or Telegram codes on the user's beh
   rebuild/install to show the new frontend PIN-preview experience.
 
 - **5 Nov 2026** — Hosting chosen: Railway Trial (Render free rejected: blocks SMTP too, sleeps after 15 min, ~1 min cold starts). Gmail API sender added and live-tested locally (Inbox). Backend deployed with `railway up`; first upload went into the `Postgres` service by mistake (empty database, nothing lost; service recreated). Variables set from `.env` without printing. Flyway V1→V21 on an empty database. Live OTP email reached the Inbox. Debug APKs built against the Railway URL (first compile of the Merchant Kotlin). Native Telegram enabled on the server; device round trip not yet verified. Details: guide §8 entries of 5 Nov 2026.
+
+### 6 November 2026 - Latest wallet/auth APK refresh
+
+Both APKs rebuilt/verified after authorization; current canonical files now include linked merchant wallets and Merchant safe diagnostics/recovery, superseding earlier packaging-pending notes. Versioned copies `20261106-161530`; old APKs archived. All 550 sources unchanged; signing/package/content/CRC checks pass. Evidence repository `.local/apk-refresh-20261106-161530/verification.json`. Backend already current, no redeploy. No installation or real-user acceptance. See Customer §25, Merchant §20 and guide §8.

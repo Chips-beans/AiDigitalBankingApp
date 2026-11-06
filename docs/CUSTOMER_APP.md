@@ -1,6 +1,6 @@
 # Kesor Bank — Customer App and banking backend
 
-Updated 6 November 2026. Status, rules, setup and commands are in
+Updated 7 November 2026. Status, rules, setup and commands are in
 [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md); the Merchant App is in
 [MERCHANT_APP.md](MERCHANT_APP.md). Screen-level design notes remain in
 `frontend/customer_app/docs/` (design system, email auth screens, Home, Scanner, Settings,
@@ -38,7 +38,8 @@ and recovery of uncertain requests are enforced on every financial operation.
   iOS is not implemented.
 - **Onboarding:** a verified identity creates an onboarding-only profile; banking authorities are
   withheld until first and last names are submitted (`PATCH /auth/profile`). `/auth/me` reports
-  `profileComplete`, names and `telegramLinked`. A profile does not open a financial account itself.
+  `profileComplete`, names and `telegramLinked`. Completed onboarding provisions the personal
+  USD/KHR wallet pair described in §4.
 - **Connecting methods:** an email customer can connect Telegram within 10 minutes of recent
   authentication; a new Telegram user can attach to an existing email profile by proving the email
   (the provisional profile is disabled, sessions revoked); a Telegram user can add a recovery email.
@@ -190,11 +191,15 @@ customer data. It **cannot** prepare or submit a payment.
   loans, insurance, tax actions, payments and off-topic requests stay `UNSUPPORTED`. `Answer.mode` is null for
   data/help answers and for answers stored before the field existed (Flutter treats null as the old behaviour).
 - **Number checking (`AssistantEngine.render`):** the composer returns text with `{{fact}}` placeholders. With
-  customer facts, prose may contain **no digits (Latin or Khmer), `%`, currency symbols/codes, status words or
+  customer facts, prose may contain **no digits (Latin or Khmer), `%`, currency symbols, status words or
   magnitude words**, and needs at least one placeholder; every figure, change and percentage is computed by the
   server (`TOTALS`/`COMPARE` facts). `GENERAL`-only text may use ordinary numbers (e.g. 50/30/20) but no
-  placeholder and no 6+ digit run. All modes reject links, `@`, braces, directives to send money/contact someone,
-  and any sentence that mentions a PIN/OTP/password without a negation. Failure: data turns fall back to verified
+  placeholder and no 6+ digit run. Currency names/codes may appear in prose but not immediately beside
+  a fact placeholder. Exact whole copies of supplied figures (at least four characters with a digit)
+  are restored to placeholders before validation; other literal figures are rejected. All modes reject
+  links, `@`, braces and directives to send money to/contact a third party. Credential clauses reject
+  unnegated handover requests or a stated three-or-more-digit PIN/OTP/password; ordinary advice to keep
+  credentials secret is allowed. Failure: data turns fall back to verified
   cards (`FALLBACK`); a `GENERAL` turn returns `AI_INVALID_RESPONSE` (nothing verified to show). Known limit:
   spelled-out small numbers in prose cannot be detected reliably; the prompt forbids them.
 - **New tools:** `TOTALS` sums the Monthly Analytics daily rows over a date range (≤ 366 days, per currency, never
@@ -218,8 +223,10 @@ customer data. It **cannot** prepare or submit a payment.
 - **Language check (`AssistantEngine.requireLanguage`):** a `km` answer must be mostly Khmer script (Khmer letters ≥ 2× Latin
   letters, so terms like PIN/QR are fine); an `en` answer must contain no Khmer; any other script (Thai, Chinese, Cyrillic…)
   rejects the answer. Rejection = `FALLBACK` to verified cards, or `AI_INVALID_RESPONSE` for a general-only turn.
-  At most two provider calls per turn (intent extraction, optional explanation); 25 s overall deadline,
-  10 s read, 3 s connect, no retries, 2,048 output tokens, two concurrent calls per instance. Limits:
+  Two logical stages per turn (intent extraction, optional composition); each retries once only on
+  provider HTTP 400 `json_validate_failed`, for up to four HTTP attempts within the same 25 s deadline.
+  Read timeout ≤10 s, connect 3 s, permit wait ≤1.5 s, two concurrent calls per instance. Output token
+  caps: 300 intent, 700 answer, 800 insights. Limits:
   2,000 chars/question, 10 turns/min and 100/day per customer. Full account numbers/references use opaque
   aliases; names, emails, phones, links and tokens are stripped; labelled PIN/OTP/password input is rejected.
   Text about customer figures may only reference verified fact placeholders (see *Number checking* above); on failure verified cards are returned with
@@ -237,10 +244,12 @@ customer data. It **cannot** prepare or submit a payment.
   conversation; pending older than 2 minutes reported interrupted; messages expire after 30 days with daily
   cleanup. Flutter uses a 35 s AI client, saves only the pending question/key before sending, recovers lost
   responses by status reads, polls every 2 s (≤ 30 s) while visible, and never auto-resends.
-- **Live status:** history with Gemini (now removed): several models stalled or returned 503; `gemini-3.5-flash-lite` answered
-  Khmer intent turns in ≤ 3.6 s. **Groq has not been called live yet** (Rayu Code was dropped: its API needs a paid plan) (adapter proven only against a loopback
-  fixture). Unverified: latency, JSON reliability and Khmer quality of the chosen model, any `explanationStatus=AI` prose,
-  English turns, `TOTALS`/`COMPARE`/`GENERAL`. Config availability is not provider health. Keep the key private.
+- **Live status (recorded evidence, not a new check):** the 5 Nov Groq smoke run finished with
+  **16/16** English/Khmer answers using `explanationStatus=AI`, 0.5–2.4 s. Three of sixteen Khmer
+  intent calls required the format retry; two refusals in a row remain a risk. Temporary live test
+  removed; sanitized evidence stays in backend `.local/` and the progress guide §8 dated log.
+  Railway AI settings were enabled on 6 Nov (DEPLOYMENT.md §1). Device/provider acceptance of the
+  hosted app remains pending; configuration availability is not provider health.
 
 ## 9. Merchant touchpoints in the Customer App
 
@@ -625,3 +634,78 @@ Existing full Customer **307/307**, current handoff **38/38**, clean analysis an
 evidence retained. No APK rebuild/install or device/live-user acceptance; the APK in §21 remains
 unchanged and does not contain the latest wallet/auth fixes. Unrelated showcase work and local
 screenshots/credentials/APKs were excluded from publication.
+
+
+## 25. Updated Railway APK with wallet/auth fixes — 6 November 2026
+
+User-authorized debug/dev build completed from committed source `c6a9f8b`.
+API: `https://backend-production-18646.up.railway.app/api/v1`; Customer uses `APP_MODE=api`.
+Current APK: `frontend/customer_app/.local/apk/Kesor Bank.apk`.
+Versioned copy: `.local/apk/20261106-161530/Kesor Bank.apk` in this app.
+Size **245,526,174 bytes** (234.15 MiB); SHA-256:
+`03bbfe42c152ea830e358cc3995c2a4937c00fad7f6b438673ed7308aed20ec7`.
+
+Verified expected package `com.bank.customer_app`, valid signature matching the previous APK,
+Railway URL, latest wallet/auth/native diagnostics markers, original assets, ZIP CRC and zero
+`.env` entries. All 550 app/shared source inputs stayed unchanged. Previous canonical APK
+preserved under `.local/apk/archive/20261106-161530-previous-6f74dceed6fc/`.
+Evidence: repository `.local/apk-refresh-20261106-161530/verification.json` and adjacent logs.
+
+Includes the linked merchant-wallet visibility and/or shared/native sign-in diagnostics and
+recovery updates recorded above. Both APKs are now rebuilt; earlier packaging-pending notes
+are historical. No installation, real sign-in/payment or device acceptance. Backend remains
+current on Railway; no redeploy/configuration/migration. Docs uncommitted; no commit/push in
+this build task. Existing Customer 307/handoff 38 and Merchant 144 test baselines retained.
+
+## 26. Repository review follow-ups — 7 November 2026
+
+The organization review corrected Customer onboarding/AI documentation and contributor
+commands. The table below is the historical review finding list. The subsequent
+fixes and regression evidence are recorded in §27; these are no longer open findings.
+
+| Priority | Finding and location | Required follow-up |
+| --- | --- | --- |
+| P1 | `PostgresIntegrationTest.properties` pins SMTP connection details but not `app.mail.provider`; ambient `MAIL_PROVIDER=gmail-api` can select external Gmail delivery. | Pin SMTP in the shared fixture and assert provider isolation under a controlled Gmail override. Until then, routine Maven commands explicitly set `-Dapp.mail.provider=smtp`. |
+| P2 | `AccountPairService.open` uses a supplied `merchantId` without checking its owner before creating missing business wallets. | Authorize the merchant before writes (or retire that legacy customer operation); add foreign-owner/missing-wallet regressions. Ordinary shop registration already creates both wallets, so the condition requires sparse/legacy shop state. |
+| P2 | The same service hashes only `accountType`, although its request also contains `accountCategory` and `merchantId`. | Fingerprint the canonical operation-defining request, preserve compatibility with stored idempotency records and test changed-category/merchant conflicts. |
+
+Exact source references and review evidence are recorded in the progress guide §8 repository
+review entry. Existing backend 261/261, Customer 307/307 plus handoff 38/38, and Merchant 144/144
+remain historical baselines; no banking suites or live authentication/payment checks were run
+for documentation and repository tooling. No backend behavior/deployment/APK change
+was made during that earlier review pass.
+
+## 27. Backend review fixes and regressions — 7 November 2026
+
+All three §26 findings are addressed in backend commit `9217244` on `railway-gmail-otp`:
+
+- `PostgresIntegrationTest` pins `app.mail.provider=smtp` through dynamic properties.
+  `MailProviderIsolationTests` deliberately selects Gmail in Spring test configuration,
+  asserts the SMTP implementation before delivery and proves capture by the loopback fixture.
+  The independent `FoundationHandoffTests` restart launcher also pins SMTP and checks its
+  provider before making authentication requests.
+- Legacy `POST /accounts/pairs` resolves and locks the merchant, checks the authenticated
+  owner before creation or replay, and returns the same 404 for a foreign or missing explicit
+  shop. Inferred-shop requests still require registration. New requests cannot create or fund
+  accounts for another owner's empty or partial legacy shop.
+- The v2 fingerprint covers account type, normalized category and merchant ID (resolved for
+  Merchant requests). Omitted category means WALLET. Changed category/shop/merchant field
+  with the same key conflicts. Existing same-request responses replay without another credit.
+- Legacy type-only hashes are promoted transactionally only if a non-empty saved response
+  establishes the requested category and merchant, with ownership rechecked. Personal-wallet
+  legacy replay requires a null merchant field. Null/pending/empty or mismatched legacy records
+  return `409 IDEMPOTENCY_CONFLICT`; they do not authorize new work. No schema migration.
+
+Regression evidence: isolated baseline snapshot from `c6a9f8b` plus the new tests ran
+**23** checks, with **12 expected failures / 0 errors** covering all three findings.
+Focused fixed run **23/23** passed; the final full backend suite passed **275/275** across
+**30 suites**, zero failures/errors/skips, with `-Dapp.mail.provider=gmail-api` deliberately
+selected globally. Both mail harnesses still assert/capture only local SMTP. All 12 baseline
+failures now pass, and all 276 recorded source/manifest inputs stayed unchanged during the
+final run. The progress guide §2/§8 records commands and checks. Logs, XML reports and hashes are in
+`.local/backend-findings-20261107/` at the repository root.
+
+Published source/test fixes are included in the 7 November GitHub handoff alongside updated
+repository documentation and complete showcase source. No live deployment, dev-backend restart, development
+database migration, APK build/install or device/payment acceptance. The hosted backend
+and APKs do not contain these fixes until a separately authorized deployment/build.

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kesor Bank</title>
+    <meta name="description" content="Kesor Bank: a Customer App and a Merchant App in Flutter on one Spring Boot backend." />
+    <link rel="icon" href="/logo-dark.svg" />
+    <link rel="preload" href="/fonts/Poppins-Bold.ttf" as="font" type="font/ttf" crossorigin />
+    <script>
+      (() => {
+        const root = document.documentElement;
+        root.classList.add('js');
+        let theme, language;
+        try { theme = localStorage.getItem('kesor-theme'); language = localStorage.getItem('kesor-language'); } catch {}
+        root.dataset.theme = ['light', 'dark'].includes(theme) ? theme : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.lang = language === 'km' ? 'km' : 'en';
+        root.style.colorScheme = root.dataset.theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

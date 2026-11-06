@@ -9,7 +9,7 @@ Spring Boot backend for AI Digital Banking and Smart Wallet.
 
 ## Setup
 
-Environment settings, PostgreSQL, Gmail SMTP (sender app password), live OTP checks, the
+Environment settings, PostgreSQL, Gmail SMTP or Gmail API, live OTP checks, the
 seed fixtures and troubleshooting are in guide section 4
 ([PROJECT_PROGRESS_AND_AGENT_GUIDE.md](../../docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md)).
 In Swagger select an API group such as **foundation**; its JSON contract is at
@@ -24,6 +24,9 @@ development/QA.
 
 The tests start an isolated PostgreSQL instance and local SMTP capture server.
 They do not need an existing database, `.env`, Docker, or external email service.
+Both the shared fixture and restart-test launcher pin `app.mail.provider=smtp`; a controlled Gmail override
+regression proves it still delivers only to local SMTP. Separate Gmail-provider
+tests use loopback HTTP fixtures. See the progress guide §8 for current results.
 On Windows, stop a backend running from `target/*.jar` before cleaning because
 Java locks that file. The F5 test also boots a fresh database and restarts the
 server contexts to verify persisted money, idempotency, sessions, and logout.
@@ -45,7 +48,7 @@ placeholders before startup.
 ```
 
 Default API prefix: `http://localhost:8080/api/v1`.
-Swagger UI: `http://localhost:8080/swagger-ui.html`.
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`.
 
 ## Startup troubleshooting
 

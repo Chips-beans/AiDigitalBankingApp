@@ -1,6 +1,6 @@
 # Kesor Bank — progress and agent guide
 
-Updated 6 November 2026, Asia/Phnom_Penh. This is the single place for **current status,
+Updated 7 November 2026, Asia/Phnom_Penh. This is the single place for **current status,
 rules, setup, commands and open work**. Product detail lives in two sibling documents:
 
 | Document | Covers |
@@ -11,7 +11,8 @@ rules, setup, commands and open work**. Product detail lives in two sibling docu
 | This file | Progress, agent rules, environment, commands, conventions, backlog |
 
 Other docs that stay next to the code: `AGENTS.md` (short pointer file for agents),
-`README.md`, the module READMEs, and `frontend/customer_app/docs/*` (screen-level
+`README.md`, [CONTRIBUTING.md](../CONTRIBUTING.md), GitHub issue/PR templates, the module READMEs,
+`showcase/README.md`, and `frontend/customer_app/docs/*` (screen-level
 design notes and `WIFI_DEVELOPMENT.md`). More documents (for example a plan file) can be
 added later; list them in the table above.
 
@@ -31,8 +32,39 @@ these three files. Nothing was lost: the last commit that still contains them is
 - Both apps share one backend and database. The Merchant App never has its own login: it signs in through approval in the Customer App.
 - Latest schema: **V21** in source. The development database is behind (see §6).
 - **Hosted:** backend live on Railway at `https://backend-production-18646.up.railway.app` (schema V21, Gmail API OTP, native Telegram) for a short live run, deployed from branch `railway-gmail-otp`; pilot APKs point at it. See [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Showcase live:** `https://showcase-website-production.up.railway.app`, isolated Railway `Showcase Website` service. Banking backend/database unchanged; APK hosting deferred by the user.
 
 ## 2. Progress
+
+### Backend review fixes — 7 November 2026
+
+All three repository review findings are fixed in backend commit `9217244`: test SMTP selection is pinned,
+legacy merchant-pair creation/replay verifies ownership, and pair-opening fingerprints
+cover type/category/merchant with safe promotion of verified legacy responses. No migration.
+Baseline regressions reproduced **12 failures in 23 checks**; focused fixes **23/23** pass.
+Final backend suite **275/275** passes with Gmail selected globally, zero failures/errors/skips;
+both test harnesses override it to local SMTP. Evidence is recorded in §8 below. Backend source is
+committed; deployment and existing device/M9 acceptance gates remain open. Customer §27 has the contract.
+
+### Repository organization — 7 November 2026
+
+Root/module navigation, contribution instructions and GitHub issue/PR templates refreshed.
+Browser-review output is ignored without deletion. Showcase has explicit website-only
+dev/build/preview commands; its separate build output excludes local APK downloads.
+Existing documents/source/assets preserved; organization and complete showcase source/assets
+are included in the companion 7 November handoff commit. Source review
+identified three backend follow-ups, recorded under §8 and Customer §26; the subsequent
+fixes are summarized above and in Customer §27. No banking source changes or banking-suite
+reruns were part of the earlier organization-only pass.
+
+**Current publication/package summary:** backend review fixes are committed as `9217244` on
+`railway-gmail-otp`, followed by the companion organization/showcase handoff commit. The branch
+has not been merged into `main`. The user explicitly authorized publishing the full showcase.
+Latest recorded APK pair is `20261106-161530`, including wallet/auth fixes, still awaiting
+device acceptance (Customer §25, Merchant §20). Showcase source, required assets and current
+documentation are included in the handoff; its latest recorded live website deployment is the 6 Nov website-only
+release. Implementation rows below also retain dated historical verification details;
+publication/APK/deployment-pending wording in older rows is superseded by this summary.
 
 ### Customer App and backend
 
@@ -51,7 +83,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 | Monthly Analytics | Built; user accepted the screen's appearance. |
 | Optional Analytics watercolor asset (4 Nov) | Generated transparent Khmer money-planning PNG at `frontend/customer_app/assets/analytics/khmer-money-planning.png`; delivered separately, not wired into the screen. Uncommitted. |
 | Optional Analytics header asset (5 Nov) | Generated transparent navy/gold wallet, coins and chart PNG at `frontend/customer_app/assets/analytics/monthly-money-overview.png` for above the month selector. Delivered separately; not wired into the screen. Uncommitted. |
-| Read-only AI assistant (OpenAI-compatible gateway; Gemini removed 5 Nov 2026) | Built; 5 Nov 2026 added general money guidance (education + budgeting tips, `GENERAL`/`MIXED` modes), `TOTALS`/`COMPARE` tools and number-checked free-form text — automated tests only, no live Gemini run of the new prompts (see CUSTOMER_APP.md §8). Live success proven only with `gemini-3.5-flash-lite` (Khmer intent turns); Gemini prose (`explanationStatus=AI`), English locale, monthly summary and payment-refusal turns are unverified. |
+| Read-only AI assistant (OpenAI-compatible gateway; Gemini removed 5 Nov 2026) | Built: `GENERAL`/`MIXED`, `TOTALS`/`COMPARE`, number-checked prose. Recorded 5 Nov Groq smoke: **16/16** EN/KM answers with `explanationStatus=AI`, 0.5–2.4 s, three format retries recovered. Railway flags enabled 6 Nov; hosted-device/provider acceptance remains pending. Customer §8; historical provider records in §8 below. |
 | Settings (profile edit, PIN change, alerts, language/theme, FAQ) | Built; user confirmed "Settings looks correct and pages open". PIN change, notification delivery not personally tested. |
 | Home (3 actions, Favorite Recipients), Wallet & Accounts screen, scanner UI, Receive QR redesign | Built; device acceptance pending. |
 | Customer Figma section redesign (4 Nov) | Implemented all five frames in section `387:6034`: Home, Wallet, Analytics, AI Assistant and blurred My QR overlay. Customer 273/273 tests, 300 responsive renders without layout exceptions, analysis clean. Uncommitted; no APK/device acceptance. See Customer document §14. |
@@ -62,6 +94,12 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 | Area | State |
 | --- | --- |
+| Railway website deployment (6 Nov) | **LIVE** at `https://showcase-website-production.up.railway.app`; final website-only deployment `b64073e6-b37a-448f-8425-388ebc0c1d48` SUCCESS. Includes all subsequent UI/credit/footer updates below. Public HTTP 200 and 1440/390/320 EN/KM checks pass. Backend/Postgres configurations, deployments, instances and database volume unchanged. APK hosting explicitly deferred; local APK download checks below do not apply to hosted routes. Source/docs remain uncommitted. |
+| Say Kokann QA credit (6 Nov) | Role now `Back-end Developer · QA Tester`, with Khmer translation; description/layout retained. Production build and 320px EN/KM wrapping checks pass. Uncommitted, not deployed. |
+| Footer cleanup and Figma action (6 Nov) | Removed student/location/year and course/academic-year blocks. Added a localized gold Figma button directly under GitHub using the supplied shared URL; Back to top retained. Production build and eight EN/KM footer checks at 1440/768/390/320 pass with matching button style, >=48px targets and no overflow. Uncommitted, not deployed; §8 evidence below. |
+| Real links, APK downloads and team credits (6 Nov) | Buttons serve verified `20261106-161530` Railway APKs with download filenames; predev/prebuild sync checks latest size/hash/verification and packages ignored downloads. GitHub/Figma URLs set exactly as supplied. Seng: Back-end/Flutter/UX/UI + existing description and DevOps/hosting/deployment; Say: Back-end + backend/app testing; third profile unchanged. Both actual browser downloads match source hashes; 16 EN/KM × theme × width team checks pass. Uncommitted, not deployed; §8 below. |
+| Theme and Khmer switches (6 Nov) | Added reference-style circular sun/moon control and EN/ខ្មែរ capsule beside GitHub/Figma, with saved preferences and system-theme default. Whole-page copy/captions/accessible labels translated; local licensed Google Sans for Khmer, Poppins retained for English. Khmer canvas shaping preserved. Production build and 16 theme/language/viewport cases pass at 1440/768/390/320, no overflow/broken images/runtime errors. Merchant mobile clipping fixed; header controls sit above the lanyard. Uncommitted, not deployed; §8 evidence below. |
+| Section backgrounds and footer (6 Nov) | Current four-section page refined with approved porcelain/white/cool-gray/slate-navy/deep-navy fields and compact three-column footer, stacked on phones. All footer content/links retained. Hero/shared CSS prefix and 30 protected source files unchanged; all 21 measured section/hero geometry groups match at 1440/768/390/320. Production build and targeted contrast/keyboard/anchors/reduced-motion checks pass. Existing mobile Merchant clipping/320px overflow and seven baseline inspector finding categories retained. Uncommitted, not deployed; §8 evidence below. |
 | Hero left-side spacing (6 Nov) | User subsequently authorized hero spacing edits. `showcase/src/hero.css` now groups headline/description/actions with content-driven text height, 32px desktop gaps and 16px button separation; phone gaps 24/28/12px. Type, colors, copy, hero JSX, splash, grid and lanyard unchanged. Production build passes; 1440/768/390/320 captures have no horizontal overflow and keep button sizes. Uncommitted; evidence in §8. |
 | Below-hero showcase redesign (6 Nov) | Rebuilt `showcase/src/App.jsx` and below-hero `styles.css` using UI/UX Pro Max + design-taste-frontend: product introduction/navigation, Customer screen index, Merchant screen run, five-stage payment walkthrough, open technology rows, sample team roster and compact wordmark footer. Hero/splash/component sources and shared CSS prefix verified unchanged. Production build passes; inspector 1440/768/390 **0 FAIL, 3 WARN** with only protected splash timing/coverage allowances. Browser: all 12 selectors, five stages, keyboard/range, anchors and reduced motion pass; 1440/768/390/320 have no horizontal overflow/broken images. No deployment or commit. Evidence: §8 below. |
 | Project showcase site (6 Nov) | Layout pass built in `showcase/` (Vite + React, brand navy/gold, Poppins): hero, Customer App, Merchant App, How it works (payment slider), Tech stack, Team, Footer. Screenshots are WebP copies of `Flutter Screen/` captures. **All content is placeholder** (APK/Figma links `#`, team, university/course, illustrative API log lines) in `showcase/src/data.js`. Hero rebuilt from Figma `437:2492`; its ID badge is React Bits Lanyard (`src/components/Lanyard.jsx`, three.js, lazy-loaded) with Kesor card/strap art in `public/lanyard/`. Hero background is React Bits CursorGrid aligned to the copy block; a StrokeText "KESOR Bank" splash (`src/Splash.jsx`) plays on every load, then the hero entrance runs. React Bits sources in `src/components/` carry small local edits (Lanyard window events/numeric anchor, CursorGrid origin, StrokeText width-only resize). Run `npm --prefix showcase run dev`. Not deployed; uncommitted. |
@@ -83,11 +121,11 @@ these three files. Nothing was lost: the last commit that still contains them is
 | Merchant Figma Quiet v2 redesign (4 Nov) | Implemented the 28 reference frames in Figma section `370:4356`: three tabs, drawer navigation, flat screens, bundled SVGs and adaptive numeric entry. 112 Merchant tests pass; 294 responsive renders without overflow; analysis clean; 34-state screenshot catalog exported. Uncommitted; no APK/device acceptance. See Merchant document §13. |
 | Earlier Merchant UI refinement (4 Nov) | Welcome, Home, Collect, Sales and Merchant shared presentation widgets refined against the existing Kesor design system. Initial pass: 109 tests, analysis clean, 232 before/after renders. Later user request restores the original Home shop card/action tiles; see Merchant document §12 for current evidence. Uncommitted; no native/device acceptance. |
 
-### Test baselines to keep green (6 November 2026)
+### Test baselines to keep green (backend 7 November; apps 6 November 2026)
 
 | Suite | Result |
 | --- | --- |
-| Backend `./mvnw.cmd -o test` | **261/261** (6 Nov 2026, PIN Home preview pre-deployment full suite) |
+| Backend `./mvnw.cmd -o "-Dapp.mail.provider=gmail-api" test` | **275/275**, zero failures/errors/skips (7 Nov, all three review fixes; inherited Gmail overridden by both SMTP fixtures) |
 | Merchant `flutter test test --concurrency=1` | **144/144** (6 Nov, sign-in diagnostics/recovery); 192 auth-error renders without layout exceptions, analyzer clean. Splash fixture 30 and earlier Change list fixture 294 renders remain historical evidence. |
 | Customer `flutter test --concurrency=1` | **307/307** (6 Nov, linked merchant wallets); Merchant-wallet fixture 96 renders, analysis clean. Assistant fixture 72 renders and Section 3 fixture 288 renders remain earlier evidence, as do Customer Figma 300 and Merchant-transfer approval 24 renders. |
 | `flutter analyze` both apps, `git diff --check` | Clean |
@@ -96,8 +134,9 @@ Customer and Merchant full suites and analysis were rerun for Section 3 on 6 Nov
 Latest Merchant sign-in evidence supersedes that Merchant baseline: 144/144, both analyzers
 clean, Customer handoff/payment subset 38/38; the Customer full 307/307 run is the preceding
 linked-wallet change. Both app Kotlin compile checks pass without APK assembly.
-The backend baseline is the separate 6 November PIN deployment evidence; no backend suite
-was needed or run for these Flutter presentation changes.
+The backend baseline is the 7 November repository-review fix run, superseding the 6 November
+261-test PIN deployment evidence. Flutter was unchanged and its suites were not repeated for
+these backend fixes. The hosted backend still runs the earlier published source.
 
 ## 3. Rules for every agent session
 
@@ -205,7 +244,8 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 
 - Development backend, PostgreSQL service `postgresql-x64-18`, USB forwarding and installed APKs were last observed on 31 October–3 November. The dev backend was then at **V18**; **V19–V21 are not applied**. Do not assume anything is running now.
 - Devices: Samsung SM-X216B tablet `R9TXB0G1VKT` (Don't keep activities on, text scale 1.3, font weight +300) and a TECNO phone `1429155557104952`. Last installed Merchant APK was the M3 sign-in build; last Customer APK predates Merchant M4+.
-- AI gateway: previously configured for Gemini; the `.env` needs the new `AI_*` keys (see §4) before the assistant is available again.
+- AI gateway: the recorded 5 Nov Groq live smoke passed; Railway AI flags were enabled 6 Nov.
+  Local `.env` and current provider health were not inspected in the 7 Nov repository review.
 - Local ignored evidence: `backend/digital-banking/.local/`, `frontend/*/.local/` (test logs, QA renders). APK outputs went to `C:\Users\User\Documents\Codex\2026-10-31\kesor-bank-is-a-digital-banking\outputs`.
 
 ## 7. Conventions
@@ -230,6 +270,290 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 - Add every new screen to the visual fixture and inspect representative renders (EN/KM, light/dark, 2× text, tablet).
 
 ## 8. Open work and backlog
+
+### 7 November 2026 — GitHub handoff publication
+
+- User requested commit/push of the repository organization and backend fixes, then explicitly
+  selected inclusion of the complete showcase source and assets so a fresh checkout is usable.
+- Backend fix commit **`92172444e8c0ab647ac3b5b64637f1764d44ef39`** contains the five Java
+  implementation/regression files. The companion **Organize repository and publish showcase
+  source for handoff** commit includes navigation, contributor commands, issue/PR templates,
+  refreshed product/deployment/progress docs, and complete showcase source/assets/lockfile.
+- Exact-source test evidence retained: backend **275/275**, zero failures/errors/skips with
+  inherited Gmail selected; website-only build/static preview/asset checks pass. All 276 backend
+  source/manifest inputs still match the final test run. No repeated heavy suites for publication.
+- Publication uses `origin/railway-gmail-otp`; `main` is unchanged. Audit and remote-ref
+  confirmation are recorded in `.local/repository-publication-20261107/`. Credentials, local
+  evidence, browser captures, exported screenshot collections, APKs, generated downloads,
+  dependencies and build outputs are excluded. Showcase's required source WebP assets are included.
+- No Railway deployment/configuration, dev-backend restart, database migration, APK build/install
+  or device acceptance. Backend fixes remain undeployed; M9 and hosted APK delivery remain open.
+  Earlier uncommitted/publication-pending entries below describe the state at those earlier steps
+  and are superseded by this handoff record.
+
+### 7 November 2026 — Three backend findings fixed (uncommitted)
+
+- User requested fixes and regression tests for the three repository review findings.
+  Parent implemented in the existing checkout; all prior organization/showcase/docs work preserved.
+- Pinned the integration fixture's mail provider; added an explicit Gmail-selection override test
+  that asserts SMTP before attempting delivery and confirms the local capture server receives it.
+  The separate Foundation restart-test launcher now pins and asserts SMTP as well.
+- Account-pair merchant requests now resolve/lock/check the actual owner's shop before creation
+  or replay. Explicit foreign/missing shops return 404; unauthorized attempts create no accounts,
+  postings or request row. Existing implicit owner requests continue to work.
+- Fingerprints now include account type, normalized category and merchant ID. Stored type-only
+  fingerprints can be upgraded from matching non-empty saved responses, without recreating or
+  funding accounts. Pending/null/empty or mismatched legacy responses fail closed with 409;
+  previously stored responses are never accepted for another category/shop. No Flyway changes.
+- Regression-first evidence: isolated `git archive c6a9f8b` backend snapshot (no `.env`) with new
+  tests, **23 total / 12 expected failures / 0 errors**, including foreign empty/partial shops,
+  changed category/merchant, ambiguous legacy records and mail-provider selection. Fixed focused
+  run **23/23**, then added null-JSON legacy coverage and fixture ownership cleanup before the
+  final full run. First full run **275/275**; final rerun after restart-fixture hardening with
+  `./mvnw.cmd -o "-Dapp.mail.provider=gmail-api" test` also **275/275**, **30 executed suites**,
+  zero failures/errors/skips. Both harness XML reports confirm the inherited Gmail setting;
+  SMTP assertions/local delivery still pass. All 12 baseline failures now pass. All **276**
+  source/manifest inputs remain unchanged through the final run; no migration edits.
+- Evidence in `.local/backend-findings-20261107/`: `verification.json`, `baseline-results.json`,
+  `focused-results.json`, `initial-full-results.json`, source manifests, baseline/focused/full logs
+  and `final-full-reports/`. Report totals count only executed suites, excluding stale older XML.
+  The isolated baseline snapshot is retained as reproduction evidence. Local links and final
+  diff checks pass; all **1,184** original files remain and the Git index is unchanged.
+- Updated contributor/test instructions, Customer §26–27 and the deployment source-divergence note.
+  All three findings resolved; ready for developer handoff. All changes uncommitted.
+  No live deployment/configuration, backend restart, dev-DB migration, APK build/install,
+  credentials read, real email/payment or device acceptance. Current hosted code remains the
+  prior published version; these fixes need a separately requested deployment.
+
+### 7 November 2026 — Repository review and organization (uncommitted)
+
+- Used two read-only workers for structure/docs and banking-source review; parent integrated
+  changes in the existing checkout. Baseline `c6a9f8b`, branch `railway-gmail-otp`; four existing
+  modified documents and untracked showcase/output were preserved. Baseline hashes/diff:
+  `.local/repository-review-20261107/`. No files moved or deleted, staged, committed or pushed.
+- Added repository map and contributor commands, issue/PR templates, showcase onboarding and
+  explicit website-only commands. Updated Merchant M1-era README, Customer wallet onboarding,
+  AI contract/live-evidence summaries and Merchant evidence baseline. Browser captures under
+  `/output/playwright/` are now ignored; original files retained.
+- `build:website` uses a separate `dist-website/`, filtering local downloads; existing guarded
+  APK commands and verification script remain intact. Deployment docs describe both paths.
+- Verification: `npm --prefix showcase run build:website` passed (75 modules; existing lazy
+  Lanyard >500 kB warning). Output **76 files / 9,167,997 bytes**, no downloads/APKs/`.env`;
+  all **71** public assets byte-identical to source despite APKs present in `public/downloads/`.
+  Default/website/preview config assertions pass; local preview serves HTML, JS, CSS, Khmer font,
+  screenshot and logo with HTTP 200 (**6** probes). Independent source/diff review found no
+  material issues. No browser visual acceptance claimed for these tooling-only changes.
+- All **1,184** original source/document/output files remain; only the 12 intended existing
+  files changed relative to the captured baseline. **55** relative links across **29** Markdown
+  files resolve; **8** ignore/exception checks and npm lockfile metadata match pass.
+  `git diff --check` clean. Evidence: `.local/repository-review-20261107/verification.json`
+  and `preview-smoke.json`; baseline hashes and original docs diff kept alongside them.
+- **Historical review follow-ups (resolved in the subsequent fixes above / Customer §27):**
+  1. **P1 — Test mail-provider isolation:** `PostgresIntegrationTest` overrides SMTP connection
+     settings but not `app.mail.provider`. Ambient `MAIL_PROVIDER=gmail-api` can select the Gmail
+     API instead of local SMTP. Pin the fixture to SMTP and add a controlled override assertion.
+     Contributor commands currently pass `-Dapp.mail.provider=smtp` as a temporary guard.
+  2. **P2 — Legacy account-pair merchant ownership:** `AccountPairService.open` accepts supplied
+     `merchantId` without resolving its owner. A foreign legacy/sparse shop missing a wallet can
+     receive a newly created account assigned to the caller. Normal registration creates both
+     wallets, limiting this condition. Authorize before creation; cover foreign/missing-wallet cases.
+  3. **P2 — Account-pair idempotency:** the request fingerprint hashes `accountType` only; changing
+     `accountCategory` or `merchantId` with the same key can replay an unrelated success. Canonicalize
+     all operation-defining fields, plan compatibility for stored records and add regressions.
+- No banking runtime changes, heavy banking suites, credentials read, APK work, device operations,
+  backend restart, migration, live service change or external publication. This is a bounded review,
+  not a comprehensive security audit. Next: resolve the backend follow-ups with isolated regressions;
+  separately requested source publication and M9 acceptance remain open.
+
+### 6 November 2026 — Showcase website deployed; APK hosting deferred
+
+- User steering: "Deploy the Website First No need to care about apk now." Stopped task-specific
+  APK transfer/batch processes and deployed the small website-only package. Deployment
+  `b64073e6-b37a-448f-8425-388ebc0c1d48` **SUCCESS**, public URL
+  `https://showcase-website-production.up.railway.app`, Nginx port 80. Includes all approved
+  backgrounds, footer, theme/Khmer switches, links and QA Tester credit. No APKs in this package.
+- Public HTTP 200; browser verification at 1440/en, 390/km and 320/en confirms exact viewport
+  widths, updated role translations, footer Figma URL, removed metadata, no broken loaded images
+  and no runtime errors. Reviewed desktop/mobile screenshots. Evidence:
+  `.local/showcase-deploy-20261106/public-ui-verification.json`, `live-*.jpg`,
+  `website-only-final-manifest.json`, `website-only-final-upload.log`.
+- Protected banking comparison `banking-after.json`: no configuration changes; backend remains
+  deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668`, Postgres remains
+  `0695dccd-17dd-4db5-ba42-8712d5fd9590`, database volume unchanged; Swagger HTTP 200.
+- APK hosting remains deferred, not verified. Showcase-only volume retained with incomplete
+  staging files; do not resume transfers without a new user request. Temporary registered SSH
+  key revoked; fingerprint-guarded removal of generated private/public files confirmed.
+  No banking mutation, APK rebuild/install, commit or push. This completion record supersedes
+  the historical checkpoint below. Deployment runbook updated.
+
+### 6 November 2026 — Historical Showcase deployment checkpoint (superseded above)
+
+- User explicitly authorized deployment to the empty website service, preserving backend/database.
+  Project `c4ac8b7a-7a1a-4f08-9060-d0b444f05eda`, production `a7d550e4-e298-45d2-9c87-5bc778731653`.
+  Website service **Showcase Website** `57761625-19f6-4f2f-ba34-193668277189`; backend remains
+  `61f5742d-bc85-4d96-b802-0fe9915ae402`; Postgres `326bd50b-2a12-40ea-9d40-173f781c06c0`.
+- Website deployment `db6c2aa5-050a-4ce0-aee0-8f182183c144` SUCCESS; public domain provisioned:
+  `https://showcase-website-production.up.railway.app`, target port 80. **APK delivery NOT complete.**
+  Source build/current UI includes all approved edits and QA Tester credit. Initial 485MB payload
+  upload failed 413 (216MB compressed); smaller public-only 9MB payload succeeded.
+- Website-only volume `32d81461-0013-47f1-a309-020c0519c763` mounted `/apk-downloads`. Trial's
+  default volume cannot hold both raw APKs; no subscription upgrade or banking changes performed.
+  Final plan: store transparent gzip APKs (~208MB total); Nginx `gzip_static always; gunzip on`
+  preserves original download filenames and bytes. Both modules verified present. Source configs
+  are in `showcase/hosting/`; gzip-aware audited payload is `.local/showcase-deploy-20261106/web-payload-gzip`.
+- Compressed APK records: `.local/showcase-deploy-20261106/compressed-apks.json`; canonical original
+  hashes unchanged from 161530 release. Local gzip round-trip hashes verified. SSH/SFTP uploads
+  have been slow/reset and currently left incomplete files; **do not claim downloads work yet**.
+  A temporary personal SSH key `codex-showcase-20261106-temporary` was registered (fingerprint
+  `SHA256:YvCMpGv5TLHcJv8ZIbOTE4JI/zl23MOvxA4UiUcn+cc`); private key is only in user `.ssh`.
+  **Revoke this registered key after completion.** Native SSH configuration is the ignored
+  `.local/showcase-deploy-20261106/ssh-config`, alias `kesor-showcase-upload`, pointing at current
+  website instance `a20ea070-6fbc-493b-aed1-f903c2bf660a`. Regenerate if redeployment changes instance.
+- Next: stop only task-specific transfer processes; deploy APK gzip pieces via source archives
+  individually below the upload limit, with an entrypoint copying/assembling verified pieces into
+  `/apk-downloads`. There are two ~60MB bank pieces and one ~87MB merchant gzip; three small
+  deployments to **website ID only** avoid SSH transfer bottlenecks. Then run public verification.
+- Evidence/baseline in `.local/showcase-deploy-20261106/`: `before.json` (protected bank configs,
+  instances/deployments/volumes), audited manifests, logs, compression records, and pending
+  `verify-live.mjs` which tests public UI and actual APK download SHA-256. Before backend probe
+  through native Windows TLS: Swagger 200; Python's TLS store had an expired-root error, so use
+  curl.exe/browser for public HTTPS verification. No banking mutation issued. Backend baseline
+  deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668`, Postgres `0695dccd-17dd-4db5-ba42-8712d5fd9590`.
+- Usage checked: 9% primary / 86% secondary remaining; user notified. Continue authorized work.
+  Preserve all work; no commits/pushes requested. Final docs/after-state verification still pending.
+
+### 6 November 2026 — Say Kokann QA Tester credit (uncommitted)
+
+- Added QA Tester beside Say's Back-end Developer role in EN/KM; kept his description and all
+  other profiles/layout unchanged. Production build passes (existing lazy Lanyard size warning),
+  diff check clean; both labels fit/wrap at 320px with no runtime errors. Captures/checks:
+  `.local/showcase-say-qa/`. Usage checked: 36% primary / 90% secondary remaining. Not deployed.
+
+### 6 November 2026 — Footer cleanup and Figma button (uncommitted)
+
+- Removed both requested footer metadata blocks in all languages and their unused footer layout
+  styles/import. Added `View on Figma` directly below GitHub, using the same gold button class and
+  the existing shared Figma destination. Added Khmer label; kept Back to top and other content.
+- Production build passes, including existing APK integrity preparation; only the existing lazy
+  Lanyard size warning remains. Eight EN/KM × 1440/768/390/320 browser checks pass: metadata absent,
+  correct destinations, Figma beneath GitHub, matching button fills, >=48px targets, no horizontal
+  overflow/runtime errors. All eight screenshots reviewed. `git diff --check` clean.
+- Evidence: `.local/showcase-footer-links/checks.json` and eight viewport captures. Usage checked:
+  41% primary / 91% secondary remaining. Uncommitted; no deployment or APK/backend changes.
+
+### 6 November 2026 — Showcase real links, Railway APK downloads and team credits (uncommitted)
+
+- User supplied GitHub `.git` and Figma URLs; applied them to the shared link data (both GitHub
+  links and the Figma button). APK links now use same-origin `/downloads/kesor-bank.apk` and
+  `/downloads/kesor-merchant.apk`, with native download filenames `Kesor Bank.apk` / `KesorMerchant.apk`.
+- Used latest verified active release **20261106-161530**, not the earlier 055520 pair. Customer:
+  **245,526,174 bytes**, SHA-256 `03bbfe42c152ea830e358cc3995c2a4937c00fad7f6b438673ed7308aed20ec7`.
+  Merchant: **231,059,332 bytes**, SHA-256 `ee2a462b55135fd41e7ec2146e0d550670cc51082c4f8d92f0709f8f42a18a3e`.
+  Rechecked both canonical hashes against the active verification record; ZIP/kernel inspection
+  confirms embedded Railway `/api/v1` URL and zero `.env` entries. No APK rebuilt or modified.
+- Added `showcase/scripts/sync-apks.mjs` with `sync:apks`, predev and prebuild hooks. Checks both
+  canonical files against the latest active release/size/hash/signature/Railway verification before
+  packaging; copies verified files through a checked temporary file and emits an integrity manifest.
+  Generated `public/downloads/` and production output are ignored. Missing/stale/unverified inputs
+  fail preparation instead of shipping placeholder links. Deployment document records the workflow
+  and corrects older prose that still described the preceding APK pair.
+- Updated Seng's role to **Back-end Developer · Flutter Developer · UX/UI Designer**; kept his
+  original description and appended DevOps, hosting and deployment credit. Say is **Back-end Developer**
+  with backend development/app testing duties. Som's complete profile remains identical. Khmer
+  translations updated for the changed roles/descriptions. No CSS/layout or component changes.
+- Validation: production build passes (existing lazy Lanyard size warning), diff check clean.
+  Clicked both actual APK buttons in Chromium, waited for completed downloads, and independently
+  verified downloaded sizes/hashes against canonical release and `dist/` files. Exact GitHub/Figma
+  destinations and download attributes verified. **16/16** EN/KM × light/dark × 1440/768/390/320 team
+  checks pass with no text/horizontal overflow or runtime errors; all screenshot sheets reviewed.
+  Third-profile identity/role/description/photo equality asserted. APK/generated paths verified ignored.
+- Evidence: `.local/showcase-info/verification.json`, `apk-inspection.json`, actual browser downloads,
+  16 Team screenshots and four sheets; generated `showcase/public/downloads/manifest.json`.
+  Usage checked: 43% primary / 91% secondary remaining. No commit, push, public hosting/deployment,
+  APK build/install, backend restart, migration or authenticated device/live-provider acceptance.
+
+### 6 November 2026 — Showcase light/dark theme and Khmer language switches (uncommitted)
+
+- User requested dark/light mode, Khmer with Google Sans, and reference-style controls aligned
+  with GitHub/Figma at the top right. Implemented with design-taste-frontend and UI/UX Pro Max.
+  Existing page/component structure, light palette, screenshot art and identity assets retained.
+  Narrow headers retain the accessible brand name while visually showing the logo and icon links;
+  new switches and links stay on one aligned row with >=44px targets down to 320px.
+- `Preferences.jsx` supplies React context, native toggle/language buttons, translated accessible
+  names/pressed states, safe storage and before-paint theme/lang updates. `i18n.js` contains Khmer
+  page copy, headings, navigation, descriptions, captions, team roles/duties and image labels.
+  Product/technology/person names and embedded screenshots remain original. `index.html` restores
+  valid `kesor-theme` / `kesor-language` before first paint; first visit uses system theme + English.
+  User choice persists across reload. Blocked localStorage falls back safely without disabling controls.
+- `preferences.css` adds the reference's circle/capsule styling, navy dark palette, Khmer leading
+  and responsive typography. Google Sans Regular/Medium/Bold and OFL license copied from existing
+  Customer assets to `showcase/public/fonts/`; all 63 Khmer code points used are present in every
+  weight. Browser platform-font inspection confirms custom **Google Sans Medium** draws the heading.
+  English remains Poppins. No new dependency or remote font request.
+- Hero canvas colors/grid/orbit path follow theme; Khmer hero words use Google Sans and whole-run
+  shaping in TechText so dependent vowels/subscripts stay connected. CircularCarousel has optional
+  accessible-label format props and updates translated metadata without reloading images/restarting
+  the ring; its live announcement is localized. Header stacking and opaque theme-button background
+  prevent the draggable badge/strap from covering controls. A `minmax(0,1fr)` mobile Merchant track
+  fixes the previously recorded clipped copy and 15px overflow at 320px.
+- Validation: production build passes (existing lazy Lanyard >500kB warning), `git diff --check`
+  clean. **16/16** combinations of EN/KM × light/dark × 1440/768/390/320 pass: exact locale/theme
+  state, fonts, translated captions, pressed state, >=44px targets, same-row header placement,
+  unobstructed hit tests, no horizontal/text overflow, broken images or runtime exceptions.
+  Reload persistence at all four widths, system-dark initialization and unavailable storage pass.
+  Real Tab traversal/focus, Space theme activation and Enter language activation pass. New control
+  text contrast >=12.92:1 (selected language 16.65:1), focus tokens >=12.79:1, dark prose >=11.51:1.
+- Evidence: `.local/showcase-preferences/report.json`, `keyboard.json`, 56 settled captures and
+  four contact sheets (all reviewed), `header-dark.jpg`, and `inspect-final/report.json`/sheets.
+  Unmodified style conventions and splash timing remain inspector exceptions: final production
+  scan reports five existing FAIL categories and six WARNs (including the new 14px control type
+  size and a phone headline heuristic after hiding the brand wordmark). No zero-FAIL claim.
+  The prior Merchant edge-text finding no longer occurs. No new images or proof/content invented.
+- No commit, push, deployment, backend/database/APK work. Existing unrelated tree changes retained.
+  Usage checked: 52% primary / 93% secondary remaining. Next: user visual/Khmer wording acceptance.
+
+### 6 November 2026 — Showcase section backgrounds and footer (uncommitted)
+
+- Implemented the user's approved plan using design-taste-frontend and UI/UX Pro Max. Current
+  rendered sections are Customer, Merchant, Built together and Team; older showcase composition
+  records below remain historical. Backgrounds are `#F4F7FA`, `#FFFFFF`, `#E9EFF5`, `#102A43`,
+  then footer `#081626`. Tokens are scoped below the hero. Merchant shading and Team dome
+  backgrounds/overlays inherit their section color; existing fades/masks/component behavior retained.
+- Changed only `showcase/src/App.jsx` (two color props and Footer markup) and below-hero
+  `showcase/src/styles.css`. Footer keeps all five links, wordmark, copy and project metadata;
+  desktop/tablet uses three main columns and two metadata columns, <=760px stacks them. All links
+  have >=44px targets and the gold action has a contrasting white keyboard focus ring.
+- Production build passes (existing lazy Lanyard >500kB warning). Before/after browser capture at
+  1440/768/390/320: all 21 measured hero/section geometry groups match at every width; all 30 other
+  source files and the shared CSS prefix match. No new runtime errors, broken images or overflow.
+  Footer target bounds/heights, all four anchor destinations including Back to top, five-link Tab
+  traversal and visible focus pass. Reduced-motion footer content/zero transitions pass at all widths.
+  Checked prose, stack labels, Team and footer text contrast is >=5.40:1; white footer focus against
+  deep navy also exceeds 3:1. Desktop footer height reduces from 648.6px to 340.8px.
+- Baseline limits preserved: Merchant mobile paragraph clips, and 320px document width is 335px both
+  before and after. Full-page inspector retains the same seven FAIL categories (protected Hero
+  star/splash timing/coverage/reduced-motion timing, existing component gradient/shadow, Merchant
+  edge text), with four WARNs on production versus five on the prior dev baseline. These are not
+  claimed fixed; no redesign of protected sections/components undertaken. Source lint likewise
+  flags existing protected component effects and typography conventions.
+- Evidence: `.local/showcase-backgrounds/` contains before/after source and geometry snapshots,
+  captures, `comparison.json` (zero changes outside footer geometry), `checks.json`, local review
+  notes, and `inspect-after/report.json` plus screenshot sheets. All final captures inspected.
+  Usage checked: 69% primary / 95% secondary remaining. No commit, push, deployment, APK,
+  backend/database change or content/placeholder replacement. Next: user visual acceptance.
+
+### 6 November 2026 - Updated Railway APKs completed and verified
+
+Both user-authorized debug/dev builds completed from `c6a9f8b`, unchanged Railway API, Customer API mode. Customer Gradle retry 360.8 s; Merchant 249.2 s. First Customer attempt was stopped for low-memory recovery; final builds used 1 GiB Gradle heap and in-process Kotlin, with Gradle stopped afterwards.
+
+- customer_app: **245,526,174 bytes**, SHA-256 `03bbfe42c152ea830e358cc3995c2a4937c00fad7f6b438673ed7308aed20ec7`. Canonical filename unchanged; versioned copies `.local/apk/20261106-161530/`. Old APKs archived/checksummed before replacement.
+- merchant_app: **231,059,332 bytes**, SHA-256 `ee2a462b55135fd41e7ec2146e0d550670cc51082c4f8d92f0709f8f42a18a3e`. Canonical filename unchanged; versioned copies `.local/apk/20261106-161530/`. Old APKs archived/checksummed before replacement.
+
+Verified package IDs, matching pinned signatures, Railway URL, latest wallet/auth and native markers, required assets, CRC and no .env. All 550 source inputs unchanged; manifest `222b5c557d7ad94fb0b45183fefcb1872f4afd8d07e1250053e5bb2829ed7e85`. Evidence `.local/apk-refresh-20261106-161530/verification.json` and adjacent logs. Low-memory checkpoint superseded; interrupted-attempt evidence retained in the local build record.
+
+Existing tests Customer 307/handoff 38, Merchant 144 and clean analyzers retained; no source change or repeated suites. Backend/Postgres SUCCESS, Swagger 200; no deploy/configuration/migration. No install, actual sign-in/payment or device acceptance; M9 remains open. Customer §25, Merchant §20 and deployment records updated. Documentation uncommitted; no commit/push.
+
+
 
 ### 6 November 2026 — Banking changes published; live backend confirmed current
 

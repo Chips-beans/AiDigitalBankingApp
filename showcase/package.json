@@ -1,0 +1,29 @@
+{
+  "name": "kesor-showcase",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "sync:apks": "node scripts/sync-apks.mjs",
+    "predev": "npm run sync:apks",
+    "dev": "vite",
+    "dev:website": "vite --mode website",
+    "prebuild": "npm run sync:apks",
+    "build": "vite build",
+    "build:website": "vite build --mode website",
+    "preview": "vite preview",
+    "preview:website": "vite preview --mode website"
+  },
+  "dependencies": {
+    "@use-gesture/react": "^10.3.1",
+    "gsap": "^3.15.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "simple-icons": "^13.21.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  }
+}

@@ -1,0 +1,21 @@
+/* Primary-gold band under the hero carrying the bending marquee. */
+.marquee-band {
+  position: relative;
+  background: var(--gold-500); /* Kesor primary #CDA32F */
+  color: var(--navy-700);
+  overflow: hidden;
+  /* the arc dips below its 1440 x 120 box, so the bottom gets the extra room */
+  padding: clamp(40px, 4vw, 64px) 0 clamp(72px, 9vw, 136px);
+}
+.marquee-band .curved-loop-jacket {
+  min-height: 0;
+}
+
+/* phone: the arc scales with the width, so draw it wider than the screen
+   to keep the words large (about 1.7x) */
+@media (max-width: 760px) {
+  .marquee-band .curved-loop-svg {
+    width: 170%;
+    margin-left: -35%;
+  }
+}

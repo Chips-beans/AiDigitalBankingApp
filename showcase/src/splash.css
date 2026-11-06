@@ -1,0 +1,46 @@
+/* Splash sheet over the hero. White to match the hero, so the slide reads as
+   the same page lifting, not a second screen. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 0 24px;
+  background: var(--paper, #fff);
+  transition: transform 700ms var(--ease-in-out, cubic-bezier(0.77, 0, 0.175, 1));
+  will-change: transform;
+}
+.splash-word {
+  width: min(78vw, 760px);
+  transition:
+    opacity 220ms ease,
+    transform 260ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+.splash.is-leaving {
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+.splash.is-leaving .splash-word {
+  opacity: 0;
+  transform: translateY(-24px) scale(0.98);
+}
+
+/* no scrolling while the splash is up */
+html.is-splashing,
+html.is-splashing body {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    transition: opacity 300ms ease;
+  }
+  .splash.is-leaving {
+    transform: none;
+    opacity: 0;
+  }
+  .splash.is-leaving .splash-word {
+    transform: none;
+  }
+}

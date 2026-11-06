@@ -14,6 +14,29 @@ backend:
 
 Shared Flutter packages live in `frontend/packages`.
 
+This is a university case study using test money and internal Kesor QR payments.
+Android is the acceptance target; KHQR/Bakong and production banking are outside
+the current implementation.
+
+## Repository map
+
+| Path | Purpose | Start here |
+| --- | --- | --- |
+| `backend/digital-banking/` | Shared API, database migrations and integration tests | [Backend README](backend/digital-banking/README.md) |
+| `frontend/customer_app/` | Customer Android app, tests and visual fixtures | [Customer README](frontend/customer_app/README.md) |
+| `frontend/merchant_app/` | Merchant Android app, tests and visual fixtures | [Merchant README](frontend/merchant_app/README.md) |
+| `frontend/packages/kesor_design_system/` | Shared Flutter theme, typography and branding | [Design system README](frontend/packages/kesor_design_system/README.md) |
+| `frontend/packages/kesor_auth_handoff/` | Shared app-to-app approval transport | [Package source](frontend/packages/kesor_auth_handoff/lib/kesor_auth_handoff.dart) |
+| `showcase/` | React/Vite product showcase and static hosting files | [Showcase README](showcase/README.md) |
+| `docs/` | Current status, product contracts and deployment runbooks | Documentation below |
+
+As recorded on **7 November 2026**, the handoff work is on `railway-gmail-otp`
+and has not been merged into `main`. Merchant M0–M8 source
+and automated checks are complete; M9 device acceptance remains open. The latest
+recorded APK pair is `20261106-161530`. The handoff includes complete showcase
+source/assets and the three tested backend review fixes. See the progress guide
+for dated evidence and limits; deployment and M9 device acceptance remain separate.
+
 ## Documentation
 
 Start with [AGENTS.md](AGENTS.md), then the project documents in `docs/`:
@@ -24,6 +47,24 @@ Start with [AGENTS.md](AGENTS.md), then the project documents in `docs/`:
 - [docs/MERCHANT_APP.md](docs/MERCHANT_APP.md): the Merchant App contracts and build record.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): hosting on Railway and runbooks for changing the
   live backend, database, configuration or APKs.
+
+## Development and review
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, component commands,
+verification and pull request guidance. There is no root build: each component
+has its own dependency manifest. Keep the monorepo layout so Flutter path
+dependencies resolve.
+
+For a showcase preview without local APKs:
+
+```powershell
+npm --prefix showcase ci
+npm --prefix showcase run dev:website
+```
+
+Credentials, APKs, screenshot exports, browser review output and local evidence
+stay ignored. Keep original source/assets in their component folders; record
+milestones in the existing progress guide rather than creating more reports.
 
 ## Built with
 

@@ -1,6 +1,6 @@
 # Kesor Merchant — product, contracts and build record
 
-Updated 6 November 2026. Status, rules, setup and commands: [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md).
+Updated 7 November 2026. Status, rules, setup and commands: [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md).
 The Customer App side (approval screens, paying a shop) is summarized in [CUSTOMER_APP.md](CUSTOMER_APP.md) §9.
 Old milestone reports (M0–M8, remaining-work plan): `git show ccc10bd:docs/<NAME>.md`.
 
@@ -250,7 +250,7 @@ personal evidence, remaining production dependencies) goes into the progress gui
 ## 11. Known limits and evidence
 
 - Both `MerchantLinkBridge.kt` files and debug manifests compiled in the 5 Nov Railway APK builds;
-  latest M4+ and Figma/splash source packaged again on 6 Nov (§16). Railway has V21; V19–V21 remain
+  latest wallet/auth source packaged again on 6 Nov (§20). Railway has V21; V19–V21 remain
   unapplied to the local dev database. Device payment, transfer approval, sound/vibration, sharing and
   process-death restore remain unverified.
 - Uncertain-create process death → `OWNER_TRANSFER_IN_PROGRESS` until the first intent expires (≤ 5 min).
@@ -258,7 +258,14 @@ personal evidence, remaining production dependencies) goes into the progress gui
   to 25 bytes (G4); the scan screen shows the verified full name. Customer ៛ glyph still small.
 - Concurrent updates may show `CONCURRENT_UPDATE` with *Try again*.
 - Merchant payments are internal Kesor payments, not KHQR/Bakong certified.
-- Latest automated evidence (4 Nov 2026): backend 234/234 (V21), Merchant 106/106, Customer 273/273, Merchant fixture 232 renders,
+- Latest recorded evidence (backend 7 Nov, apps 6 Nov 2026): backend **275/275**, Merchant **144/144**, Customer full
+  **307/307** plus current handoff **38/38**, both analyzers and Kotlin compile checks clean;
+  Merchant auth fixture **192** renders. These are separate dated runs, not a new combined suite.
+  The current authoritative baseline and outstanding device gates are in the progress guide §2.
+- The 7 Nov backend review fixes verify ownership on legacy pair creation/replay and bind its
+  idempotency record to type/category/shop. Backend regression suite passes; source remains
+  committed as `9217244` and undeployed. See Customer §27. Merchant app source/APKs are unchanged.
+- Historical automated evidence (4 Nov 2026): backend 234/234 (V21), Merchant 106/106, Customer 273/273, Merchant fixture 232 renders,
   Customer transfer-approval fixture 24 renders, analysis clean. Earlier: M2 backend 191/191, M3 Customer 247 + Merchant 28,
   M4 backend 203/Merchant 42, M5/M6 backend 211/Merchant 53, M7 backend 220/Merchant 73. Visual fixtures render EN/KM,
   light/dark, phone, 320 px, 2× text, landscape and tablet.
@@ -588,3 +595,25 @@ changes needed. Source/deployment evidence is in progress guide §8 and DEPLOYME
 The §16 Merchant APK is unchanged and does not include §18's fixes. Packaging/install and the
 friend's actual approval → Merchant return → shop acceptance remain pending; M9 is not complete.
 Showcase/local screenshots, credentials and packaged APKs were excluded from this publication.
+
+
+## 20. Updated Railway APK with wallet/auth fixes — 6 November 2026
+
+User-authorized debug/dev build completed from committed source `c6a9f8b`.
+API: `https://backend-production-18646.up.railway.app/api/v1`; Customer uses `APP_MODE=api`.
+Current APK: `frontend/merchant_app/.local/apk/KesorMerchant.apk`.
+Versioned copy: `.local/apk/20261106-161530/KesorMerchant.apk` in this app.
+Size **231,059,332 bytes** (220.36 MiB); SHA-256:
+`ee2a462b55135fd41e7ec2146e0d550670cc51082c4f8d92f0709f8f42a18a3e`.
+
+Verified expected package `com.bank.merchant_app`, valid signature matching the previous APK,
+Railway URL, latest wallet/auth/native diagnostics markers, original assets, ZIP CRC and zero
+`.env` entries. All 550 app/shared source inputs stayed unchanged. Previous canonical APK
+preserved under `.local/apk/archive/20261106-161530-previous-eb495f273a84/`.
+Evidence: repository `.local/apk-refresh-20261106-161530/verification.json` and adjacent logs.
+
+Includes the linked merchant-wallet visibility and/or shared/native sign-in diagnostics and
+recovery updates recorded above. Both APKs are now rebuilt; earlier packaging-pending notes
+are historical. No installation, real sign-in/payment or device acceptance. Backend remains
+current on Railway; no redeploy/configuration/migration. Docs uncommitted; no commit/push in
+this build task. Existing Customer 307/handoff 38 and Merchant 144 test baselines retained.

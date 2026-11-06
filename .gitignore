@@ -4,6 +4,7 @@
 .mcp.json
 .playwright-cli/
 .taste-skill/
+/output/playwright/
 
 # Exported screenshot collections and packaged apps stay local.
 /Flutter Screen/
