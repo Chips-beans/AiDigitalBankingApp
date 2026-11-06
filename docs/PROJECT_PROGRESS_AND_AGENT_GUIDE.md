@@ -294,10 +294,11 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 
 ### 7 November 2026 — Handoff cleanup: contributors, license, redundant briefs
 
-- README "Built with" section replaced by "Contributors" (re4chh, Chips-beans, Claude, Codex) and a
-  License section. Added MIT `LICENSE` (copyright "Kesor Bank project team"; bundled fonts keep their
-  OFL terms) — the user may change the license/holder. GitHub's sidebar list cannot include AI
-  assistants; they are credited in the README and `Co-authored-by` lines.
+- README "Built with" section removed and a License section added. Added MIT `LICENSE` (copyright
+  "Kesor Bank project team"; bundled fonts keep their OFL terms) — the user may change the
+  license/holder. GitHub's Contributors sidebar is computed from commit authors, so AI assistants
+  appear there only for commits they authored (follow-up commit authored as Claude); `Co-authored-by`
+  lines do not add them.
 - Removed `docs/MERCHANT_FEATURE_LIST.md` and `docs/MERCHANT_DESIGN_CHANGE_LIST.md` (obsolete redesign
   briefs that referenced the ignored local `Flutter Screen/` folder); recoverable from git history.
 - Review found no tracked secrets. Possibly unreferenced images in both apps' `assets/` were
