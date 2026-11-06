@@ -24,7 +24,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 ## 1. Project snapshot
 
-- Repository: `C:\Users\User\Documents\GitHub\AiDigitalBankingApp` (GitHub `Chips-beans/AiDigitalBankingApp`), current publication branch `railway-gmail-otp`; not merged into `main`.
+- Repository: `C:\Users\User\Documents\GitHub\AiDigitalBankingApp` (GitHub `Chips-beans/AiDigitalBankingApp`), current/default publication branch **`main`**; `railway-gmail-otp` merged on 7 November 2026.
 - `backend/digital-banking` — Spring Boot 4.1, Spring Security, JPA, Flyway, PostgreSQL. Java 21 target (workstation JDK 24).
 - `frontend/customer_app` — Flutter Customer App (`com.bank.customer_app`).
 - `frontend/merchant_app` — Flutter Merchant App (`com.bank.merchant_app`), Android-first.
@@ -35,6 +35,15 @@ these three files. Nothing was lost: the last commit that still contains them is
 - **Showcase live:** `https://showcase-website-production.up.railway.app`, isolated Railway `Showcase Website` service. Banking backend/database unchanged; APK hosting deferred by the user.
 
 ## 2. Progress
+
+### Default-branch handoff — 7 November 2026
+
+The user authorized merging and pushing `railway-gmail-otp` into the default branch.
+`main` fast-forwarded from `c82a029` to `e4e13b9`, bringing in all five published commits,
+including backend fixes `9217244`, repository organization and the complete showcase.
+This companion documentation commit records `main` as the handoff entry point.
+Application code is identical to the tested source branch; backend **275/275** and the
+passing website-only build evidence remain applicable. Deployment and M9 acceptance stay open.
 
 ### Backend review fixes — 7 November 2026
 
@@ -57,9 +66,9 @@ identified three backend follow-ups, recorded under §8 and Customer §26; the s
 fixes are summarized above and in Customer §27. No banking source changes or banking-suite
 reruns were part of the earlier organization-only pass.
 
-**Current publication/package summary:** backend review fixes are committed as `9217244` on
-`railway-gmail-otp`, followed by the companion organization/showcase handoff commit. The branch
-has not been merged into `main`. The user explicitly authorized publishing the full showcase.
+**Current publication/package summary:** default branch **`main`** contains backend fixes
+`9217244` and organization/showcase handoff `e4e13b9`, merged from `railway-gmail-otp` on 7 November.
+The user explicitly authorized publishing the full showcase and merging the handoff into `main`.
 Latest recorded APK pair is `20261106-161530`, including wallet/auth fixes, still awaiting
 device acceptance (Customer §25, Merchant §20). Showcase source, required assets and current
 documentation are included in the handoff; its latest recorded live website deployment is the 6 Nov website-only
@@ -270,6 +279,25 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 - Add every new screen to the visual fixture and inspect representative renders (EN/KM, light/dark, 2× text, tablet).
 
 ## 8. Open work and backlog
+
+### 7 November 2026 — Handoff merged into the default branch
+
+- User explicitly requested merge/push to `main`. Fetched both branches and confirmed GitHub's
+  default HEAD is `main`: old head `c82a029e4d1f833c1e96fb4694c9214ec500b93f`, source head
+  `e4e13b9e465e8e4bf8575a07a6018eddab43e08e`. Main had no independent commits; the fast-forward
+  brought over all five source-branch commits without conflict or application-source changes.
+- Preserved the existing checkout, ignored local artifacts and the independent saved-recipients
+  worktree. `railway-gmail-otp` remains available at its published head. Updated README/current
+  progress, Customer handoff and deployment notes to identify `main` as the current entry point.
+- Retained exact-source verification: backend **275/275**, zero failures/errors/skips under
+  inherited Gmail override, and passing website build. Backend's 276 source/manifest inputs match
+  the tested files after Git newline normalization (272 byte-identical, four CRLF/LF-only).
+  Documentation links, diff checks and branch ancestry are checked before push;
+  no repeated heavy suites for this code-identical merge.
+- Push/ref confirmation and scope evidence: `.local/main-handoff-merge-20261107/`. Publication
+  targets `origin/main` without force or history rewrite. No deployment, configuration/database
+  changes, APK build/install or device acceptance; backend fixes remain undeployed and M9 is open.
+  Earlier branch-pending notes below are historical and superseded by this default-branch record.
 
 ### 7 November 2026 — GitHub handoff publication
 

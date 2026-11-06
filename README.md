@@ -30,8 +30,8 @@ the current implementation.
 | `showcase/` | React/Vite product showcase and static hosting files | [Showcase README](showcase/README.md) |
 | `docs/` | Current status, product contracts and deployment runbooks | Documentation below |
 
-As recorded on **7 November 2026**, the handoff work is on `railway-gmail-otp`
-and has not been merged into `main`. Merchant M0–M8 source
+As recorded on **7 November 2026**, the handoff is available on the default branch,
+`main`, after merging `railway-gmail-otp`. Merchant M0–M8 source
 and automated checks are complete; M9 device acceptance remains open. The latest
 recorded APK pair is `20261106-161530`. The handoff includes complete showcase
 source/assets and the three tested backend review fixes. See the progress guide

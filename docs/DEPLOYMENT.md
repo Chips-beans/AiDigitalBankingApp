@@ -41,7 +41,8 @@ Signatures match the previous APKs. Installation and device acceptance remain pe
 
 **7 Nov local source divergence:** the three repository-review backend fixes (mail-fixture
 isolation, legacy pair merchant ownership and complete idempotency fingerprints) are committed
-as `9217244` on `railway-gmail-otp`. They have not been deployed; prior statements about deployed/source equality
+as `9217244`, now on `main` after the 7 Nov `railway-gmail-otp` handoff merge. They have not been
+deployed; prior statements about deployed/source equality
 refer to the 6 Nov published baseline, not the current working tree. No migration is required.
 Read Customer §27 and the progress guide's current test evidence before any separately
 authorized backend deployment. APKs and live services were unchanged by these fixes.
@@ -113,7 +114,6 @@ download availability; APK hosting remains separate work.
 
 ### Housekeeping still open
 - A **detached, unused volume `postgres-volume`** remains in the project from the first (mistaken) Postgres service. The live database uses `postgres-volume-Dubs`. The user may delete `postgres-volume` in the dashboard; never delete `postgres-volume-Dubs`.
-- The deployment branch `railway-gmail-otp` is pushed but **not merged into `main`**.
 
 ---
 

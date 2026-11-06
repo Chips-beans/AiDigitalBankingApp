@@ -677,7 +677,8 @@ was made during that earlier review pass.
 
 ## 27. Backend review fixes and regressions — 7 November 2026
 
-All three §26 findings are addressed in backend commit `9217244` on `railway-gmail-otp`:
+All three §26 findings are addressed in backend commit `9217244`, now on default branch `main`
+after merging the published `railway-gmail-otp` handoff:
 
 - `PostgresIntegrationTest` pins `app.mail.provider=smtp` through dynamic properties.
   `MailProviderIsolationTests` deliberately selects Gmail in Spring test configuration,
