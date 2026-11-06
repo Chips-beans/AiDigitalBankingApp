@@ -23,7 +23,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 ## 1. Project snapshot
 
-- Repository: `C:\Users\User\Documents\GitHub\AiDigitalBankingApp` (GitHub `Chips-beans/AiDigitalBankingApp`), branch `main`.
+- Repository: `C:\Users\User\Documents\GitHub\AiDigitalBankingApp` (GitHub `Chips-beans/AiDigitalBankingApp`), current publication branch `railway-gmail-otp`; not merged into `main`.
 - `backend/digital-banking` — Spring Boot 4.1, Spring Security, JPA, Flyway, PostgreSQL. Java 21 target (workstation JDK 24).
 - `frontend/customer_app` — Flutter Customer App (`com.bank.customer_app`).
 - `frontend/merchant_app` — Flutter Merchant App (`com.bank.merchant_app`), Android-first.
@@ -38,6 +38,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 | Area | State |
 | --- | --- |
+| Banking updates published (6 Nov) | Customer/Merchant source, required assets, shared packages, backend PIN preview, tests and docs committed/pushed as `33595d6` on `railway-gmail-otp`. Earlier banking "uncommitted" notes below are historical. Live Railway backend already matches all 277 deployment inputs; healthy probes, no redeploy needed. APKs unchanged; showcase/local artifacts excluded. See §8 publication record. |
 | Linked merchant wallets in Customer (6 Nov) | Empty placeholder removed. Actual merchant KHR/USD cards, balances, copy, read-only details/activity/receipts; no cards without business wallets. Isolated personal money flows, entry/pull refresh, stale/retry and session guards. Customer **307/307**, analysis clean, **96 responsive renders** without layout exceptions. Uncommitted; current APKs unchanged, device/live acceptance pending. Customer §22; Merchant §17. |
 | Updated Customer Railway APK (6 Nov) | Built from current source with all latest designs and PIN Home preview. Debug/dev/API, unchanged Railway URL, verified package/signature/assets/CRC/checksum, previous APK archived. Not installed; device acceptance pending. Customer document §21; packaging evidence in §8 below. |
 | AI Assistant Figma redesign (6 Nov) | Current `385:2708` implemented with exact three auto-send prompts and matching reference anchors. Customer **298/298**, analysis clean, **72 responsive renders**, no overflow. Uncommitted; packaged 6 Nov, no device/live-provider acceptance. Customer document §20–21. |
@@ -229,6 +230,37 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 - Add every new screen to the visual fixture and inspect representative renders (EN/KM, light/dark, 2× text, tablet).
 
 ## 8. Open work and backlog
+
+### 6 November 2026 — Banking changes published; live backend confirmed current
+
+- User explicitly requested commit/push and an up-to-date deployed backend, then selected banking
+  updates together, excluding showcase. Commit **`33595d69ab1e0ca6f9763e8005d01919c095a2da`**
+  (`Update banking apps, linked merchant wallets and sign-in recovery`) pushed successfully to
+  `origin/railway-gmail-otp`; remote SHA verified. No merge into `main` requested or performed.
+- Published **233 files**: Customer/Merchant UI/splashes and supporting assets, linked merchant
+  wallet views, PIN Home preview/continuation, Merchant sign-in diagnostics/recovery, shared
+  packages, tests/fixtures and project/deployment docs. Root `.gitignore` protects credentials,
+  local agent/worktree/evidence files, exported screenshots and APKs. Staged audit found no
+  credential/artifact inclusions. Unrelated `showcase/` preserved locally and uncommitted.
+- Backend deployment **`8fc7d198-bdc9-4a93-bd16-793b8c6b9668`**, SUCCESS, already contains the latest
+  backend source. All **277** recorded deployment inputs (including 31 test files and 20 schema
+  migrations) match the working source byte-for-byte and the committed source after Git newline
+  normalization. No new build inputs. Existing snapshot SHA-256:
+  `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`.
+  **No redeploy needed or performed**; no Railway variables, secrets or database service changed.
+- Live verified with normal Windows HTTPS clients: Swagger **200**, foundation OpenAPI **200**
+  with **44** paths and PIN Home preview present; unauthenticated personal accounts and Merchant
+  session both **401**. Schema remains V21. Postgres deployment remains
+  `0695dccd-17dd-4db5-ba42-8712d5fd9590`, SUCCESS. Source comparison/probes/audit evidence:
+  repository `.local/github-banking-publication/`.
+- Existing exact-source automated evidence retained: backend **261/261**, Customer full **307/307**
+  (wallet baseline) plus current handoff **38/38**, Merchant full **144/144**, both analyzers and
+  Kotlin compile checks clean. No source changes or repeated suites needed for publication.
+- Existing APK hashes unchanged; they do not contain the latest wallet/auth source fixes.
+  No APK packaging/install, actual user sign-in/payment or device acceptance. Friend's failure
+  remains unconfirmed until reproduction with updated diagnostics; M9 stays open. Customer §24,
+  Merchant §19 and deployment source mapping updated. Historical "uncommitted" banking entries
+  above/below are superseded by this publication; showcase remains outside it.
 
 ### 6 November 2026 — Merchant sign-in diagnostics and recovery (uncommitted)
 

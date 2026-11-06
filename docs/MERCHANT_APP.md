@@ -571,3 +571,20 @@ Uncommitted. Existing APK checksums are unchanged; no APK build/install, backend
 change, migration, restart, deployment, real sign-in/payment, commit or push. Next: separately
 authorized APK packaging and the friend's reproduction. If it fails, capture Copy error details;
 verify Customer approval → Merchant return → registered shop before closing the incident. M9 stays open.
+
+## 19. Banking source publication — 6 November 2026
+
+Merchant source/assets, shared packages and tests—including §18 sign-in diagnostics/recovery—
+were committed and pushed with the banking updates as **`33595d6`** on `railway-gmail-otp`.
+Earlier "uncommitted" banking notes are historical. Current Merchant verification remains
+**144/144**, 192 responsive renders, clean analysis and successful Android Kotlin compilation;
+Customer handoff coverage **38/38** also passes.
+
+The live backend is already current: all 277 recorded deployment inputs match the working and
+committed backend source (Git newline normalization only), deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668`
+is SUCCESS, OpenAPI/protected-route probes pass and schema stays V21. No redeploy or variables/DB
+changes needed. Source/deployment evidence is in progress guide §8 and DEPLOYMENT.md.
+
+The §16 Merchant APK is unchanged and does not include §18's fixes. Packaging/install and the
+friend's actual approval → Merchant return → shop acceptance remain pending; M9 is not complete.
+Showcase/local screenshots, credentials and packaged APKs were excluded from this publication.

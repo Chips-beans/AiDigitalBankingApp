@@ -611,3 +611,17 @@ change. Merchant's current full suite is **144/144**, with **192** responsive er
 Uncommitted; no backend changes, APK packaging/install, device/live acceptance, deployment or
 real authentication/payment. Existing APKs are unchanged and do not include these fixes or §22's
 wallet change. The friend's exact failure needs reproduction with the updated diagnostic UI.
+
+## 24. Banking source publication — 6 November 2026
+
+Customer source/assets, tests and shared packages—including §22 merchant wallets and §23 shared
+auth diagnostics—were committed and pushed with the other banking updates as **`33595d6`** on
+`railway-gmail-otp`. Earlier "uncommitted" banking notes are historical. The deployed backend
+already matches all 277 recorded inputs and the committed backend source (Git line endings
+normalized); live OpenAPI and protected-route checks pass. No redeploy or configuration change
+was needed. Evidence and exact source/deployment mapping: progress guide §8 and DEPLOYMENT.md.
+
+Existing full Customer **307/307**, current handoff **38/38**, clean analysis and Kotlin compile
+evidence retained. No APK rebuild/install or device/live-user acceptance; the APK in §21 remains
+unchanged and does not contain the latest wallet/auth fixes. Unrelated showcase work and local
+screenshots/credentials/APKs were excluded from publication.

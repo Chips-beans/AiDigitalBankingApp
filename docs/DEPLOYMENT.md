@@ -24,7 +24,7 @@ events in that guide's §8 log, and update this file when the setup itself chang
 | Railway workspace / project / environment | `re4chh's Projects` / `superb-respect` / `production` |
 | Services | `backend` (this repo, Dockerfile) and `Postgres` (Railway template `postgres-ssl:18`, volume `postgres-volume-Dubs`) |
 | Region | US East (`iad`) for both services |
-| Deployed code | 6 Nov PIN Home preview: baseline `e6c58b6` plus uncommitted backend changes, deployed from an isolated 277-file build-input snapshot; SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`; deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (**SUCCESS**). CLI upload, not GitHub. |
+| Deployed code | 6 Nov PIN Home preview, now recorded in published banking commit `33595d6` on `railway-gmail-otp`. All 277 deployment inputs verified against current/committed source (Git newline normalization only). Original snapshot SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`; deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (**SUCCESS**), CLI upload. Already current; no redeploy needed for the 6 Nov GitHub publication. |
 | Spring profile | `dev` (see §4 for why) |
 | Database schema | Flyway **V21** (created from empty on first boot) |
 | OTP email | Gmail API over HTTPS (`MAIL_PROVIDER=gmail-api`), sender = the user's own Gmail account |
@@ -36,6 +36,13 @@ Both APKs include the latest Flutter designs, including both splashes and the Cu
 Wallet/Transaction Detail and three-question AI Assistant redesigns. Versioned copies are in each
 app's `.local/apk/20261106-055520/`; previous 5 Nov APKs are preserved under `.local/apk/archive/`.
 Signatures match the previous APKs. Installation and device acceptance remain pending.
+
+**6 Nov source publication:** banking updates were committed/pushed as `33595d6`; the live
+backend is already identical to that commit's backend source. Verified Swagger/foundation
+OpenAPI 200, PIN Home preview present, personal accounts/Merchant session 401 without auth.
+Current APKs above are unchanged and **do not include** the subsequently implemented linked
+merchant-wallet visibility and Merchant auth diagnostics/recovery fixes. Updated APK packaging
+and installation remain separate, explicitly authorized work. See progress guide §8.
 
 ### Expiry dates to watch
 
