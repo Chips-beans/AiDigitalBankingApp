@@ -1,3 +1,5 @@
+import '../../home/home_unlock_target.dart';
+
 import 'dart:async';
 
 import '../../merchant/merchant_sessions_screen.dart';
@@ -12,6 +14,8 @@ import '../../../core/network/api_client.dart';
 import '../pair_opening.dart';
 import 'pair_opening_panel.dart';
 import 'wallet_accounts_screen.dart';
+import 'wallet_detail_screen.dart';
+import '../../transactions/presentation/transaction_detail_screen.dart';
 import '../../qr/qr_gateway.dart';
 import '../../qr/presentation/receive_qr_panel.dart';
 import '../../qr/presentation/scan_qr_panel.dart';
@@ -48,7 +52,6 @@ import '../../assistant/assistant_gateway.dart';
 import '../../assistant/assistant_store.dart';
 import '../../assistant/assistant_models.dart';
 import '../../assistant/presentation/assistant_screen.dart';
-import '../../transactions/presentation/history_panel.dart';
 
 String displayDate(DateTime value) {
   final date = value.toLocal();
@@ -65,6 +68,8 @@ class AccountsShell extends StatefulWidget {
     required this.transferStore,
     required this.transfersEnabled,
     this.designPreview = false,
+    this.initialTarget,
+    this.onInitialTargetConsumed,
     this.analyticsGateway,
     this.pairOpeningStore,
     this.recipientFavorites,
@@ -79,6 +84,8 @@ class AccountsShell extends StatefulWidget {
   final TransferStore transferStore;
   final bool transfersEnabled;
   final bool designPreview;
+  final HomeUnlockTarget? initialTarget;
+  final VoidCallback? onInitialTargetConsumed;
   final AnalyticsGateway? analyticsGateway;
   final PairOpeningStore? pairOpeningStore;
   final RecipientFavoritesStore? recipientFavorites;
@@ -90,6 +97,8 @@ class AccountsShell extends StatefulWidget {
 
 class _AccountsShellState extends State<AccountsShell> {
   late final AccountsController model;
+  late final AccountsController merchantModel;
+  late final HistoryController merchantHistory;
   late final HomeController home;
   AnalyticsController? analytics;
   late final TransferController transfers;
@@ -102,6 +111,8 @@ class _AccountsShellState extends State<AccountsShell> {
 
   /// Home's Recipients section: the customer's saved favorites only.
   List<HomeRecipient> savedRecipients = const [];
+  bool _savedRecipientsReady = false;
+  String? _initialHomeAction;
 
   /// Receiver handed to the transfer screen by Home or a QR scan.
   TransferPrefill? transferPrefill;
@@ -115,12 +126,48 @@ class _AccountsShellState extends State<AccountsShell> {
   void initState() {
     super.initState();
     model = AccountsController(widget.session, widget.gateway, widget.store);
+    // No account-opening journal or personal selection is shared with this
+    // read-only view. Refresh starts when the Wallets screen is entered.
+    merchantModel = AccountsController(
+      widget.session,
+      MerchantWalletGateway(widget.gateway),
+      MemoryCreationStore(),
+    );
+    merchantHistory = HistoryController(
+      widget.session,
+      merchantModel,
+      widget.transactions,
+    );
     assistant = AssistantController(
       widget.session,
       widget.assistantGateway ?? UnavailableAssistantGateway(),
       widget.assistantStore ?? AssistantPendingStore(),
     );
     recipientFavorites = widget.recipientFavorites ?? RecipientFavoritesStore();
+    final target = widget.initialTarget;
+    if (target != null) {
+      _initialHomeAction = target.page;
+      tab = target.tab;
+      page = {'favorites', 'addFavorite', 'inbox'}.contains(target.page)
+          ? null
+          : target.page;
+      transactionReference = target.reference;
+      if (target.recipient != null) {
+        transferPrefill = TransferPrefill(target.recipient!);
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onInitialTargetConsumed?.call();
+        if (target.page == 'history') {
+          history.refresh();
+        }
+        if (target.tab == 1) {
+          analytics?.ensureLoaded();
+        }
+        assistant.setVisible(target.tab == 3);
+      });
+    }
+
     home = HomeController(widget.session, AccountHomeGateway(widget.gateway));
     final analyticsGateway = widget.analyticsGateway;
     if (analyticsGateway != null) {
@@ -173,6 +220,8 @@ class _AccountsShellState extends State<AccountsShell> {
     }
     changes = Listenable.merge([
       model,
+      merchantModel,
+      merchantHistory,
       transfers,
       history,
       home,
@@ -180,11 +229,43 @@ class _AccountsShellState extends State<AccountsShell> {
       ?pairs,
     ]);
     unawaited(transfers.initialize());
-    unawaited(model.initialize());
+    unawaited(_loadAccountsAndInitialReceipt(widget.initialTarget?.reference));
     if (!widget.designPreview) {
-      unawaited(home.refresh());
       unawaited(_loadSavedRecipients());
     }
+  }
+
+  /// A PIN continuation can arrive before owned accounts have loaded. Resolve
+  /// its wallet from the freshly authorized Home snapshot before requesting the
+  /// receipt, including when the posting belongs to the non-default currency.
+  Future<void> _loadAccountsAndInitialReceipt(String? reference) async {
+    await Future.wait([
+      model.initialize(),
+      if (!widget.designPreview) home.refresh(),
+    ]);
+    bool current() =>
+        mounted &&
+        widget.session.phase == SessionPhase.signedIn &&
+        page == 'transaction' &&
+        transactionReference == reference;
+    if (reference == null || !current()) return;
+    final posting = home.snapshot?.postings
+        .where((p) => p.reference == reference)
+        .firstOrNull;
+    if (posting != null) {
+      final account = home.snapshot!.accounts
+          .where(
+            (a) =>
+                (a.number == posting.source ||
+                    a.number == posting.destination) &&
+                a.currency == posting.amount.currency,
+          )
+          .firstOrNull;
+      if (account != null && account.number != model.selected?.number) {
+        await model.select(account);
+      }
+    }
+    if (current()) await history.openDetail(reference);
   }
 
   Future<void> _loadSavedRecipients() async {
@@ -214,7 +295,10 @@ class _AccountsShellState extends State<AccountsShell> {
       }),
     );
     if (mounted && widget.session.identity?.userId == user) {
-      setState(() => savedRecipients = people);
+      setState(() {
+        savedRecipients = people;
+        _savedRecipientsReady = true;
+      });
     }
   }
 
@@ -281,6 +365,8 @@ class _AccountsShellState extends State<AccountsShell> {
     analytics?.dispose();
     transfers.dispose();
     history.dispose();
+    merchantHistory.dispose();
+    merchantModel.dispose();
     model.dispose();
     super.dispose();
   }
@@ -393,6 +479,55 @@ class _AccountsShellState extends State<AccountsShell> {
           child: _wallet(context),
         );
       }
+      if (page == 'details' ||
+          page == 'history' ||
+          page == 'transaction' ||
+          page == 'merchantDetails' ||
+          page == 'merchantTransaction') {
+        final merchant =
+            page == 'merchantDetails' || page == 'merchantTransaction';
+        final detailAccounts = merchant ? merchantModel : model;
+        final detailHistory = merchant ? merchantHistory : history;
+        final identity = widget.session.identity;
+        final owner = [
+          identity?.firstName,
+          identity?.lastName,
+        ].whereType<String>().where((s) => s.isNotEmpty).join(' ');
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _back();
+          },
+          child: page == 'transaction' || page == 'merchantTransaction'
+              ? TransactionDetailScreen(
+                  accounts: detailAccounts,
+                  history: detailHistory,
+                  reference: transactionReference!,
+                  ownerName: owner.isEmpty ? identity?.username ?? '' : owner,
+                  onBack: _back,
+                )
+              : WalletDetailScreen(
+                  key: ValueKey(
+                    merchant ? 'merchant-details' : 'personal-details',
+                  ),
+                  accounts: detailAccounts,
+                  history: detailHistory,
+                  ownerName: owner.isEmpty ? identity?.username ?? '' : owner,
+                  onBack: _back,
+                  onMyQr: merchant
+                      ? null
+                      : () => setState(() => page = 'receiveQr'),
+                  onTransaction: (reference) {
+                    setState(() {
+                      transactionReturnPage = page;
+                      page = merchant ? 'merchantTransaction' : 'transaction';
+                      transactionReference = reference;
+                    });
+                    unawaited(detailHistory.openDetail(reference));
+                  },
+                ),
+        );
+      }
       final title = page == 'receiveQr'
           ? 'My QR'
           : page == 'scanQr'
@@ -477,29 +612,6 @@ class _AccountsShellState extends State<AccountsShell> {
                               ]
                             : page == 'open'
                             ? _opening(context)
-                            : page == 'details'
-                            ? _details(context)
-                            : page == 'transaction'
-                            ? [
-                                TransactionDetailPanel(
-                                  history,
-                                  reference: transactionReference!,
-                                ),
-                              ]
-                            : page == 'history'
-                            ? [
-                                HistoryPanel(
-                                  history,
-                                  onDetail: (reference) {
-                                    setState(() {
-                                      transactionReturnPage = 'history';
-                                      page = 'transaction';
-                                      transactionReference = reference;
-                                    });
-                                    unawaited(history.openDetail(reference));
-                                  },
-                                ),
-                              ]
                             : [ProfilePage(widget.session)],
                       ),
                     ),
@@ -632,6 +744,11 @@ class _AccountsShellState extends State<AccountsShell> {
                 Positioned.fill(
                   child: tab == 0
                       ? KesorHomeScreen(
+                          initialAction:
+                              _initialHomeAction == 'favorites' &&
+                                  !_savedRecipientsReady
+                              ? null
+                              : _initialHomeAction,
                           showNavigation: false,
                           balanceVisible: _homeBalanceVisible,
                           onBalanceVisibilityChanged: (visible) =>
@@ -729,11 +846,25 @@ class _AccountsShellState extends State<AccountsShell> {
                   Positioned(
                     left: 20,
                     right: 20,
-                    bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
-                    child: KesorBottomBar(
-                      selectedIndex: tab,
-                      onSelected: _selectTab,
-                      onAssistant: () => _selectTab(3),
+                    bottom: math.max(
+                      tab == 1 ? 32 : 24,
+                      MediaQuery.paddingOf(context).bottom,
+                    ),
+                    child: Center(
+                      heightFactor: 1,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: tab == 1 ? 400 : double.infinity,
+                        ),
+                        child: MediaQuery.withClampedTextScaling(
+                          maxScaleFactor: tab == 1 ? 1.3 : double.infinity,
+                          child: KesorBottomBar(
+                            selectedIndex: tab,
+                            onSelected: _selectTab,
+                            onAssistant: () => _selectTab(3),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -750,11 +881,14 @@ class _AccountsShellState extends State<AccountsShell> {
       return;
     }
     setState(() {
-      if (page == 'transaction') {
-        history.closeDetail();
+      if (page == 'transaction' || page == 'merchantTransaction') {
+        (page == 'merchantTransaction' ? merchantHistory : history)
+            .closeDetail();
         page = transactionReturnPage;
         transactionReturnPage = null;
-      } else if (page == 'details' || page == 'open') {
+      } else if (page == 'details' ||
+          page == 'merchantDetails' ||
+          page == 'open') {
         page = 'accounts';
       } else if (page != null) {
         // A transfer may have bookmarked its recipient.
@@ -772,7 +906,10 @@ class _AccountsShellState extends State<AccountsShell> {
     } else if (page == 'history') {
       await history.refresh();
     } else {
-      await model.refresh();
+      await Future.wait([
+        model.refresh(),
+        if (page == 'accounts') merchantModel.refresh(),
+      ]);
     }
   }
 
@@ -834,6 +971,8 @@ class _AccountsShellState extends State<AccountsShell> {
 
   Widget _wallet(BuildContext context) => WalletAccountsScreen(
     model: model,
+    merchantModel: merchantModel,
+    onMerchantDetails: () => setState(() => page = 'merchantDetails'),
     greetingName:
         widget.session.identity?.firstName ??
         widget.session.identity?.username ??
@@ -867,63 +1006,6 @@ class _AccountsShellState extends State<AccountsShell> {
       onAssistant: () => _selectTab(3),
     ),
   );
-
-  List<Widget> _balance(BuildContext context) => [
-    if (model.loadingDetail)
-      const LinearProgressIndicator(
-        semanticsLabel: 'Refreshing selected balance',
-      ),
-    if (model.detailError != null)
-      NoticePanel(model.detailError!.message, error: true),
-    Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('SELECTED ACCOUNT BALANCE'),
-            const SizedBox(height: 8),
-            Text(
-              model.selected!.balance.formatted,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            SelectableText(model.selected!.number),
-            Text('Status: ${model.selected!.status}'),
-            if (model.detailUpdatedAt != null)
-              Text('Last updated ${displayDate(model.detailUpdatedAt!)}'),
-            if (model.detailError != null)
-              const Text('Refresh failed. This is the last known balance.'),
-          ],
-        ),
-      ),
-    ),
-  ];
-
-  List<Widget> _details(BuildContext context) {
-    final account = model.selected;
-    if (account == null) {
-      return [const NoticePanel('Select an available account from Home.')];
-    }
-    return [
-      ..._balance(context),
-      const SizedBox(height: 16),
-      Text('Type: ${account.type}'),
-      Text('Currency: ${account.currency}'),
-      Text('Created ${displayDate(account.createdAt)}'),
-      TextButton.icon(
-        onPressed: account.status == 'ACTIVE'
-            ? () => setState(() => page = 'receiveQr')
-            : null,
-        icon: const Icon(Icons.qr_code_2),
-        label: Text(tx(context, 'My QR')),
-      ),
-      TextButton(
-        onPressed: model.loadingDetail ? null : () => model.select(account),
-        child: const Text('Refresh selected account'),
-      ),
-    ];
-  }
 
   List<Widget> _opening(BuildContext context) => [
     ..._errors(),

@@ -1,0 +1,16 @@
+# Local agent configuration, worktrees and verification evidence.
+.claude/
+.local/
+.mcp.json
+.playwright-cli/
+.taste-skill/
+
+# Exported screenshot collections and packaged apps stay local.
+/Flutter Screen/
+/Flutter Screen.zip
+*.apk
+
+# Credentials must never enter source control.
+.env
+.env.*
+!.env.example

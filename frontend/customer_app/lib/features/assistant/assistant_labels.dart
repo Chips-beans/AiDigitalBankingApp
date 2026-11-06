@@ -13,6 +13,10 @@ const _khmer = <String, String>{
   'Ask about your spending, transfers or account security.':
       'សួរអំពីចំណាយ ការផ្ទេរ ឬសុវត្ថិភាពគណនីរបស់អ្នក។',
   'Try asking': 'សាកល្បងសួរ',
+  'Try Ask: ': 'សាកល្បងសួរ៖ ',
+  'How does the 50/30/20 rule work?': 'តើច្បាប់ 50/30/20 ដំណើរការយ៉ាងដូចម្តេច?',
+  'Show my biggest payment this month':
+      'បង្ហាញការទូទាត់ធំបំផុតរបស់ខ្ញុំក្នុងខែនេះ',
   'How much have I spent this month?': 'តើខ្ញុំបានចំណាយអស់ប៉ុន្មានក្នុងខែនេះ?',
   'Can you show my recent transfers?':
       'តើអ្នកអាចបង្ហាញការផ្ទេរថ្មីៗរបស់ខ្ញុំបានទេ?',

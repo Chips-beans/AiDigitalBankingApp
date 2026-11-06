@@ -159,26 +159,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 ],
               ),
             );
-            return MediaQuery.textScalerOf(context).scale(15) > 22 ||
-                    box.maxWidth < 320
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: currencyControl,
-                      ),
-                      const SizedBox(height: 8),
-                      dates,
-                    ],
-                  )
-                : Row(
-                    children: [
-                      currencyControl,
-                      const SizedBox(width: 8),
-                      Expanded(child: dates),
-                    ],
-                  );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [currencyControl, const SizedBox(height: 12), dates],
+            );
           },
         ),
         const SizedBox(height: 16),
@@ -194,69 +178,113 @@ class _ReportsPageState extends State<ReportsPage> {
             ),
           ),
         if (totals != null) ...[
-          AmountText(
-            shopAmount(totals.gross, currency),
-            style: mText(context, 32, 43, weight: FontWeight.w300),
-          ),
-          Text(
-            '${paymentCount(context, totals.count)} · ${t(context, 'Collections are payments received, not profit.', 'ប្រាក់ទទួលបានគឺជាការទូទាត់ដែលបានទទួល មិនមែនជាប្រាក់ចំណេញទេ។')}',
-            style: mText(
+          NoticeBanner(
+            t(
               context,
-              13,
-              18,
-              color: AppColors.of(context).disabledBackground,
+              'Collections are payments received, not profit.',
+              'ប្រាក់ទទួលបានគឺជាការទូទាត់ដែលបានទទួល មិនមែនជាប្រាក់ចំណេញទេ។',
+            ),
+          ),
+          const SizedBox(height: 12),
+          QGroup(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  t(context, 'Gross collections', 'ប្រាក់ទទួលសរុប'),
+                  style: mText(
+                    context,
+                    12,
+                    20,
+                    color: AppColors.of(context).disabledBackground,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    AmountText(
+                      shopAmount(totals.gross, currency),
+                      style: mText(context, 24, 36, weight: FontWeight.w600),
+                    ),
+                    Text(
+                      paymentCount(context, totals.count),
+                      style: mText(
+                        context,
+                        12,
+                        20,
+                        color: AppColors.of(context).disabledBackground,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                CollectionsChart(buckets: buckets, currency: currency),
+              ],
             ),
           ),
           const SizedBox(height: 16),
-          CollectionsChart(buckets: buckets, currency: currency),
-          const SizedBox(height: 16),
-          for (final bucket in buckets.reversed)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: AppColors.of(context).border),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
+          QGroup(
+            child: Column(
+              children: [
+                for (final bucket in buckets.reversed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: AppColors.of(context).border),
+                      ),
+                    ),
+                    child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          period == 'DAY'
-                              ? merchantDateLabel(
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                period == 'DAY'
+                                    ? merchantDateLabel(
+                                        context,
+                                        DateTime.parse(bucket.bucket),
+                                      )
+                                    : bucket.bucket,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                paymentCount(context, bucket.count),
+                                style: mText(
                                   context,
-                                  DateTime.parse(bucket.bucket),
-                                )
-                              : bucket.bucket,
+                                  13,
+                                  18,
+                                  color: AppColors.of(context)
+                                      .disabledBackground,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          paymentCount(context, bucket.count),
-                          style: mText(
-                            context,
-                            13,
-                            18,
-                            color: AppColors.of(context).disabledBackground,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: AmountText(
+                            shopAmount(bucket.gross, bucket.currency),
+                            textAlign: TextAlign.end,
+                            style: mText(
+                              context,
+                              15,
+                              24,
+                              weight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AmountText(
-                      shopAmount(bucket.gross, bucket.currency),
-                      textAlign: TextAlign.end,
-                      style: mText(context, 15, 24, weight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
+          ),
         ],
       ],
     );
@@ -330,7 +358,7 @@ class _CollectionsChartState extends State<CollectionsChart> {
                                   child: Align(
                                     alignment: Alignment.bottomCenter,
                                     child: Container(
-                                      width: 16,
+                                      width: 22,
                                       height: values[i] == BigInt.zero
                                           ? 2
                                           : ((values[i] *
@@ -343,11 +371,11 @@ class _CollectionsChartState extends State<CollectionsChart> {
                                       decoration: BoxDecoration(
                                         color:
                                             (selected ?? values.length - 1) == i
-                                            ? merchantNavy(context)
+                                            ? AppPalette.gold500
                                             : Theme.of(context).brightness ==
                                                   Brightness.dark
                                             ? AppPalette.navy400
-                                            : AppPalette.navy100,
+                                            : AppPalette.navy200,
                                         borderRadius: BorderRadius.circular(3),
                                       ),
                                     ),

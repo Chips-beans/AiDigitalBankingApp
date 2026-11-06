@@ -128,7 +128,7 @@ class _SalesViewState extends State<SalesView> {
         child: ListView(
           controller: scroll,
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           children: [
             if (widget.showHeader)
               Row(
@@ -204,18 +204,21 @@ class _SalesViewState extends State<SalesView> {
               },
             ),
             const SizedBox(height: 16),
-            TodayCard(
-              title: t(
-                context,
-                'Filtered collections',
-                'ប្រាក់ទទួលបានតាមការច្រោះ',
+            NavyCard(
+              child: TodayCard(
+                prominent: true,
+                title: t(
+                  context,
+                  'Filtered collections',
+                  'ប្រាក់ទទួលបានតាមការច្រោះ',
+                ),
+                dashboard: null,
+                suppliedTotals:
+                    sales.items.isEmpty &&
+                        (sales.loading || sales.failure != null)
+                    ? null
+                    : sales.totals,
               ),
-              dashboard: null,
-              suppliedTotals:
-                  sales.items.isEmpty &&
-                      (sales.loading || sales.failure != null)
-                  ? null
-                  : sales.totals,
             ),
             const SizedBox(height: 16),
             if (sales.loading)
@@ -328,7 +331,7 @@ class CurrencyFilter extends StatelessWidget {
       t(context, 'KHR', 'រៀល'),
       t(context, 'USD', 'ដុល្លារ'),
     ],
-    compact: !all,
+    compact: false,
     value: value ?? 'ALL',
     onChanged: (v) => onChanged(v == 'ALL' ? null : v),
   );

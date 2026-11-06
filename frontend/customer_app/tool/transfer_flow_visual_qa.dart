@@ -76,6 +76,15 @@ void main() {
           km: true,
         ),
         (name: 'small-en', width: 375.0, height: 667.0, scale: 1.0, km: false),
+        (name: 'native-en', width: 393.0, height: 852.0, scale: 1.3, km: false),
+        (name: 'native-km', width: 393.0, height: 852.0, scale: 1.3, km: true),
+        (
+          name: 'long-details',
+          width: 375.0,
+          height: 812.0,
+          scale: 1.3,
+          km: false,
+        ),
         (
           name: 'reference-khr',
           width: 440.0,
@@ -100,7 +109,15 @@ void main() {
         ),
       ]) {
         for (final dark in [false, true]) {
-          final fixtureDraft = variant.name == 'reference-khr'
+          final fixtureDraft = variant.name == 'long-details'
+              ? TransferDraft(
+                  draft.source,
+                  '12345678901234567890',
+                  Money.parse('9999999.99', 'USD'),
+                  'Payment for family expenses and this month’s household supplies.',
+                  destinationName: 'Sok Dara and family household account',
+                )
+              : variant.name == 'reference-khr'
               ? TransferDraft(
                   draft.source,
                   draft.destination,
@@ -122,12 +139,9 @@ void main() {
           final prefs = AppPreferences()
             ..locale = Locale(variant.km ? 'km' : 'en');
           for (final screen in ['review', 'success', 'navigation']) {
-            final size = Size(
-              variant.width,
-              variant.name.startsWith('reference') && screen == 'success'
-                  ? 978
-                  : variant.height,
-            );
+            final size = Size(variant.width, variant.height);
+            final native = variant.name.startsWith('native');
+            var homeTapped = false, anotherTapped = false;
             tester.view.physicalSize = size;
             tester.view.devicePixelRatio = 1;
             final key = GlobalKey();
@@ -149,6 +163,9 @@ void main() {
                       size: size,
                       textScaler: TextScaler.linear(variant.scale),
                       disableAnimations: true,
+                      padding: native
+                          ? const EdgeInsets.only(top: 24, bottom: 34)
+                          : EdgeInsets.zero,
                     ),
                     child: RepaintBoundary(
                       key: key,
@@ -161,17 +178,21 @@ void main() {
                               onConfirm: () {},
                               messages: const SizedBox.shrink(),
                               busy: false,
-                              showDeviceChrome: true,
+                              showDeviceChrome: !native,
                             )
                           : screen == 'success'
                           ? KesorTransferSuccessScreen(
                               saved: fixtureSaved,
                               walletName: walletName,
                               completedAt: DateTime(2026, 10, 30, 9, 41),
-                              onHome: () {},
-                              onAnother: () {},
-                              messages: const SizedBox.shrink(),
-                              showDeviceChrome: true,
+                              onHome: () => homeTapped = true,
+                              onAnother: () => anotherTapped = true,
+                              messages: variant.name == 'long-details'
+                                  ? const Text(
+                                      'Balance refresh unavailable. Your transfer is complete.',
+                                    )
+                                  : const SizedBox.shrink(),
+                              showDeviceChrome: !native,
                             )
                           : Scaffold(
                               body: SingleChildScrollView(
@@ -220,6 +241,51 @@ void main() {
               isNull,
               reason: '$screen ${variant.name} dark=$dark',
             );
+            if (screen == 'success') {
+              expect(find.byType(SingleChildScrollView), findsNothing);
+              Rect bounds(String key) =>
+                  tester.getRect(find.byKey(ValueKey(key)));
+              for (final target in [
+                'transfer-success-seal',
+                'transfer-success-title',
+                'transfer-success-amount',
+                'transfer-success-receipt',
+                'transfer-back-home',
+                'transfer-another',
+              ]) {
+                final rect = bounds(target);
+                expect(rect.left, greaterThanOrEqualTo(0), reason: target);
+                expect(
+                  rect.right,
+                  lessThanOrEqualTo(size.width),
+                  reason: target,
+                );
+                expect(
+                  rect.top,
+                  greaterThanOrEqualTo(native ? 24 : 54),
+                  reason: target,
+                );
+                expect(
+                  rect.bottom,
+                  lessThanOrEqualTo(size.height - (native ? 34 : 0)),
+                  reason: target,
+                );
+              }
+              expect(
+                bounds('transfer-success-receipt').bottom,
+                lessThanOrEqualTo(bounds('transfer-back-home').top),
+              );
+              for (final target in ['transfer-back-home', 'transfer-another']) {
+                expect(bounds(target).height, greaterThanOrEqualTo(48));
+              }
+              await tester.tap(
+                find.byKey(const ValueKey('transfer-back-home')),
+              );
+              await tester.tap(find.byKey(const ValueKey('transfer-another')));
+              expect(homeTapped, isTrue);
+              expect(anotherTapped, isTrue);
+              await tester.pumpAndSettle();
+            }
             if (screen != 'navigation') {
               expect(
                 find.byKey(
@@ -271,10 +337,10 @@ void main() {
                 );
               } else if (screen == 'success') {
                 for (final target in {
-                  'transfer-success-seal': const Offset(121, 68),
-                  'transfer-success-receipt': const Offset(32, 436),
-                  'transfer-back-home': const Offset(32, 830),
-                  'transfer-another': const Offset(32, 894),
+                  'transfer-success-seal': const Offset(146, 68),
+                  'transfer-success-receipt': const Offset(32, 394),
+                  'transfer-back-home': const Offset(32, 808),
+                  'transfer-another': const Offset(32, 872),
                 }.entries) {
                   expect(
                     tester.getTopLeft(find.byKey(ValueKey(target.key))).dx,

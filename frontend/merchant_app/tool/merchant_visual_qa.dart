@@ -61,13 +61,23 @@ void main() {
       });
       // Warm exported SVG bytecode outside the fake clock before captures.
       await tester.runAsync(() async {
-        for (final file in Directory(
-          'assets/figma',
-        ).listSync().whereType<File>().where((f) => f.path.endsWith('.svg'))) {
-          await vector.SvgAssetLoader(
-            'assets/figma/${file.uri.pathSegments.last}',
-          ).loadBytes(null);
+        for (final dir in ['assets/figma', 'assets/figma-change']) {
+          for (final file in Directory(dir).listSync().whereType<File>().where(
+            (f) => f.path.endsWith('.svg'),
+          )) {
+            await vector.SvgAssetLoader('$dir/${file.uri.pathSegments.last}')
+                .loadBytes(null);
+          }
         }
+      });
+      await tester.runAsync(() async {
+        final bytes = await rootBundle.load('assets/figma-change/795a3.png');
+        final codec = await ui.instantiateImageCodec(
+          bytes.buffer.asUint8List(),
+        );
+        final frame = await codec.getNextFrame();
+        frame.image.dispose();
+        codec.dispose();
       });
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -392,6 +402,8 @@ void main() {
                 find.byKey(const ValueKey('collect-order')),
                 variant.km ? 'តុលេខ ៤' : 'Table 4',
               );
+              tester.binding.focusManager.primaryFocus?.unfocus();
+              await tester.pumpAndSettle();
               await tester.ensureVisible(
                 find.byKey(const ValueKey('collect-create')),
               );

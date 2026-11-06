@@ -60,6 +60,7 @@ Future<void> main() async {
         );
   runApp(
     BankingApp(
+      splashDuration: const Duration(milliseconds: 1100),
       preferences: preferences,
       session: session,
       merchantApproval: approval,

@@ -33,7 +33,7 @@ class MerchantMoreView extends StatelessWidget {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
   @override
   Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+    padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
     children: [
       if (controller != null)
         ShopProfileCard(
@@ -42,50 +42,69 @@ class MerchantMoreView extends StatelessWidget {
           onEdit: onProfile,
         ),
       const SizedBox(height: 24),
-      QMenuRow(
-        label: t(context, 'Shop profile', 'ប្រវត្តិរូបហាង'),
-        asset: 'b8ce6',
-        onTap: onProfile,
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          label: t(context, 'Shop profile', 'ប្រវត្តិរូបហាង'),
+          value: t(context, 'Edit', 'កែប្រែ'),
+          asset: 'b8ce6',
+          onTap: onProfile,
+        ),
       ),
-      QMenuRow(
-        key: const ValueKey('more-language'),
-        label: t(context, 'Language', 'ភាសា'),
-        asset: '72888',
-        value: preferences.isKhmer ? 'ខ្មែរ' : 'English',
-        onTap: () =>
-            _open(context, MerchantAppearancePage(preferences: preferences)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          key: const ValueKey('more-language'),
+          label: t(context, 'Language', 'ភាសា'),
+          asset: '72888',
+          value: preferences.isKhmer ? 'ខ្មែរ' : 'English',
+          onTap: () =>
+              _open(context, MerchantAppearancePage(preferences: preferences)),
+        ),
       ),
-      QMenuRow(
-        label: t(context, 'Appearance', 'រូបរាង'),
-        asset: '00519',
-        value: preferences.themeMode == ThemeMode.system
-            ? t(context, 'System', 'ប្រព័ន្ធ')
-            : themeLabel(context, preferences.themeMode),
-        onTap: () =>
-            _open(context, MerchantAppearancePage(preferences: preferences)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          label: t(context, 'Appearance', 'រូបរាង'),
+          asset: '00519',
+          value: preferences.themeMode == ThemeMode.system
+              ? t(context, 'System', 'ប្រព័ន្ធ')
+              : themeLabel(context, preferences.themeMode),
+          onTap: () =>
+              _open(context, MerchantAppearancePage(preferences: preferences)),
+        ),
       ),
-      QMenuRow(
-        key: const ValueKey('more-alerts'),
-        label: t(context, 'Payment alerts', 'ការជូនដំណឹងការទូទាត់'),
-        asset: '72592',
-        value: preferences.alertSound || preferences.alertVibration
-            ? t(context, 'On', 'បើក')
-            : t(context, 'Off', 'បិទ'),
-        onTap: () =>
-            _open(context, MerchantAlertsPage(preferences: preferences)),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          key: const ValueKey('more-alerts'),
+          label: t(context, 'Payment alerts', 'ការជូនដំណឹងការទូទាត់'),
+          asset: '72592',
+          value: preferences.alertSound || preferences.alertVibration
+              ? t(context, 'On', 'បើក')
+              : t(context, 'Off', 'បិទ'),
+          onTap: () =>
+              _open(context, MerchantAlertsPage(preferences: preferences)),
+        ),
       ),
-      QMenuRow(
-        label: t(context, 'Help & support', 'ជំនួយ និងគាំទ្រ'),
-        asset: 'e82c5',
-        onTap: () => _open(context, const MerchantSupportPage()),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          label: t(context, 'Help & support', 'ជំនួយ និងគាំទ្រ'),
+          asset: 'e82c5',
+          onTap: () => _open(context, const MerchantSupportPage()),
+        ),
       ),
-      QMenuRow(
-        key: const ValueKey('more-signout'),
-        label: t(context, 'Sign out', 'ចាកចេញ'),
-        asset: '64959',
-        destructive: true,
-        divider: false,
-        onTap: () => showMerchantSignOut(context, onSignOut),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        child: QMenuRow(
+          key: const ValueKey('more-signout'),
+          label: t(context, 'Sign out', 'ចាកចេញ'),
+          asset: '64959',
+          destructive: true,
+          divider: false,
+          onTap: () => showMerchantSignOut(context, onSignOut),
+        ),
       ),
       const SizedBox(height: 24),
       Text(
@@ -126,6 +145,8 @@ Future<void> showMerchantSignOut(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const QStatusIcon('64959', tone: 'error'),
+            const SizedBox(height: 12),
             Text(
               t(
                 context,
@@ -233,6 +254,7 @@ class _RadioRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 53),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
+          color: AppColors.of(context).background,
           border: Border(
             bottom: BorderSide(color: AppColors.of(context).border),
           ),

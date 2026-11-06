@@ -111,16 +111,21 @@ class CustomerAssistantBackground extends StatelessWidget {
           children: [
             for (final position in [true, false])
               Positioned(
-                right: position ? -112 : null,
-                left: position ? null : -144,
-                top: position ? 35 : 434,
+                right: position ? -119 : null,
+                left: position ? null : -142,
+                top: position ? 16 : 439,
                 child: IgnorePointer(
                   child: ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(sigmaX: 55, sigmaY: 55),
+                    imageFilter: ui.ImageFilter.blur(
+                      sigmaX: 61.35,
+                      sigmaY: 61.35,
+                    ),
                     child: Container(
                       width: 225,
                       height: 225,
-                      color: colors.primary200.withValues(alpha: .65),
+                      color: colors.primary500.withValues(
+                        alpha: position ? .14 : .15,
+                      ),
                     ),
                   ),
                 ),

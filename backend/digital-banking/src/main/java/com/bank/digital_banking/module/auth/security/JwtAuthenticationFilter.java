@@ -25,7 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/v1/auth/request-otp", "/api/v1/auth/refresh", "/api/v1/auth/email/request",
             "/api/v1/auth/email/verify", "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange",
             "/api/v1/auth/telegram/callback", "/api/v1/auth/telegram/native/start", "/api/v1/auth/telegram/native/exchange",
-            "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard");
+            "/api/v1/auth/pin/home-preview", "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard");
     private final SessionService sessions;
     private final ObjectMapper json;
 

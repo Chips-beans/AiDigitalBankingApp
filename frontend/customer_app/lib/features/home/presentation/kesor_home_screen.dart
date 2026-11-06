@@ -42,6 +42,9 @@ class KesorHomeScreen extends StatefulWidget {
     this.onSaveRecipient,
     this.onRemoveRecipient,
     this.onAddRecipient,
+    this.onProtectedInteraction,
+    this.initialAction,
+    this.onInbox,
     this.directory,
     super.key,
   });
@@ -58,6 +61,8 @@ class KesorHomeScreen extends StatefulWidget {
 
   /// Replaces the Add to favorites form (locked Home asks to unlock instead).
   final VoidCallback? onAddRecipient;
+  final VoidCallback? onProtectedInteraction, onInbox;
+  final String? initialAction;
   final RecipientDirectory? directory;
   final bool? balanceVisible;
   final ValueChanged<bool>? onBalanceVisibilityChanged;
@@ -102,6 +107,42 @@ TextStyle _text(
 );
 
 class _KesorHomeScreenState extends State<KesorHomeScreen> {
+  bool _initialActionOpened = false;
+  @override
+  void initState() {
+    super.initState();
+    _scheduleInitialAction();
+  }
+
+  @override
+  void didUpdateWidget(covariant KesorHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialAction != widget.initialAction) {
+      _scheduleInitialAction();
+    }
+  }
+
+  void _scheduleInitialAction() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _initialActionOpened || widget.initialAction == null) {
+        return;
+      }
+      _initialActionOpened = true;
+      if (widget.initialAction == 'addFavorite') {
+        _addRecipient();
+      }
+      if (widget.initialAction == 'favorites') {
+        _openRecipients();
+      }
+      if (widget.initialAction == 'inbox') {
+        _showPanel(
+          _tr('Inbox', 'ប្រអប់សារ'),
+          _tr('No new messages', 'មិនមានសារថ្មីទេ'),
+        );
+      }
+    });
+  }
+
   bool _localBalanceVisible = true;
   bool get _balanceVisible => widget.balanceVisible ?? _localBalanceVisible;
   bool get _dark => Theme.of(context).brightness == Brightness.dark;
@@ -154,6 +195,9 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
   ];
 
   void _openRecipients() {
+    if (widget.onProtectedInteraction != null) {
+      return widget.onProtectedInteraction!();
+    }
     final people = _people;
     _showPanel(
       _tr('Favorite Recipients', 'អ្នកទទួលពេញចិត្ត'),
@@ -490,10 +534,14 @@ class _KesorHomeScreenState extends State<KesorHomeScreen> {
             children: [
               _Tap(
                 label: 'Inbox',
-                onTap: () => _showPanel(
-                  'ប្រអប់សារ',
-                  'មិនមានសារថ្មីទេ · No new messages',
-                ),
+                onTap:
+                    widget.onInbox ??
+                    () => widget.onProtectedInteraction != null
+                        ? widget.onProtectedInteraction!()
+                        : _showPanel(
+                            'ប្រអប់សារ',
+                            'មិនមានសារថ្មីទេ · No new messages',
+                          ),
                 child: const SizedBox(
                   width: 28,
                   height: 44,

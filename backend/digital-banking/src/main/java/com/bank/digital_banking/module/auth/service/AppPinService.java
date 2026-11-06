@@ -22,6 +22,28 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor
 public class AppPinService {
+    private final com.bank.digital_banking.module.transaction.repository.TransactionRepository transactions;
+    public record PreviewEntry(String reference, String name, OffsetDateTime createdAt,
+                               String direction, String type, String status) {}
+
+    @Transactional
+    public List<PreviewEntry> homePreview(String raw) {
+        Ticket checked = ticket(raw);
+        Challenge state = challenge(raw, checked.session(), checked.canRecover());
+        if (!state.configured() || state.recoveryRequired())
+            throw new PinRejected("PIN_REQUIRED", "Complete PIN setup or recovery first");
+        Long owner = checked.session().getUser().getId();
+        return transactions.findHomePreview(owner, org.springframework.data.domain.PageRequest.of(0, 5)).stream().map(tx -> {
+            var src = tx.getSourceAccount(); var dst = tx.getDestinationAccount();
+            boolean from = src != null && src.getUser().getId().equals(owner);
+            boolean to = dst != null && dst.getUser().getId().equals(owner);
+            String direction = from && to ? "INTERNAL" : to ? "INCOMING" : "OUTGOING";
+            var other = from ? dst : src;
+            String name = other == null ? "Kesor Bank" : com.bank.digital_banking.module.transaction.dto.TransactionResponseDto.accountName(other);
+            return new PreviewEntry(tx.getReferenceNumber(), name, tx.getCreatedAt(), direction,
+                tx.getTransactionType().name(), tx.getStatus().name());
+        }).toList();
+    }
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final AuthSessionRepository sessions;

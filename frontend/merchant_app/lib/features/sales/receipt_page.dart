@@ -159,34 +159,47 @@ class ReceiptCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 8),
-          const Center(child: QIcon('923a9', darkAdaptive: false)),
-          const SizedBox(height: 12),
-          Text(
-            r.storeName ?? 'Kesor Merchant',
-            textAlign: TextAlign.center,
-            style: mText(context, 17, 23, weight: FontWeight.w500),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            t(context, 'Payment received', 'បានទទួលការទូទាត់'),
-            textAlign: TextAlign.center,
-            style: mText(
-              context,
-              15,
-              24,
-              color: AppColors.of(context).disabledBackground,
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: AppPalette.navy500,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                ShopAvatar(name: r.storeName ?? 'Kesor Merchant', size: 52),
+                const SizedBox(height: 8),
+                Text(
+                  r.storeName ?? 'Kesor Merchant',
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    18,
+                    28,
+                    weight: FontWeight.w500,
+                    color: AppPalette.navy50,
+                  ),
+                ),
+                Text(
+                  t(context, 'Payment received', 'បានទទួលការទូទាត់'),
+                  style: mText(context, 12, 20, color: AppPalette.navy200),
+                ),
+                const SizedBox(height: 8),
+                AmountText(
+                  shopAmount(r.amount, r.currency),
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    28,
+                    40,
+                    weight: FontWeight.w600,
+                    color: AppPalette.navy50,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          AmountText(
-            shopAmount(r.amount, r.currency),
-            textAlign: TextAlign.center,
-            style: mText(context, 36, 48, weight: FontWeight.w300),
-          ),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           QDetail(
             t(context, 'From', 'ពី'),
             '${r.payerName} · ${r.payerAccount}',
@@ -238,14 +251,18 @@ class HistoryScaffold extends StatelessWidget {
     Widget list = ListView(
       controller: onScroll,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: children,
     );
     if (onRefresh != null) {
       list = RefreshIndicator(onRefresh: onRefresh!, child: list);
     }
     return Scaffold(
-      appBar: AppBar(leading: const QBack(), title: Text(title)),
+      appBar: merchantAppBar(
+        context,
+        leading: const QBack(),
+        title: Text(title),
+      ),
       body: SafeArea(
         top: false,
         child: Center(

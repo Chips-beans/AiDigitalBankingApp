@@ -122,9 +122,45 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await mount(tester);
-    expect(find.text('Compare this month with last month'), findsOneWidget);
-    expect(find.text('How can I build an emergency fund?'), findsOneWidget);
+    expect(find.text('How much did I spend this week?'), findsOneWidget);
+    expect(find.text('How does the 50/30/20 rule work?'), findsOneWidget);
+    expect(find.text('Show my biggest payment this month'), findsOneWidget);
+    expect(find.byKey(const ValueKey('assistant-suggestion-3')), findsNothing);
+    await tap(tester, find.byTooltip('Conversation history'));
     expect(find.textContaining('not financial advice'), findsOneWidget);
+  });
+  const exactQuestions = [
+    'How much did I spend this week?',
+    'How does the 50/30/20 rule work?',
+    'Show my biggest payment this month',
+  ];
+  for (var index = 0; index < exactQuestions.length; index++) {
+    testWidgets(
+      'Figma suggestion $index sends its exact question automatically',
+      (tester) async {
+        await mount(tester);
+        await tap(tester, find.byKey(ValueKey('assistant-suggestion-$index')));
+        expect(api.requests, hasLength(1));
+        expect(api.requests.single.message, exactQuestions[index]);
+        expect(api.requests.single.locale, 'en');
+        expect(find.text('USD 190.00'), findsOneWidget);
+      },
+    );
+  }
+  testWidgets('rapid suggestion taps send only one request', (tester) async {
+    await mount(tester);
+    api.sendGate = Completer<void>();
+    final action = tester
+        .widget<InkWell>(find.byKey(const ValueKey('assistant-suggestion-0')))
+        .onTap!;
+    action();
+    action();
+    await tester.pump();
+    expect(api.requests, hasLength(1));
+    expect(api.requests.single.message, exactQuestions.first);
+    api.sendGate!.complete();
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
   });
   testWidgets('history opens, renames and deletes the customer conversation', (
     tester,
@@ -246,7 +282,7 @@ void main() {
       );
       await tap(tester, find.byKey(const ValueKey('assistant-send')));
       await tap(tester, find.text('View account').first);
-      expect(find.text('Account details'), findsOneWidget);
+      expect(find.text('Wallet details'), findsOneWidget);
       expect(api.requests, hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
       session.dispose();

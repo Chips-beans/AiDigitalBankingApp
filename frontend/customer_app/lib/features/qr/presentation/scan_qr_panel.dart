@@ -36,8 +36,7 @@ class ScanQrPanel extends StatefulWidget {
   final bool enabled;
   final Future<XFile?> Function()? chooseImage;
 
-  /// When set, a verified scan is handed to the normal transfer screen instead of
-  /// continuing in this panel.
+  /// Hands a verified scan to the transfer host's dedicated QR entry screen.
   final ValueChanged<QrPreview>? onScanned;
   final VoidCallback? onClose;
   @override

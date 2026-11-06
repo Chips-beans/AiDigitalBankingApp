@@ -9,6 +9,17 @@ String tx(BuildContext context, String english) =>
     : english;
 
 const _khmer = <String, String>{
+  'Transfer amount': 'ចំនួនប្រាក់ផ្ទេរ',
+  'Enter an amount to continue': 'បញ្ចូលចំនួនប្រាក់ដើម្បីបន្ត',
+  'Fixed QR request': 'សំណើ QR មានចំនួនប្រាក់កំណត់',
+  'Pay from': 'បង់ពី',
+  'Available': 'សមតុល្យអាចប្រើបាន',
+  'Add a remark': 'បន្ថែមកំណត់សម្គាល់',
+  'Optional': 'មិនបាច់ក៏បាន',
+  'Delete': 'លុប',
+  'Verified Kesor shop': 'ហាងកេសរដែលបានផ្ទៀងផ្ទាត់',
+  'Save': 'រក្សាទុក',
+  'Cancel': 'បោះបង់',
   'Kesor Scan': 'កេសរ ស្កេន',
   'Flash': 'ពិល',
   'Upload QR': 'បញ្ចូលរូប QR',

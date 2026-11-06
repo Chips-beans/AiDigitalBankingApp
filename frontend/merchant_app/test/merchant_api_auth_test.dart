@@ -183,12 +183,42 @@ void main() {
         throwsA(issue(MerchantAuthIssue.uncertain)),
       );
       store.failWrites = true;
-      await expectLater(gateway.cancel(), throwsA(isA<StateError>()));
+      await expectLater(
+        gateway.cancel(),
+        throwsA(
+          isA<MerchantAuthFailure>()
+              .having(
+                (e) => e.issue,
+                'issue',
+                MerchantAuthIssue.storageUnavailable,
+              )
+              .having(
+                (e) => e.diagnostic?.stage,
+                'stage',
+                MerchantAuthStage.storageWrite,
+              ),
+        ),
+      );
       expect(r.requests.last.url.path, endsWith('/cancel'));
       store.failWrites = false;
       await gateway.authorize();
       store.failWrites = true;
-      await expectLater(gateway.signOut(), throwsA(isA<StateError>()));
+      await expectLater(
+        gateway.signOut(),
+        throwsA(
+          isA<MerchantAuthFailure>()
+              .having(
+                (e) => e.issue,
+                'issue',
+                MerchantAuthIssue.storageUnavailable,
+              )
+              .having(
+                (e) => e.diagnostic?.stage,
+                'stage',
+                MerchantAuthStage.storageWrite,
+              ),
+        ),
+      );
       expect(r.requests.last.url.path, '/api/v1/merchant-auth/logout');
     },
   );
@@ -321,7 +351,18 @@ void main() {
       throwsA(issue(MerchantAuthIssue.uncertain)),
     );
     r.offlineCancel = true;
-    await expectLater(r.gateway.cancel(), throwsA(isA<HandoffFailure>()));
+    await expectLater(
+      r.gateway.cancel(),
+      throwsA(
+        isA<MerchantAuthFailure>()
+            .having((e) => e.issue, 'issue', MerchantAuthIssue.offline)
+            .having(
+              (e) => e.diagnostic?.stage,
+              'stage',
+              MerchantAuthStage.cancel,
+            ),
+      ),
+    );
     final restored = MerchantApiAuth(
       r.config,
       api: r.api,

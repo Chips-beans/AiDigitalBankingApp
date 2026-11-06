@@ -69,10 +69,21 @@ void main() {
                           Positioned(
                             left: 20,
                             right: 20,
-                            bottom: 24,
-                            child: KesorBottomBar(
-                              selectedIndex: 1,
-                              onSelected: (_) {},
+                            bottom: 32,
+                            child: MediaQuery.withClampedTextScaling(
+                              maxScaleFactor: 1.3,
+                              child: Center(
+                                heightFactor: 1,
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 400,
+                                  ),
+                                  child: KesorBottomBar(
+                                    selectedIndex: 1,
+                                    onSelected: (_) {},
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -81,6 +92,12 @@ void main() {
                   ),
                 ),
               ),
+            ),
+          );
+          await tester.runAsync(
+            () => precacheImage(
+              const AssetImage('assets/analytics/figma-money-overview.png'),
+              key.currentContext!,
             ),
           );
           await tester.pumpAndSettle();
@@ -102,11 +119,7 @@ void main() {
           });
           await save(stem);
           if (narrow) {
-            await tester.drag(
-              find.byKey(const PageStorageKey('analytics-scroll')),
-              const Offset(0, -5000),
-            );
-            await tester.pumpAndSettle();
+            expect(find.byType(Scrollable), findsNothing);
             expect(tester.takeException(), isNull);
             await save('$stem-bottom');
           } else {

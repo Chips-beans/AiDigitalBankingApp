@@ -1,6 +1,6 @@
 # Kesor Merchant — product, contracts and build record
 
-Updated 4 November 2026. Status, rules, setup and commands: [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md).
+Updated 6 November 2026. Status, rules, setup and commands: [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md).
 The Customer App side (approval screens, paying a shop) is summarized in [CUSTOMER_APP.md](CUSTOMER_APP.md) §9.
 Old milestone reports (M0–M8, remaining-work plan): `git show ccc10bd:docs/<NAME>.md`.
 
@@ -214,9 +214,12 @@ Backend and Flutter conventions are in the progress guide §7. Highlights: deriv
 routes in `SHOP_ROUTES`; idempotency keys on every money/record write; lock order payment → request → accounts; lane names
 ≤ 15 chars; foreign resources are 404; never auto-resend an uncertain money request.
 
-## 9. M9 — integrated acceptance and pilot APKs (next; needs the user's yes)
+## 9. M9 — integrated acceptance (APK packaging complete; device work pending)
 
-Ask first before restarting the dev backend or building/installing. Plan: full sequential automated run; inspect the owner of
+Both latest Railway APKs were built with explicit user authorization on 6 Nov (§16); installation and
+integrated acceptance remain pending. Railway already has schema V21. The following is the separate
+local-backend acceptance plan, if requested; do not restart the dev backend or install without approval.
+Plan: full sequential automated run; inspect the owner of
 port 8080; restart with the ignored launcher; confirm Flyway applied V19–V21 and the new paths in OpenAPI; confirm the PC's
 Wi-Fi IP; build both debug APKs with the dev/API defines; verify (no `.env`, API origin, SHA-256); install with
 `adb install -r` on the user's go-ahead; keep the device settings. Name outputs `KesorMerchant-M9-Pilot.apk` and
@@ -246,8 +249,10 @@ personal evidence, remaining production dependencies) goes into the progress gui
 
 ## 11. Known limits and evidence
 
-- **Not compiled/verified:** Kotlin in both `MerchantLinkBridge.kt` files and the debug manifests (transfer filters); no Merchant APK
-  with M4+ exists; V19–V21 unapplied to dev; no device payment, transfer approval, sound/vibration, sharing or process-death restore.
+- Both `MerchantLinkBridge.kt` files and debug manifests compiled in the 5 Nov Railway APK builds;
+  latest M4+ and Figma/splash source packaged again on 6 Nov (§16). Railway has V21; V19–V21 remain
+  unapplied to the local dev database. Device payment, transfer approval, sound/vibration, sharing and
+  process-death restore remain unverified.
 - Uncertain-create process death → `OWNER_TRANSFER_IN_PROGRESS` until the first intent expires (≤ 5 min).
 - Legacy `GET /merchants/me/accounts` is unchanged (G2; removal is the user's decision). EMV tag 59 truncates long/Khmer shop names
   to 25 bytes (G4); the scan screen shows the verified full name. Customer ៛ glyph still small.
@@ -410,3 +415,159 @@ Local evidence: `frontend/merchant_app/.local/figma-quiet/` contains the retriev
 asset audit and logs. Responsive renders are in `.local/qa/figma-final/` in that app. No backend restart,
 database migration, real payment, APK build/install, native sharing or physical-device acceptance occurred.
 Backend/Customer suites were not rerun for this Merchant presentation task. M9 remains unstarted.
+
+## 14. Figma Change list redesign — 5 November 2026
+
+**Implemented source, uncommitted; visual/device acceptance remains open.** The current reference is
+[Merchant Redesign · Change list, section 363:3084](https://www.figma.com/design/Mkhqgqnt1SQoq4pn9INLY5/Kesor-Bank?node-id=363-3084),
+superseding Quiet (§13). The user selected matching at 393×852 with responsive adaptation rather than
+reproducing clipped content, and requires Android device acceptance as well as automated evidence.
+
+- Retrieved individual context for all 28 frames. `tool/merchant_figma_manifest.json` maps each node
+  to its catalog capture; `tool/compare_figma.py` produces paired images, overlays and diagnostic diffs.
+  References, contexts, the 80-file non-empty asset audit and logs are in `.local/figma-change/`.
+- Merchant-only navy headers, gold pill actions, bordered cards, segmented filters, branded Home,
+  wallet balances, QR cards, receipts, forms, results, drawer and settings replace the Quiet treatment.
+  Welcome uses the exact bundled Figma illustration and logo, with the specified fading artwork.
+  SVG source dimensions are retained. Live QR strings, identities, money and references remain dynamic.
+- Home's Sales / Shop QR / Reports / Requests shortcuts open existing functional destinations.
+  Collect is a full-screen flow without the bottom tab bar, matching the reference; Back returns Home,
+  and the drawer remains available during entry. Home and More retain the three-tab navigation.
+- Reuse existing controllers/gateways and all idempotency, approval, expiry and uncertain-request rules.
+  No Customer App, backend, database, shared package or native integration changes. Design annotations
+  listing alternate outcomes are represented by their actual runtime states rather than instructional UI.
+- Headers measure scaled titles; narrow/large-text section actions stack, wallet cards reflow and stages
+  scroll around keyboards and short landscape windows. Tests retain exact financial assertions.
+
+**Automated evidence:** Merchant **118/118** (112 existing, four new actual Home destination tests and
+two narrow/2× long-identity/maximum-money stress cases); analysis clean; responsive fixture **294 renders,
+no layout exceptions** across English/Khmer, light/dark, phone, 320 px, 2× text, landscape and tablets.
+The existing keyboard/Khmer test also passes. Test navigation now follows the real full-screen Collect
+Back behavior. The collection status assertion identifies the live status row because the design repeats
+the same label in the header. No financial assertions were removed. Heavy checks ran sequentially.
+
+Screenshot export: `Flutter Screen/Merchant App Figma Change List/` — **34 states, 40 PNGs**, all decoded
+and verified at 1179×2556, with Preview/Overview images, a manifest and 28 comparison boards. Comparison
+evidence under the Merchant `.local/figma-change/` directory. These are controlled Flutter fixture
+renders, not device captures. The initial baseline accidentally targeted the earlier default export;
+its matching archived PNGs were restored from the existing untouched `Flutter Screen.zip`, and the
+new baseline retained separately in `.local/figma-change/baseline/`. Later captures use separate folders.
+
+**Acceptance limits:** comparison differences are diagnostic, not a certified ≤1-pixel visual pass.
+An approved golden baseline and physical-device visual sign-off are still outstanding. No device was
+attached when checked. No APK was built/installed, backend restarted, live payment submitted or
+migration applied for this task. Native save/share, sound/vibration, Customer approval round trips,
+process restoration and TalkBack remain device acceptance items. Pilot APKs already on disk predate
+this redesign; see DEPLOYMENT.md before a separately approved rebuild.
+
+Next: review the comparisons, resolve any remaining visual differences against the 28 references,
+then obtain approval to build/install the updated Merchant APK and complete Android acceptance.
+
+## 15. Figma Section 3 Merchant splash — 6 November 2026
+
+Implemented `418:6159` in section `431:2446` of the Kesor Bank file. New
+`core/merchant_splash.dart` keeps all twelve exported logo vector layers in their reference
+positions on white, with navy dot and gold Merchant lettering. Shared `KesorBrandSplash`
+provides the source fade/scale loop and reduced-motion final state. Production `main.dart`
+passes session initialization into `MerchantApp`; the splash remains for at least 1100ms and
+until restoration finishes, then yields to the existing auth/shop phase. Android pre-Flutter
+backgrounds are white in light and dark system themes. Existing shop/payment flows are preserved.
+
+**Automated:** Merchant full **119/119**, analysis clean. A startup test verifies that unresolved
+restoration keeps the splash visible and completion opens the existing continuation flow.
+`tool/splash_visual_qa.dart`: **30 renders**, five viewports × light/dark × 1×/1.3×/2× text,
+no layout exceptions. Reference screenshot inspected. Logs: `.local/section3-all-tests.log`,
+`section3-analyze-final.log`, `section3-visual.log`; PNGs: `.local/qa/section3/`. XML parses;
+no dependency upgrades. Customer implementation/shared motion tests: CUSTOMER_APP.md §19.
+
+Source is uncommitted. No APK build/install, native launch/device acceptance, backend restart,
+migration, real payment or deployment. M9 remains a separately authorized step.
+
+## 16. Updated Railway APK — 6 November 2026
+
+User authorized building both updated APKs. Merchant debug build succeeded with `APP_ENV=dev`
+and `API_BASE_URL=https://backend-production-18646.up.railway.app/api/v1`, using the current
+uncommitted source (base `e6c58b6`). Includes the full Figma Change list redesign (§14), latest
+white Merchant splash (§15) and existing M4–M8 functionality.
+
+- Current APK: `frontend/merchant_app/.local/apk/KesorMerchant.apk`; versioned copy:
+  `frontend/merchant_app/.local/apk/20261106-055520/KesorMerchant.apk`.
+- Size: **205,414,739 bytes** (195.90 MiB); SHA-256:
+  `EB495F273A84059DC4B568FFB123873CF1B125BE2B633646F3FF67EE394B6C01`.
+- Package `com.bank.merchant_app`, version `0.1.0+1`; signature valid and matches the prior APK.
+  Railway URL, splash classes and original splash/Change list assets verified in the package;
+  old Wi-Fi IP absent, zero `.env` entries, ZIP CRC clean.
+- Previous APK preserved under `.local/apk/archive/20261106-055520-previous-b3bd7eb04769/` in this app.
+  Shared evidence: repository `.local/apk-refresh-20261106-055520/`, including source manifests,
+  build/signature/package logs and `verification.json`. All 550 recorded app/shared inputs unchanged.
+
+Existing baseline remains **119/119**, analysis clean (§15); not rerun for packaging. Builds ran
+sequentially and Gradle stopped after each. No backend/configuration change, installation, native
+device acceptance, payment or commit. This supersedes earlier APK-pending notes; M9's installation
+and user acceptance gates remain open.
+
+## 17. Customer visibility of linked business wallets — 6 November 2026
+
+Customer Wallets now reads the owner's business accounts through the existing Customer-session
+`GET /accounts/me?category=MERCHANT` route, with pagination. A registered shop's KHR/USD wallets
+appear separately with real balances and numbers; no business accounts means no placeholder.
+Approving Merchant sign-in before registering a shop does not create visible business wallets.
+Merchant sign-out does not remove ownership or hide existing wallets from Customer.
+
+Customer merchant details/activity/receipts are read-only, using separate controllers and routes;
+personal transfer and QR source selection are isolated. Merchant QR creation and owner-transfer
+initiation remain in Merchant, with existing Customer approval. No Merchant App, backend API,
+authorization, database or session-policy change; the current §16 Merchant APK is unchanged.
+
+Customer verification: **307/307** tests, new merchant-wallet coverage **9/9**, clean analyzer,
+**96** responsive renders without layout exceptions (EN/KM, both themes, phone/tablet, 1×/2×).
+Evidence and details: Customer document §22. Merchant/backend suites not rerun for this
+Customer-only change. Uncommitted; no APK build/install, live/device acceptance, restart,
+migration, deployment or real payment. M9 remains incomplete.
+
+## 18. Sign-in diagnostics and retry recovery — 6 November 2026
+
+User supplied a friend's Khmer generic sign-in error screen; both apps are installed on that
+phone, but the failing step is unknown. Read-only Railway checks found the expected deployment
+running, profile `dev`, Swagger 200 and unauthenticated Merchant session 401. Available logs did
+not identify the incident; no phone was attached. The specific device cause is **not confirmed**.
+
+Implemented the approved source plan:
+
+- `MerchantAuthFailure` carries a safe diagnostic stage/code/HTTP status into `MerchantSession`.
+  A closed code allowlist and enum stage generate the Copy error details report; no tokens, PINs,
+  callback links, bodies, account data or raw exception text. Failure details clear on new work,
+  success and cancellation. Late reopen errors cannot overwrite a cancelled/new session.
+- Both Android bridges distinguish `PEER_SIGNATURE_MISMATCH`, `HANDOFF_UNSUPPORTED_BUILD`,
+  `PEER_OPEN_FAILED` and the existing `PEER_MISSING`. Exact package/component, one signer, pinned
+  certificate, debug-build and URI checks remain enforced. Shared `HandoffApi` now retains HTTP
+  status for malformed/non-JSON envelopes, allowing 401/403/429/5xx to remain distinguishable.
+- Existing error layout has EN/KM explanations for app mismatch/opening, unsupported builds,
+  network, secure storage, backend rejection/unavailability and unreadable responses. Copy has
+  success/failure feedback; secure-storage retry is labelled; unsupported builds offer Back/Copy.
+- Failed start requests clear only their incomplete no-ID draft once settled. Explicit retry
+  generates fresh credentials; known waiting attempts resume and can reopen Customer approval.
+  Malformed token responses now enter explicit identical-body exchange recovery immediately,
+  retaining the 60-second limit. Saved tokens survive a failed identity read so retry reads that
+  same session. Cancellation tombstones and conservative uncertain-refresh handling are retained;
+  storage failures/corrupt journals are identified without deleting saved auth data.
+
+Verification:
+
+- Full Merchant **144/144** (25 new diagnostics/retry tests); Customer handoff/payment suites
+  **38/38**. Includes failed-start/cancellation races, malformed exchanges, identical recovery,
+  saved-token retry, uncertain refresh, storage read/write/corruption, native error mapping,
+  malicious error-code filtering, clipboard contents and late reopen failure suppression.
+- Both app analyzers clean; diff check clean. Fixture `tool/merchant_auth_visual_qa.dart` produced
+  **192 responsive renders**: eight error states × 320/393/800px widths × EN/KM × both themes ×
+  1×/2× text. No layout exceptions; Retry/Recover, Copy and Back reachable with targets ≥48dp.
+  All eight contact sheets and representative full-size PNGs inspected.
+- Both Android `:app:compileDebugKotlin` checks pass, with Flutter compilation excluded (no APK
+  assembly). Existing Gradle/plugin/platform deprecation warnings remain; daemons stopped.
+- Merchant logs: `.local/merchant-auth-{all-tests,analyze,visual,kotlin}.log`; images and contact
+  sheets `.local/qa/merchant-auth/`. Customer logs: `.local/merchant-auth-{customer-handoff,analyze,kotlin}.log`.
+
+Uncommitted. Existing APK checksums are unchanged; no APK build/install, backend/configuration
+change, migration, restart, deployment, real sign-in/payment, commit or push. Next: separately
+authorized APK packaging and the friend's reproduction. If it fails, capture Copy error details;
+verify Customer approval → Merchant return → registered shop before closing the incident. M9 stays open.

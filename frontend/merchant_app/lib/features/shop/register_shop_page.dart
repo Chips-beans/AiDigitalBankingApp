@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
 import '../../core/merchant_ui.dart';
@@ -170,7 +171,8 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
         final locked = pending != null;
         final draft = pending?.draft;
         return Scaffold(
-          appBar: AppBar(
+          appBar: merchantAppBar(
+            context,
             leading: QBack(onPressed: () => widget.onSignOut()),
             title: Text(
               t(context, 'Register your shop', 'ចុះឈ្មោះហាងរបស់អ្នក'),
@@ -237,6 +239,35 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
                           QGroup(
                             child: Column(
                               children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        t(
+                                          context,
+                                          'Saved details',
+                                          'ព័ត៌មានបានរក្សាទុក',
+                                        ),
+                                        style: mText(
+                                          context,
+                                          14,
+                                          22,
+                                          weight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      t(context, 'Saved', 'បានរក្សាទុក'),
+                                      style: mText(
+                                        context,
+                                        12,
+                                        20,
+                                        color: merchantNavy(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
                                 QDetail(
                                   t(context, 'Shop name', 'ឈ្មោះហាង'),
                                   draft.storeName,
@@ -262,6 +293,20 @@ class _RegisterShopPageState extends State<RegisterShopPage> {
                                   draft.address,
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            t(
+                              context,
+                              'We never resend your registration automatically.',
+                              'យើងមិនផ្ញើការចុះឈ្មោះម្ដងទៀតដោយស្វ័យប្រវត្តិទេ។',
+                            ),
+                            style: mText(
+                              context,
+                              12,
+                              20,
+                              color: AppColors.of(context).disabledBackground,
                             ),
                           ),
                         ] else ...[

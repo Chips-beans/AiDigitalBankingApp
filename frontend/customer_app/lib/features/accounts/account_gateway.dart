@@ -31,6 +31,8 @@ class BankAccount {
     required this.balance,
     required this.status,
     required this.createdAt,
+    this.accountCategory = 'WALLET',
+    this.merchantId,
   });
   factory BankAccount.fromJson(Object? value) {
     final data = objectData(value);
@@ -38,11 +40,16 @@ class BankAccount {
     final number = textField(data, 'accountNumber');
     final type = textField(data, 'accountType');
     final status = textField(data, 'status');
+    final category = data['accountCategory'] ?? 'WALLET';
+    final merchantId = data['merchantId'];
     if (id is! int ||
         id <= 0 ||
         !RegExp(r'^[0-9]{10,20}$').hasMatch(number) ||
         !types.contains(type) ||
-        !statuses.contains(status)) {
+        !statuses.contains(status) ||
+        !{'WALLET', 'MERCHANT'}.contains(category) ||
+        (merchantId != null && (merchantId is! int || merchantId <= 0)) ||
+        (category == 'MERCHANT' && merchantId == null)) {
       throw invalidAccountData;
     }
     return BankAccount(
@@ -52,6 +59,8 @@ class BankAccount {
       balance: Money.parse(data['balance'], textField(data, 'currency')),
       status: status,
       createdAt: dateField(data, 'createdAt'),
+      accountCategory: category as String,
+      merchantId: merchantId as int?,
     );
   }
   static const types = ['SAVINGS', 'CHECKING', 'PAYROLL'];
@@ -60,6 +69,9 @@ class BankAccount {
   final String number, type, status;
   final Money balance;
   final DateTime createdAt;
+  final String accountCategory;
+  final int? merchantId;
+  bool get isMerchant => accountCategory == 'MERCHANT';
   String get currency => balance.currency;
   String get label =>
       '${type[0]}${type.substring(1).toLowerCase()} · $currency · $number';
@@ -143,7 +155,8 @@ class RecentPosting {
   /// [amount] is from this account's perspective; [debit] is what the source paid.
   final Money amount, fee, debit;
   final DateTime createdAt;
-  bool get converted => debit.currency != amount.currency || exchangeRate != null;
+  bool get converted =>
+      debit.currency != amount.currency || exchangeRate != null;
   String direction(String number) => type == 'DEPOSIT'
       ? 'Deposit'
       : source == number
@@ -211,9 +224,67 @@ abstract interface class AccountPairGateway {
   Future<AccountPairResult> openPair(String token, String type, String key);
 }
 
-class HttpAccountGateway implements AccountGateway, AccountPairGateway {
+abstract interface class MerchantWalletSource {
+  Future<List<BankAccount>> merchantList(String token, int page);
+}
+
+/// Read-only view of the current customer's business accounts. This adapter is
+/// used by separate account/history controllers, never by personal money flows.
+class MerchantWalletGateway implements AccountGateway {
+  MerchantWalletGateway(this.personal);
+  final AccountGateway personal;
+
+  @override
+  Future<List<BankAccount>> list(String token, int page) async {
+    final source = personal;
+    if (source is! MerchantWalletSource) return [];
+    final accounts = await (source as MerchantWalletSource).merchantList(
+      token,
+      page,
+    );
+    if (accounts.any((a) => !a.isMerchant || a.merchantId == null)) {
+      throw invalidAccountData;
+    }
+    return accounts;
+  }
+
+  @override
+  Future<BankAccount> detail(String token, String number) async {
+    final account = await personal.detail(token, number);
+    if (!account.isMerchant || account.merchantId == null) {
+      throw invalidAccountData;
+    }
+    return account;
+  }
+
+  @override
+  Future<List<RecentPosting>> recent(String token, String number) =>
+      personal.recent(token, number);
+
+  @override
+  Future<BankAccount> open(String token, String type, String currency) async =>
+      throw const ApiFailure(
+        'MERCHANT_WALLET_READ_ONLY',
+        'Manage business wallets in Kesor Merchant.',
+      );
+}
+
+class HttpAccountGateway
+    implements AccountGateway, AccountPairGateway, MerchantWalletSource {
   HttpAccountGateway(this.client);
   final ApiClient client;
+  @override
+  Future<List<BankAccount>> merchantList(String token, int page) async {
+    final response = await client.request(
+      'GET',
+      '/accounts/me',
+      accessToken: token,
+      query: {'category': 'MERCHANT', 'page': '$page', 'size': '20'},
+    );
+    if (response['data'] is! List) throw invalidAccountData;
+    return (response['data'] as List).map(BankAccount.fromJson).toList();
+  }
+
   @override
   Future<OpeningPolicy> openingPolicy(String token) async =>
       OpeningPolicy.fromJson(

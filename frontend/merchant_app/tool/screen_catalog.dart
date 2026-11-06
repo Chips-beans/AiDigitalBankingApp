@@ -114,13 +114,21 @@ void main() {
     });
     // Warm exported SVG bytecode outside the fake clock before captures.
     await tester.runAsync(() async {
-      for (final file in Directory(
-        'assets/figma',
-      ).listSync().whereType<File>().where((f) => f.path.endsWith('.svg'))) {
-        await vector.SvgAssetLoader(
-          'assets/figma/${file.uri.pathSegments.last}',
-        ).loadBytes(null);
+      for (final dir in ['assets/figma', 'assets/figma-change']) {
+        for (final file in Directory(
+          dir,
+        ).listSync().whereType<File>().where((f) => f.path.endsWith('.svg'))) {
+          await vector.SvgAssetLoader('$dir/${file.uri.pathSegments.last}')
+              .loadBytes(null);
+        }
       }
+    });
+    await tester.runAsync(() async {
+      final bytes = await rootBundle.load('assets/figma-change/795a3.png');
+      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      frame.image.dispose();
+      codec.dispose();
     });
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -425,6 +433,15 @@ void main() {
         await tester.enterText(
           find.byKey(const ValueKey('collect-amount')),
           '25000',
+        );
+        await tester.pump();
+      }
+      if (screen == 'welcome') {
+        await tester.runAsync(
+          () => precacheImage(
+            const AssetImage('assets/figma-change/795a3.png'),
+            tester.element(find.byType(Image).first),
+          ),
         );
         await tester.pump();
       }

@@ -74,6 +74,19 @@ void main() {
         );
         await tester.tap(find.byKey(const ValueKey('wallet-tile-1000000001')));
         await tester.pumpAndSettle();
+        expect(find.text('Wallet details'), findsOneWidget);
+        await tap('Account options');
+        await tap('Account information');
+        await tester.scrollUntilVisible(
+          find.text('Currency: USD'),
+          100,
+          scrollable: find
+              .descendant(
+                of: find.byKey(const PageStorageKey('wallet-detail-scroll')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         expect(find.text('Currency: USD'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
@@ -83,6 +96,16 @@ void main() {
         await tester.pumpAndSettle();
         await tap('Back');
         await tap('All transactions');
+        await tester.scrollUntilVisible(
+          find.text('No activity yet for this account.'),
+          100,
+          scrollable: find
+              .descendant(
+                of: find.byKey(const PageStorageKey('wallet-detail-scroll')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
         expect(find.text('No activity yet for this account.'), findsOneWidget);
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();

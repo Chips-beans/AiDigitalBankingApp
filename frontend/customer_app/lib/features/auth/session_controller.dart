@@ -142,7 +142,10 @@ class SessionController extends ChangeNotifier {
   DateTime? _selectionStarted;
 
   void coverPrivateContent() {
-    if (pinChallenge == null || phase != SessionPhase.signedIn) return;
+    if (pinChallenge == null ||
+        (phase != SessionPhase.signedIn && phase != SessionPhase.pinLocked)) {
+      return;
+    }
     privacyCovered = true;
     _emit();
   }
@@ -385,8 +388,8 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// User decision (31 Oct 2026): one PIN entry covers use of the app until it is idle
-  /// or backgrounded for this long; transfers still ask for the PIN every time.
+  /// One PIN covers foreground use until idle. Normal background visits lock immediately.
+  /// Transfers still ask for the PIN every time.
   static const idleLimit = Duration(minutes: 3);
   DateTime? _lastActivity, _backgroundedAt;
 
@@ -405,18 +408,24 @@ class SessionController extends ChangeNotifier {
     // Keep the first departure: returning also passes through `hidden`.
     if (phase == SessionPhase.signedIn) _backgroundedAt ??= _clock();
     if (phase == SessionPhase.pinLocked) {
+      ++_generation;
+      busy = false;
       // A partly typed PIN never survives leaving the app.
       ++pinEntryRevision;
       _emit();
     }
   }
 
-  /// Locks on return only if the app was away for at least [idleLimit].
+  /// Every normal background visit requires unlocking again on return.
   void markForeground() {
+    if (phase == SessionPhase.pinLocked) {
+      unawaited(restorePinStatus());
+      return;
+    }
     final away = _backgroundedAt;
     _backgroundedAt = null;
     if (away == null || phase != SessionPhase.signedIn) return;
-    if (_clock().difference(away) >= idleLimit && !trustedImageSelection) {
+    if (!trustedImageSelection) {
       lockApp();
     } else {
       noteActivity();
@@ -441,7 +450,6 @@ class SessionController extends ChangeNotifier {
     _accessUntil = null;
     busy = false;
     failure = null;
-    privacyCovered = false;
     _emit();
     unawaited(restorePinStatus());
   }

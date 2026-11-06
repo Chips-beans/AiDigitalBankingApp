@@ -5,7 +5,7 @@ import 'package:kesor_design_system/kesor_design_system.dart';
 
 import 'merchant_strings.dart';
 
-/// Merchant Redesign v2 · Quiet, Figma section 370:4356. Merchant-only
+/// Merchant Redesign · Change list, Figma section 363:3084. Merchant-only
 /// overrides keep the Customer app's established theme intact.
 ThemeData merchantTheme(Brightness brightness, Locale locale) {
   final base = AppTheme.build(brightness, locale: locale);
@@ -20,54 +20,59 @@ ThemeData merchantTheme(Brightness brightness, Locale locale) {
         color: colors.foreground,
       );
   final type = source.copyWith(
-    hero: role(32, 43, FontWeight.w300),
-    titleXL: role(20, 27, FontWeight.w500),
-    titleL: role(17, 22, FontWeight.w500),
-    titleM: role(15, 24, FontWeight.w500),
+    hero: role(32, 44, FontWeight.w600),
+    titleXL: role(24, 36, FontWeight.w500),
+    titleL: role(20, 30, FontWeight.w500),
+    titleM: role(18, 28, FontWeight.w500),
     body: role(15, 24, FontWeight.w400),
     bodyL: role(15, 24, FontWeight.w400),
-    button: role(14, 22, FontWeight.w500),
-    caption: role(13, 18, FontWeight.w400),
-    micro: role(11, 14, FontWeight.w500),
+    button: role(14, 22, FontWeight.w600),
+    caption: role(12, 20, FontWeight.w400),
+    micro: role(10, 16, FontWeight.w500),
   );
-  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
+  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(28));
   return base.copyWith(
     extensions: [colors, type],
+    scaffoldBackgroundColor: brightness == Brightness.light
+        ? const Color(0xfff8f8ff)
+        : colors.background,
     textTheme: type.textTheme.apply(
       bodyColor: colors.foreground,
       displayColor: colors.foreground,
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: colors.background,
-      foregroundColor: colors.foreground,
+      backgroundColor: AppPalette.navy500,
+      foregroundColor: AppPalette.navy50,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+      ),
+      iconTheme: const IconThemeData(color: AppPalette.navy50),
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
       titleSpacing: 8,
-      toolbarHeight: 56,
-      titleTextStyle: type.titleL,
-      systemOverlayStyle: brightness == Brightness.dark
-          ? SystemUiOverlayStyle.light
-          : SystemUiOverlayStyle.dark,
+      toolbarHeight: 68,
+      titleTextStyle: type.titleM.copyWith(color: AppPalette.navy50),
+      systemOverlayStyle: SystemUiOverlayStyle.light,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: colors.surface,
+      fillColor: colors.background,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       hintStyle: type.body.copyWith(color: colors.disabledBackground),
       labelStyle: type.caption.copyWith(color: colors.disabledBackground),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: colors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: colors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(color: colors.accent500),
       ),
       errorMaxLines: 3,
@@ -77,7 +82,7 @@ ThemeData merchantTheme(Brightness brightness, Locale locale) {
         minimumSize: const Size(48, 52),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         backgroundColor: colors.primary500,
-        foregroundColor: AppPalette.neutralLightForegroundAndBase,
+        foregroundColor: Colors.white,
         textStyle: type.button,
         shape: shape,
       ),
@@ -105,15 +110,15 @@ ThemeData merchantTheme(Brightness brightness, Locale locale) {
     ),
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: colors.background,
-      selectedColor: colors.accent50,
+      selectedColor: AppPalette.navy500,
       side: BorderSide.none,
       showCheckmark: false,
       labelStyle: type.caption.copyWith(fontSize: 13, color: colors.foreground),
       secondaryLabelStyle: type.caption.copyWith(
         fontSize: 13,
-        color: AppPalette.navy500,
+        color: AppPalette.navy50,
       ),
-      secondarySelectedColor: colors.accent50,
+      secondarySelectedColor: AppPalette.navy500,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
@@ -133,7 +138,7 @@ class QIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget svg = SvgPicture.asset(
-      'assets/figma/$asset.svg',
+      figmaAsset(asset),
       colorFilter:
           darkAdaptive && Theme.of(context).brightness == Brightness.dark
           ? ColorFilter.mode(AppColors.of(context).foreground, BlendMode.srcIn)
@@ -163,8 +168,15 @@ class QBack extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: t(context, 'Back', 'ថយក្រោយ'),
+    style: IconButton.styleFrom(
+      backgroundColor: AppPalette.navy400,
+      shape: const CircleBorder(),
+    ),
     onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
-    icon: const QIcon('20fad'),
+    icon: const ColorFiltered(
+      colorFilter: ColorFilter.mode(AppPalette.navy50, BlendMode.srcIn),
+      child: QIcon('20fad', darkAdaptive: false),
+    ),
   );
 }
 
@@ -174,7 +186,7 @@ class QStage extends StatelessWidget {
   const QStage({
     required this.child,
     this.footer,
-    this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 20),
+    this.padding = const EdgeInsets.fromLTRB(20, 20, 20, 20),
     super.key,
   });
   final Widget child;
@@ -223,7 +235,8 @@ class QPage extends StatelessWidget {
   final List<Widget>? actions;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+    appBar: merchantAppBar(
+      context,
       leadingWidth: 52,
       leading: const QBack(),
       title: Text(title),
@@ -253,8 +266,9 @@ class QGroup extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: padding,
     decoration: BoxDecoration(
-      color: AppColors.of(context).surface,
-      borderRadius: BorderRadius.circular(16),
+      color: AppColors.of(context).background,
+      border: Border.all(color: AppColors.of(context).border),
+      borderRadius: BorderRadius.circular(20),
     ),
     child: child,
   );
@@ -275,8 +289,8 @@ class QDetail extends StatelessWidget {
             label,
             style: mText(
               context,
-              13,
-              18,
+              12,
+              20,
               color: AppColors.of(context).disabledBackground,
             ),
           ),
@@ -288,7 +302,7 @@ class QDetail extends StatelessWidget {
             value,
             key: valueKey,
             textAlign: TextAlign.end,
-            style: mText(context, 15, 24),
+            style: mText(context, 12, 20),
           ),
         ),
       ],
@@ -302,8 +316,8 @@ class QStatusIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
     child: Container(
-      width: 56,
-      height: 56,
+      width: 84,
+      height: 84,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -311,7 +325,7 @@ class QStatusIcon extends StatelessWidget {
           'success' => AppPalette.semanticSuccessMuted,
           'error' => AppPalette.semanticErrorMuted,
           'warning' => AppPalette.semanticWarningMuted,
-          _ => AppColors.of(context).surface,
+          _ => AppPalette.gold100,
         },
       ),
       child: QIcon(asset, darkAdaptive: tone == 'info'),
@@ -349,16 +363,16 @@ class QSegments<T> extends StatelessWidget {
             onTap: () => onChanged(values[i]),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Text(
                 labels[i],
                 textAlign: TextAlign.center,
                 style: mText(
                   context,
-                  13,
-                  18,
+                  14,
+                  22,
                   weight: values[i] == value
-                      ? FontWeight.w500
+                      ? FontWeight.w600
                       : FontWeight.w400,
                   color: values[i] == value
                       ? AppColors.of(context).foreground
@@ -372,10 +386,12 @@ class QSegments<T> extends StatelessWidget {
       final wrap =
           box.hasBoundedWidth && box.maxWidth < values.length * 72 * scale;
       return Container(
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: AppColors.of(context).surface,
-          borderRadius: BorderRadius.circular(12),
+          color: Theme.of(context).brightness == Brightness.light
+              ? const Color(0xffececf0)
+              : AppColors.of(context).surface,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: wrap
             ? Wrap(
@@ -427,47 +443,60 @@ class QNumberPad extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      for (final row in const [
-        ['1', '2', '3'],
-        ['4', '5', '6'],
-        ['7', '8', '9'],
-        ['.', '0', 'back'],
-      ])
-        Row(
-          children: [
-            for (final key in row)
-              Expanded(
-                child: SizedBox(
-                  height:
-                      MediaQuery.textScalerOf(context)
-                          .scale(35)
-                          .clamp(40.0, double.infinity) +
-                      16,
-                  child: TextButton(
-                    onPressed: key == '.' && !decimal ? null : () => enter(key),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.of(context).foreground,
-                      textStyle: mText(
-                        context,
-                        26,
-                        35,
-                        weight: FontWeight.w300,
+  Widget build(BuildContext context) => ColoredBox(
+    color: AppColors.of(context).background,
+    child: Column(
+      children: [
+        for (final row in const [
+          ['1', '2', '3'],
+          ['4', '5', '6'],
+          ['7', '8', '9'],
+          ['.', '0', 'back'],
+        ])
+          Row(
+            children: [
+              for (final key in row)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: SizedBox(
+                      height:
+                          MediaQuery.textScalerOf(context)
+                              .scale(35)
+                              .clamp(40.0, double.infinity) +
+                          16,
+                      child: TextButton(
+                        onPressed: key == '.' && !decimal
+                            ? null
+                            : () => enter(key),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.of(context).foreground,
+                          backgroundColor: Theme.of(context)
+                              .scaffoldBackgroundColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: mText(
+                            context,
+                            20,
+                            30,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                        child: key == 'back'
+                            ? Semantics(
+                                label: t(context, 'Delete digit', 'លុបលេខ'),
+                                child: const QIcon('f6dae'),
+                              )
+                            : Text(key),
                       ),
                     ),
-                    child: key == 'back'
-                        ? Semantics(
-                            label: t(context, 'Delete digit', 'លុបលេខ'),
-                            child: const QIcon('f6dae'),
-                          )
-                        : Text(key),
                   ),
                 ),
-              ),
-          ],
-        ),
-    ],
+            ],
+          ),
+      ],
+    ),
   );
 }
 
@@ -505,7 +534,7 @@ class QAmountField extends StatelessWidget {
         valueListenable: controller,
         builder: (context, value, _) => LayoutBuilder(
           builder: (context, box) {
-            final style = mText(context, 48, 64, weight: FontWeight.w300);
+            final style = mText(context, 40, 56, weight: FontWeight.w600);
             final hint = currency == 'USD' ? '0.00' : '0';
             final painter = TextPainter(
               text: TextSpan(
@@ -607,14 +636,14 @@ class QMenuRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      border: divider
-          ? Border(bottom: BorderSide(color: AppColors.of(context).border))
-          : null,
+      color: AppColors.of(context).background,
+      border: Border.all(color: AppColors.of(context).border),
+      borderRadius: BorderRadius.circular(16),
     ),
     child: InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 16),
         child: Row(
           children: [
             if (destructive && Theme.of(context).brightness == Brightness.dark)
@@ -666,5 +695,112 @@ class QMenuRow extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+String figmaAsset(String asset) => switch (asset) {
+  'form-phone' => 'assets/figma-change/3b1cc.svg',
+  'form-pin' => 'assets/figma-change/e09b9.svg',
+  'form-camera' => 'assets/figma-change/a87b9.svg',
+  'alert-sound' => 'assets/figma-change/068a0.svg',
+  'alert-vibration' => 'assets/figma-change/a0058.svg',
+  'a83fb' => 'assets/figma-change/a83fb.svg',
+  '156fc' => 'assets/figma-change/60b00.svg',
+  'd8c8d' => 'assets/figma-change/d8c8d.svg',
+  '20fad' => 'assets/figma-change/0ebe3.svg',
+  'c0d59' => 'assets/figma-change/01600.svg',
+  '00600' => 'assets/figma-change/075a7.svg',
+  'f7f78' => 'assets/figma-change/38515.svg',
+  'a9d14' => 'assets/figma-change/075a7.svg',
+  '19f2d' => 'assets/figma-change/98773.svg',
+  'f6e9c' => 'assets/figma-change/f3cd5.svg',
+  'ff372' => 'assets/figma-change/ff372.svg',
+  '56124' => 'assets/figma-change/88a91.svg',
+  'cbe0a' => 'assets/figma-change/075a7.svg',
+  '6e46a' => 'assets/figma-change/875aa.svg',
+  '4a0ca' => 'assets/figma-change/58636.svg',
+  '8d19a' => 'assets/figma-change/629f4.svg',
+  '5bdf3' => 'assets/figma-change/154a9.svg',
+  'cc139' => 'assets/figma-change/ddcdc.svg',
+  '5e757' => 'assets/figma-change/60b00.svg',
+  '8b848' => 'assets/figma-change/2d864.svg',
+  'dc524' => 'assets/figma-change/36347.svg',
+  '58f29' => 'assets/figma-change/59c8e.svg',
+  '875aa' => 'assets/figma-change/875aa.svg',
+  '849ed' => 'assets/figma-change/849ed.svg',
+  '7827e' => 'assets/figma-change/7827e.svg',
+  '015d6' => 'assets/figma-change/58636.svg',
+  'f6dae' => 'assets/figma-change/f6dae.svg',
+  'e33d1' => 'assets/figma-change/0076b.svg',
+  '1e3d7' => 'assets/figma-change/849ed.svg',
+  '5b56c' => 'assets/figma-change/98773.svg',
+  'e306f' => 'assets/figma-change/f3cd5.svg',
+  '1409f' => 'assets/figma-change/e0ad4.svg',
+  '17e15' => 'assets/figma-change/17e15.svg',
+  '08603' => 'assets/figma-change/0076b.svg',
+  '7b0e4' => 'assets/figma-change/e6ee9.svg',
+  '32729' => 'assets/figma-change/2a112.svg',
+  '602f1' => 'assets/figma-change/b4d4c.svg',
+  'be895' => 'assets/figma-change/ff372.svg',
+  'b8ce6' => 'assets/figma-change/875aa.svg',
+  '5a018' => 'assets/figma-change/38515.svg',
+  '72888' => 'assets/figma-change/23e66.svg',
+  '00519' => 'assets/figma-change/2cb10.svg',
+  '72592' => 'assets/figma-change/0e7e8.svg',
+  'e82c5' => 'assets/figma-change/f97b4.svg',
+  '64959' => 'assets/figma-change/94e29.svg',
+  'c24d4' => 'assets/figma-change/17155.svg',
+  'c9889' => 'assets/figma-change/8d00f.svg',
+  _ => 'assets/figma/$asset.svg',
+};
+
+/// Figma's 44px toolbar sits above a 24px lower inset. Text can grow the
+/// toolbar on narrow screens instead of being clipped by the reference height.
+AppBar merchantAppBar(
+  BuildContext context, {
+  Key? key,
+  Widget? leading,
+  double? leadingWidth,
+  Widget? title,
+  List<Widget>? actions,
+  ShapeBorder? shape,
+}) {
+  final painter =
+      TextPainter(
+        text: TextSpan(
+          text: title is Text ? title.data ?? '' : '',
+          style: AppTextStyles.of(context).titleM,
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth: (MediaQuery.sizeOf(context).width - 144).clamp(
+          80,
+          double.infinity,
+        ),
+      );
+  final height = (painter.height + 16).clamp(44.0, double.infinity);
+  return AppBar(
+    key: key,
+    toolbarHeight: height + 24,
+    leadingWidth: (leadingWidth ?? 72).clamp(72, double.infinity),
+    shape: shape,
+    leading: leading == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 24),
+            child: leading,
+          ),
+    title: title == null
+        ? null
+        : Padding(padding: const EdgeInsets.only(bottom: 24), child: title),
+    actions: actions
+        ?.map(
+          (action) => Padding(
+            padding: const EdgeInsets.only(bottom: 24, right: 8),
+            child: action,
+          ),
+        )
+        .toList(),
   );
 }

@@ -430,10 +430,16 @@ final _shots = <_Shot>[
   _Shot('05_PIN_Create', (c) => c.mountDirect(_pin(PinStage.create))),
   _Shot('06_PIN_Confirm', (c) => c.mountDirect(_pin(PinStage.confirm))),
   _Shot('07_PIN_Enter', (c) => c.mountDirect(_pin(PinStage.unlock))),
-  _Shot(
-    '08_Home_Locked_Masked_Balances',
-    (c) => c.mountDirect(LockedHomePage(onUnlock: () {})),
-  ),
+  _Shot('08_Home_Locked_Masked_Balances', (c) async {
+    final session = c.session = await settingsSession();
+    await c.mountDirect(
+      LockedHomePage(
+        onUnlock: (_) {},
+        session: session,
+        favorites: RecipientFavoritesStore(),
+      ),
+    );
+  }),
   _Shot('09_Home', (c) => c.mountMain()),
   _Shot('10_Home_Add_Favorite_Recipient', (c) async {
     await c.mountMain();

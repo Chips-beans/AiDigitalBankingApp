@@ -22,6 +22,8 @@ import static org.mockito.Mockito.when;
 class ContinuationAuthTests extends PostgresIntegrationTest {
     @Value("${local.server.port}") int port;
     @Autowired ObjectMapper json;
+    @Autowired com.bank.digital_banking.module.account.repository.AccountRepository previewAccounts;
+    @Autowired com.bank.digital_banking.module.transaction.repository.TransactionRepository previewTransactions;
     @Autowired UserRepository users;
     @Autowired TelegramLoginFlowRepository flows;
     @Autowired com.bank.digital_banking.module.auth.repository.AuthSessionRepository sessions;
@@ -75,6 +77,34 @@ class ContinuationAuthTests extends PostgresIntegrationTest {
     int accounts(String access) throws Exception {
         return http.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/accounts/me"))
                 .header("Authorization", "Bearer " + access).GET().build(), HttpResponse.BodyHandlers.ofString()).statusCode();
+    }
+    @Test void lockedHomePreviewOmitsMoneyAndCannotUnlockBanking() throws Exception {
+        String ticket = pinPrepare(completedEmail(email())).path("ticket").asText();
+        assertThat(call("POST", "/pin/home-preview", null, Map.of("ticket", ticket)).statusCode()).isEqualTo(403);
+        String access = pinSetup(ticket, "5072", false).path("accessToken").asText();
+        long ownerId = data(call("POST", "/pin/status", null, Map.of("ticket", ticket))).path("userId").asLong();
+        var owner = users.findById(ownerId).orElseThrow();
+        var wallet = previewAccounts.findByUserAndAccountCategory(owner,
+            com.bank.digital_banking.module.account.entity.AccountCategory.WALLET).getFirst();
+        var references = new HashSet<String>();
+        for (int i = 0; i < 7; i++) {
+            String ref = UUID.randomUUID().toString(); references.add(ref);
+            previewTransactions.saveAndFlush(com.bank.digital_banking.module.transaction.entity.Transaction.builder()
+                .referenceNumber(ref).destinationAccount(wallet).amount(new java.math.BigDecimal("12.34"))
+                .currency(wallet.getCurrency()).transactionType(com.bank.digital_banking.module.transaction.entity.TransactionType.DEPOSIT)
+                .status(com.bank.digital_banking.module.transaction.entity.TransactionStatus.SUCCESS).build());
+        }
+        JsonNode preview = data(call("POST", "/pin/home-preview", null, Map.of("ticket", ticket)));
+        assertThat(preview.isArray()).isTrue();
+        assertThat(preview.size()).isEqualTo(5);
+        for (JsonNode entry : preview) {
+            assertThat(references).contains(entry.path("reference").asText());
+            assertThat(entry.propertyNames()).containsExactlyInAnyOrder("reference", "name", "createdAt", "direction", "type", "status");
+        }
+        assertThat(accounts(access)).isEqualTo(403);
+        assertThat(call("POST", "/pin/home-preview", null, Map.of("ticket", "invalid-ticket")).statusCode()).isEqualTo(401);
+        data(call("POST", "/pin/discard", null, Map.of("ticket", ticket)));
+        assertThat(call("POST", "/pin/home-preview", null, Map.of("ticket", ticket)).statusCode()).isEqualTo(401);
     }
     @Test void settingsUpdatesProfileAndChangesPinWithoutReopeningAccounts() throws Exception {
         String mail = email();

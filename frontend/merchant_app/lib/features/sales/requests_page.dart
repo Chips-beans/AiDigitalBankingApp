@@ -184,11 +184,12 @@ class _RequestsPageState extends State<RequestsPage> {
               ? null
               : () => open(r),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.of(context).border),
-              ),
+              color: AppColors.of(context).background,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.of(context).border),
             ),
             child: Row(
               children: [
@@ -210,6 +211,27 @@ class _RequestsPageState extends State<RequestsPage> {
                           color: AppColors.of(context).disabledBackground,
                         ),
                       ),
+                      if (r.status == RequestStatus.paid ||
+                          r.status == RequestStatus.waiting)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            r.status == RequestStatus.paid
+                                ? t(context, 'Open receipt ›', 'បើកបង្កាន់ដៃ ›')
+                                : t(
+                                    context,
+                                    'Open in Collect ›',
+                                    'បើកក្នុងផ្ទាំងទទួលប្រាក់ ›',
+                                  ),
+                            style: mText(
+                              context,
+                              12,
+                              20,
+                              weight: FontWeight.w500,
+                              color: merchantNavy(context),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

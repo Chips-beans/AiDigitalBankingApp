@@ -1,12 +1,13 @@
 # Kesor Bank — progress and agent guide
 
-Updated 4 November 2026, Asia/Phnom_Penh. This is the single place for **current status,
+Updated 6 November 2026, Asia/Phnom_Penh. This is the single place for **current status,
 rules, setup, commands and open work**. Product detail lives in two sibling documents:
 
 | Document | Covers |
 | --- | --- |
 | [CUSTOMER_APP.md](CUSTOMER_APP.md) | Customer App and the shared banking backend: auth, PIN, accounts, transfers, QR, analytics, AI assistant, Settings, Android notes |
 | [MERCHANT_APP.md](MERCHANT_APP.md) | Merchant App: decisions, contracts, M0–M8 as built, M9 plan, deferred M10–M13 |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Hosting (Railway): what is live, Railway variables, runbooks for deploying changes, migrations, variables, Gmail token renewal, APK rebuilds, rollback, tear-down |
 | This file | Progress, agent rules, environment, commands, conventions, backlog |
 
 Other docs that stay next to the code: `AGENTS.md` (short pointer file for agents),
@@ -29,6 +30,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 - `frontend/packages/kesor_design_system` (shared theme/tokens), `frontend/packages/kesor_auth_handoff` (app-to-app approval transport).
 - Both apps share one backend and database. The Merchant App never has its own login: it signs in through approval in the Customer App.
 - Latest schema: **V21** in source. The development database is behind (see §6).
+- **Hosted:** backend live on Railway at `https://backend-production-18646.up.railway.app` (schema V21, Gmail API OTP, native Telegram) for a short live run, deployed from branch `railway-gmail-otp`; pilot APKs point at it. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 2. Progress
 
@@ -36,41 +38,65 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 | Area | State |
 | --- | --- |
+| Linked merchant wallets in Customer (6 Nov) | Empty placeholder removed. Actual merchant KHR/USD cards, balances, copy, read-only details/activity/receipts; no cards without business wallets. Isolated personal money flows, entry/pull refresh, stale/retry and session guards. Customer **307/307**, analysis clean, **96 responsive renders** without layout exceptions. Uncommitted; current APKs unchanged, device/live acceptance pending. Customer §22; Merchant §17. |
+| Updated Customer Railway APK (6 Nov) | Built from current source with all latest designs and PIN Home preview. Debug/dev/API, unchanged Railway URL, verified package/signature/assets/CRC/checksum, previous APK archived. Not installed; device acceptance pending. Customer document §21; packaging evidence in §8 below. |
+| AI Assistant Figma redesign (6 Nov) | Current `385:2708` implemented with exact three auto-send prompts and matching reference anchors. Customer **298/298**, analysis clean, **72 responsive renders**, no overflow. Uncommitted; packaged 6 Nov, no device/live-provider acceptance. Customer document §20–21. |
+| Customer Figma Section 3 implementation (6 Nov) | Wallets, Wallet Detail, Transaction Detail and Customer splash implemented from `431:2446`. Customer **294/294**, analysis clean, **288 responsive renders**, no layout exceptions. Receipt PNG export and matching-wallet PIN continuation covered. Uncommitted; packaged 6 Nov, device acceptance pending. Customer document §19, §21. |
+| Transaction & Wallet Detail Figma designs (6 Nov) | Initially created in section `422:2062`; Transaction Detail `426:993`, Wallet Detail `426:877`. User subsequently moved/edited them in section `431:2446`; Flutter implementation now recorded in Customer document §19. Original design record: §18. |
 | Email OTP + Telegram (browser and native Android) sign-in, onboarding, profile photos | Built. User personally verified native Telegram login and Create Profile → PIN → Home on the Samsung tablet. |
-| Server-enforced 4-digit PIN (V13), masked Home until first tap, 3-minute idle lock | Built, automated checks pass. Device acceptance of the later PIN rework not recorded. |
+| Server-enforced 4-digit PIN (V13), Home preview and protected-feature continuation | 6 Nov source implementation: recent transactions and manual favorites visible before PIN; all money masked; PIN continues selected feature. Every normal background visit locks; 3-minute foreground idle limit retained. Backend deployed to Railway 6 Nov (SUCCESS, 261/261 backend tests); included in the updated 6 Nov Customer APK. Device acceptance pending. |
 | USD/KHR wallets (automatic at signup, V16), manual transfers with fixed 1 USD = 4,000 KHR, recipient lookup, transfer PIN proof | Built; full backend suite green. |
 | QR receive/scan/pay (internal Kesor QR only), Save/Share QR card | Built. Camera/gallery acceptance on device pending. |
 | Monthly Analytics | Built; user accepted the screen's appearance. |
 | Optional Analytics watercolor asset (4 Nov) | Generated transparent Khmer money-planning PNG at `frontend/customer_app/assets/analytics/khmer-money-planning.png`; delivered separately, not wired into the screen. Uncommitted. |
+| Optional Analytics header asset (5 Nov) | Generated transparent navy/gold wallet, coins and chart PNG at `frontend/customer_app/assets/analytics/monthly-money-overview.png` for above the month selector. Delivered separately; not wired into the screen. Uncommitted. |
 | Read-only AI assistant (OpenAI-compatible gateway; Gemini removed 5 Nov 2026) | Built; 5 Nov 2026 added general money guidance (education + budgeting tips, `GENERAL`/`MIXED` modes), `TOTALS`/`COMPARE` tools and number-checked free-form text — automated tests only, no live Gemini run of the new prompts (see CUSTOMER_APP.md §8). Live success proven only with `gemini-3.5-flash-lite` (Khmer intent turns); Gemini prose (`explanationStatus=AI`), English locale, monthly summary and payment-refusal turns are unverified. |
 | Settings (profile edit, PIN change, alerts, language/theme, FAQ) | Built; user confirmed "Settings looks correct and pages open". PIN change, notification delivery not personally tested. |
 | Home (3 actions, Favorite Recipients), Wallet & Accounts screen, scanner UI, Receive QR redesign | Built; device acceptance pending. |
 | Customer Figma section redesign (4 Nov) | Implemented all five frames in section `387:6034`: Home, Wallet, Analytics, AI Assistant and blurred My QR overlay. Customer 273/273 tests, 300 responsive renders without layout exceptions, analysis clean. Uncommitted; no APK/device acceptance. See Customer document §14. |
+| Customer QR entry + Analytics Figma redesign (5 Nov) | Separate QR entry `404:901` and Analytics `413:5956` implemented from section `413:6086`; 284 Customer tests, 144 responsive renders plus 16 Analytics PNGs; no page scroll. User-approved smaller QR keypad targets in short landscape. Uncommitted; no APK/device/live work. Customer document §16. |
+| Transfer success overflow fix (5 Nov) | Current Figma `308:740` proportions restored; confirmation/receipt fit one screen, no page scroll, both actions remain visible at full tap size. Native safe areas, compact portrait and landscape supported. Uncommitted; automated evidence below; no APK/device acceptance. See Customer document §15. |
+
+### Showcase website
+
+| Area | State |
+| --- | --- |
+| Hero left-side spacing (6 Nov) | User subsequently authorized hero spacing edits. `showcase/src/hero.css` now groups headline/description/actions with content-driven text height, 32px desktop gaps and 16px button separation; phone gaps 24/28/12px. Type, colors, copy, hero JSX, splash, grid and lanyard unchanged. Production build passes; 1440/768/390/320 captures have no horizontal overflow and keep button sizes. Uncommitted; evidence in §8. |
+| Below-hero showcase redesign (6 Nov) | Rebuilt `showcase/src/App.jsx` and below-hero `styles.css` using UI/UX Pro Max + design-taste-frontend: product introduction/navigation, Customer screen index, Merchant screen run, five-stage payment walkthrough, open technology rows, sample team roster and compact wordmark footer. Hero/splash/component sources and shared CSS prefix verified unchanged. Production build passes; inspector 1440/768/390 **0 FAIL, 3 WARN** with only protected splash timing/coverage allowances. Browser: all 12 selectors, five stages, keyboard/range, anchors and reduced motion pass; 1440/768/390/320 have no horizontal overflow/broken images. No deployment or commit. Evidence: §8 below. |
+| Project showcase site (6 Nov) | Layout pass built in `showcase/` (Vite + React, brand navy/gold, Poppins): hero, Customer App, Merchant App, How it works (payment slider), Tech stack, Team, Footer. Screenshots are WebP copies of `Flutter Screen/` captures. **All content is placeholder** (APK/Figma links `#`, team, university/course, illustrative API log lines) in `showcase/src/data.js`. Hero rebuilt from Figma `437:2492`; its ID badge is React Bits Lanyard (`src/components/Lanyard.jsx`, three.js, lazy-loaded) with Kesor card/strap art in `public/lanyard/`. Hero background is React Bits CursorGrid aligned to the copy block; a StrokeText "KESOR Bank" splash (`src/Splash.jsx`) plays on every load, then the hero entrance runs. React Bits sources in `src/components/` carry small local edits (Lanyard window events/numeric anchor, CursorGrid origin, StrokeText width-only resize). Run `npm --prefix showcase run dev`. Not deployed; uncommitted. |
 
 ### Merchant App
 
 | Milestone | State |
 | --- | --- |
+| Merchant sign-in diagnostics/recovery (6 Nov) | Specific EN/KM error messages and safe Copy details; distinct Android verification/opening failures, preserved HTTP status, failed-start and malformed-exchange recovery fixes. Full Merchant **144/144**, Customer handoff **38/38**, **192 responsive renders**, both Kotlin compile checks pass. Uncommitted; APKs unchanged, friend's exact cause/device acceptance pending. Merchant §18; Customer §23. |
+| Updated Merchant Railway APK (6 Nov) | Built from current source with the full Figma Change list redesign and new splash. Debug/dev, unchanged Railway URL, verified package/signature/assets/CRC/checksum, previous APK archived. Not installed; device acceptance pending. Merchant document §16. |
+| Merchant Figma splash (6 Nov) | White splash, original vector logo layers and shared Figma motion implemented from `418:6159`. Merchant **119/119**, analysis clean, **30 splash renders**, no layout exceptions. Uncommitted; packaged 6 Nov, device acceptance pending. Merchant document §15–16. |
+| Merchant Figma Change list redesign (5 Nov) | Source implemented against all 28 frames in section `363:3084`; 118/118 Merchant tests, analysis clean, 294 responsive renders without layout exceptions. Uncommitted; packaged 6 Nov. Comparison/golden and device visual acceptance still open. Merchant document §14, §16. |
 | M0 audit/contracts, M1 shell, M2 backend approval/sessions, M3 app-to-app sign-in | Complete. User confirmed on device: "Register Shop or my existing shop opens, including after reopening." |
 | M4 shop registration + two wallets (V19), M5 dashboard/wallets, M6 QR collection (V20) | Source + automated checks complete, merged. **Not applied to the dev DB, no device acceptance.** |
 | M7 sales, receipts, reports, sharing | Source + automated complete, merged (PR #1). Native sharing not device-verified. |
-| M8 payment alerts + owner transfers (V21), G1 riel sign, G2/G4 notes | Source + automated complete, committed `dc1e4ef`, merged by PR #3. **Android Kotlin not compiled, V19–V21 not applied to dev, no device approval.** |
-| **M9 integrated acceptance + pilot APKs** | **Not started — needs the user's explicit "yes"** (backend restart, APK builds, install). |
+| M8 payment alerts + owner transfers (V21), G1 riel sign, G2/G4 notes | Source + automated complete, committed `dc1e4ef`, merged by PR #3. Android Kotlin compiled in Railway APKs; Railway at V21. V19–V21 not applied to local dev; no device approval. |
+| **M9 integrated acceptance + pilot APKs** | **Packaging complete 6 Nov with explicit authorization.** Latest Railway APKs built and verified; installation and user acceptance pending, no backend restart performed. M9 is not complete. |
 | M10–M13 (push/voice, cashiers/refunds, branches/payment links/AI, KHQR/Bakong) | Deferred. |
 | Merchant Figma Quiet v2 redesign (4 Nov) | Implemented the 28 reference frames in Figma section `370:4356`: three tabs, drawer navigation, flat screens, bundled SVGs and adaptive numeric entry. 112 Merchant tests pass; 294 responsive renders without overflow; analysis clean; 34-state screenshot catalog exported. Uncommitted; no APK/device acceptance. See Merchant document §13. |
 | Earlier Merchant UI refinement (4 Nov) | Welcome, Home, Collect, Sales and Merchant shared presentation widgets refined against the existing Kesor design system. Initial pass: 109 tests, analysis clean, 232 before/after renders. Later user request restores the original Home shop card/action tiles; see Merchant document §12 for current evidence. Uncommitted; no native/device acceptance. |
 
-### Test baselines to keep green (4 November 2026)
+### Test baselines to keep green (6 November 2026)
 
 | Suite | Result |
 | --- | --- |
-| Backend `./mvnw.cmd -o test` | **260/260** (5 Nov 2026, after Gmail API email provider; was 251) |
-| Merchant `flutter test test --concurrency=1` | **112/112** after Figma Quiet v2; visual fixture 294 renders, no overflow |
-| Customer `flutter test --concurrency=1` | **273/273**; Customer Figma fixture 300 renders without layout exceptions; Merchant-transfer approval fixture 24 renders |
+| Backend `./mvnw.cmd -o test` | **261/261** (6 Nov 2026, PIN Home preview pre-deployment full suite) |
+| Merchant `flutter test test --concurrency=1` | **144/144** (6 Nov, sign-in diagnostics/recovery); 192 auth-error renders without layout exceptions, analyzer clean. Splash fixture 30 and earlier Change list fixture 294 renders remain historical evidence. |
+| Customer `flutter test --concurrency=1` | **307/307** (6 Nov, linked merchant wallets); Merchant-wallet fixture 96 renders, analysis clean. Assistant fixture 72 renders and Section 3 fixture 288 renders remain earlier evidence, as do Customer Figma 300 and Merchant-transfer approval 24 renders. |
 | `flutter analyze` both apps, `git diff --check` | Clean |
 
-Merchant and Customer checks were rerun for their 4 November Figma redesigns. Backend numbers
-remain the M8 evidence; that suite was not rerun for these presentation changes.
+Customer and Merchant full suites and analysis were rerun for Section 3 on 6 November.
+Latest Merchant sign-in evidence supersedes that Merchant baseline: 144/144, both analyzers
+clean, Customer handoff/payment subset 38/38; the Customer full 307/307 run is the preceding
+linked-wallet change. Both app Kotlin compile checks pass without APK assembly.
+The backend baseline is the separate 6 November PIN deployment evidence; no backend suite
+was needed or run for these Flutter presentation changes.
 
 ## 3. Rules for every agent session
 
@@ -153,29 +179,12 @@ flutter build apk --debug --dart-define=APP_ENV=dev --dart-define=APP_MODE=api -
 - Use `GRADLE_OPTS=-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1` for APK builds. Verify the compiled API origin, record SHA-256, confirm no `.env` inside the APK.
 - Release App Links need a user-controlled domain and release certificate; none exists. Telegram's `tg.dev` domain must not be reused.
 
-### Railway deployment (short live run)
-Decision (5 Nov 2026): backend on Railway Trial ($5 credit, 30 days) for a ~5-day live run of both apps. Build: `backend/digital-banking/Dockerfile` (Maven image build stage, JRE 21 runtime, non-root, `TZ=Asia/Phnom_Penh`, heap capped by `MaxRAMPercentage=70`, listens on Railway's `PORT`). `.dockerignore` keeps `.env`, `.local/` and `target/` out of the build. Images (photos/logos) live in PostgreSQL, so the container's temporary disk is fine.
-
-1. Railway project → **New → Database → PostgreSQL**.
-2. **New → service** from the GitHub repo (needs the Dockerfile and Gmail sender committed and pushed) or `railway up` from `backend/digital-banking` with the Railway CLI. Service **Settings → Root Directory** = `/backend/digital-banking`; Railway detects the Dockerfile.
-3. Service **Variables** (values typed in Railway only, never in docs/chat):
-
-| Variable | Value |
-| --- | --- |
-| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `${{Postgres.PGHOST}}` / `${{Postgres.PGPORT}}` / `${{Postgres.PGDATABASE}}` / `${{Postgres.PGUSER}}` / `${{Postgres.PGPASSWORD}}` (private network) |
-| `DB_POOL_MAX_SIZE` / `DB_POOL_MIN_IDLE` | `5` / `1` (small instance) |
-| `SPRING_PROFILES_ACTIVE` | `dev` — **not** `local` (would create demo seed users) and **not** `staging`/`prod` (Merchant sign-in only accepts the debug custom-scheme links under local/dev/test; shops would start PENDING). |
-| `JWT_SECRET` | A **new** Base64 of 32 random bytes, not the local one: `$b=New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); [Convert]::ToBase64String($b)`. Also derives the PIN pepper and Merchant recovery key in `dev`, so keep it unchanged for the whole run. |
-| `MAIL_PROVIDER`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_SENDER` | `gmail-api` + the values from the local `.env` (SMTP is blocked on Railway Trial). |
-| `TEST_OPENING_FUNDING_ENABLED` | Optional `true`: new USD/KHR wallets get 200.00 / 100,000 test credit. |
-| `AI_*` | Optional, as in the table above (`AI_ENABLED`, `AI_CUSTOMER_CONTEXT_ENABLED`, `AI_API_KEY`, …). |
-| `SERVER_FORWARD_HEADERS_STRATEGY` | Optional `native`, so per-IP rate limits see client IPs instead of Railway's proxy (only takes effect if Tomcat trusts the proxy address; unverified). |
-
-   Do not set `PORT`, `DEV_SEED_*` or `MAIL_*` SMTP values. Telegram stays off unless `TELEGRAM_*` are set and BotFather accepts the Railway callback.
-4. **Settings → Networking → Generate Domain** → `https://<name>.up.railway.app`.
-5. Verify: deploy logs show Flyway applying V1–V21 on the empty database and `OTP email is delivered through the Gmail API`; `https://<domain>/swagger-ui/index.html` loads (public, as in development); request an OTP from the app and check the inbox.
-6. APKs (only with the user's approval): `flutter build apk --debug --dart-define=APP_ENV=dev --dart-define=APP_MODE=api --dart-define=API_BASE_URL=https://<domain>/api/v1` in each app; no `adb reverse` needed.
-7. After the run: delete the Railway project, revoke the Gmail refresh token (Google account → Security → third-party access) and delete the Google Cloud project. The Gmail refresh token expires after ~7 days anyway (Testing mode).
+### Hosted deployment (Railway)
+The backend runs on Railway for a short live run; both pilot APKs point at it. **Everything about
+hosting — what is live, every Railway variable, and runbooks for deploying a change, adding a
+migration, changing a variable, renewing the Gmail token, rebuilding APKs, rollback and tear-down —
+is in [DEPLOYMENT.md](DEPLOYMENT.md).** Read it before touching the live system; changes to it need
+the user's approval.
 
 ## 5. Commands
 
@@ -221,8 +230,243 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 
 ## 8. Open work and backlog
 
+### 6 November 2026 — Merchant sign-in diagnostics and recovery (uncommitted)
+
+- User approved the source plan for a friend's generic Khmer sign-in failure. Exact device cause
+  remains unconfirmed: both apps installed, failure timing unknown, no attached device, available
+  server logs inconclusive. Read-only checks: expected Railway backend SUCCESS/dev, Swagger 200,
+  unauthenticated Merchant session 401. No live changes or authentication attempt.
+- Implemented failure stage/code/status propagation with a safe allowlisted copy report; native
+  missing/mismatched/unsupported/unopenable app distinctions; EN/KM explanations and actions.
+  Existing pinning, explicit components, debug restrictions and exact links remain unchanged.
+  Shared transport retains status for invalid JSON/envelopes. No credentials, callbacks, request
+  bodies or account data are copied or logged.
+- Explicit retry clears incomplete failed-start drafts but resumes known attempts. Malformed token
+  results immediately require identical-body exchange recovery within 60 seconds; saved-token
+  identity retries do not mint another session. Cancellation, uncertain refresh and late-result
+  safeguards retained; storage errors typed, corrupt stored auth preserved. Late reopen failures
+  cannot resurrect errors after cancellation.
+- Merchant full **144/144**, Customer handoff/payment **38/38**. **192** error-screen renders
+  (eight states, phone/tablet widths, EN/KM, both themes, 1×/2× text): no layout exceptions;
+  Retry/Recover, Copy and Back reachable, targets ≥48dp. Eight sheets/full-size examples reviewed.
+  Both Android Kotlin compile checks pass (no Flutter compilation or APK assembly); Gradle stopped.
+  Both app analyzers and the final diff check are clean.
+- Evidence: Merchant `.local/merchant-auth-{all-tests,analyze,visual,kotlin}.log`,
+  `.local/qa/merchant-auth/`; Customer `.local/merchant-auth-{customer-handoff,analyze,kotlin}.log`.
+  Regression tests `test/merchant_auth_diagnostics_test.dart`; fixture
+  `tool/merchant_auth_visual_qa.dart`. Merchant §18 and Customer §23 updated.
+- Existing uncommitted work/APKs preserved; no backend/configuration change, restart, migration,
+  deployment, APK packaging/install, actual sign-in/payment, commit or push. APK checksums still
+  match the 6 Nov packaging record. Usage checked: 41% primary / 21% secondary remaining.
+  Next: separately authorized updated APKs and friend's approval → return → shop acceptance;
+  collect safe error details if it recurs. M9 remains open.
+
+### 6 November 2026 — Linked merchant wallets in Customer (uncommitted)
+
+- Implemented the approved plan: real merchant KHR/USD cards below personal wallets with exact
+  balances, status, copy, actual counts and details/activity/receipts. Empty merchant results hide
+  the cards; approved sign-in without shop registration remains empty. Merchant sign-out preserves
+  ownership. Existing Customer `accounts/me?category=MERCHANT` is sufficient; no backend changes.
+- Merchant-only read adapter, separate account/history controllers and routes preserve personal
+  transfer/QR selection. My QR is hidden on merchant details. Entry/pull refresh, loading, separate
+  retry, explicit stale notice, full empty-list removal and session/generation guards included.
+- Customer full **307/307**, new focused **9/9**, analyzer/diff checks clean. Visual fixture **96**
+  renders across four states, three phone/tablet sizes, EN/KM, light/dark and 1×/2× text, without
+  layout exceptions. Four contact sheets and representative full-size PNGs inspected. Logs in
+  Customer `.local/merchant-wallets-{focused,all-tests,analyze,visual}.log`; images in
+  `.local/qa/merchant-wallets/`; fixture `tool/merchant_wallets_visual_qa.dart`.
+- Customer §22 and Merchant §17 updated. Existing uncommitted work and APKs preserved. No backend/
+  Merchant source or tests changed/run, no build/install, restart, migration, deployment, real
+  payment, commit or push. Automated fixtures are not authenticated live/device acceptance.
+  Usage checked: 72% primary / 25% secondary remaining. Next: separately authorized Customer APK
+  packaging and device comparison to the same owner's Merchant KHR/USD accounts. M9 still open.
+
+### 6 November 2026 — Hero left-side spacing follow-up (uncommitted)
+
+- User explicitly requested a cleaner left-side hero, superseding the earlier exact-hero restriction
+  only for its spacing. Updated `showcase/src/hero.css`: unitless headline leading, auto-height
+  supporting copy, 32px desktop content gaps, 16px separation between APK buttons; phone copy/action
+  gaps 24/28px and button gap 12px. Kept original text, typography sizes, colors, button dimensions,
+  copy origin, hero JSX/entrance timings, CursorGrid, Lanyard, splash and all below-hero source.
+- Production Vite build passes (existing lazy three.js chunk warning). Before/after browser captures
+  at 1440/768/390/320: no horizontal overflow; desktop buttons remain 256×64, phone 288×48.
+  Desktop action row moved from y554 to y483, phone (390px) from y648 to y618; lanyard/hero frame
+  sizes unchanged. Final production inspector 1440/768/390: **0 FAIL, 3 existing WARN**, with
+  existing protected splash/coverage allowances; all final screenshot sheets viewed. Evidence:
+  `.local/hero-spacing/` before/after CSS, PNGs, geometry logs and critique;
+  `.taste-skill/hero-spacing/` final report and sheets.
+- No deployment, backend/Flutter/device work, commit or push. Existing APK/Figma placeholders remain.
+
+### 6 November 2026 — Showcase below-hero redesign (uncommitted)
+
+- User requested removal of generic design while preserving the hero and splash exactly.
+  Changed only `showcase/src/App.jsx` and the below-hero portion of `showcase/src/styles.css`;
+  existing unrelated tree work preserved. Removed the generic marquee from the page without deleting
+  its source. Retained navy/gold/Poppins, all actual product screenshots, both app feature browsers
+  and payment slider. Replaced repeated split chapters/initials tiles/raw URL footer with distinct
+  product compositions, open technology rows, a text roster and a compact Kesor wordmark close.
+- Hero, splash, their Lanyard/CursorGrid/StrokeText sources/styles and `data.js` match before hashes;
+  original font declarations, tokens and shared CSS prefix match exactly. Assets, entrance timing,
+  3D badge interactions and hero placeholder destinations were untouched. Roster/course remain sample
+  content, explicitly labelled; illustrative payment screenshots are not live transaction evidence.
+- `npm --prefix showcase run build` passes (existing lazy three.js >500 kB warning remains).
+  Changed-source taste lint **0 FAIL** (Poppins brand notices only). Final production inspection at
+  1440/768/390: **0 FAIL, 3 WARN**, with `--allow late-title,covered-text` exclusively for the
+  user-protected splash covering the existing hero during load. No new content excluded. Remaining
+  warnings: type-size count includes protected hero; product interface imagery rather than photography;
+  no supplied honest process video. All ten final inspector screenshots and settled hero/customer
+  screenshots visually reviewed. Final self-critique **7.46/10**, limited by sample team/course and
+  placeholder APK/Figma links; not external design acceptance.
+- Browser exercise: all **12** app selectors and **5** payment stages update their intended screens;
+  keyboard Enter and range Home/ArrowRight work; five section links resolve; reduced-motion content
+  visible; no page exceptions. At 1440/768/390/320, no horizontal overflow, broken images or new
+  button targets under 44px. Baseline blank-gap warning removed. No backend/Flutter/device suites
+  needed or run for this website-only change.
+- Evidence: `.taste-skill/showcase-before/`, `showcase-after/`, `showcase-final/` (production reports
+  and screenshot sheets), `.taste-skill/showcase-redesign/notes.md` (inventory, copy, dealt direction,
+  adaptations and critiques; seed 973830440), `.local/showcase-redesign/` (source snapshots, protected
+  hash verification, browser-check JSON/log and settled PNGs). No third-party imagery added.
+- Usage checked: 91% primary / 28% secondary remaining. Uncommitted; no push or live deployment.
+  Next: user visual review, then replace sample project/team/download data before any authorized launch.
+
+### 6 November 2026 — Updated Railway APKs built and verified
+
+- User explicitly requested updated APKs for both apps using Railway. Built sequentially from the
+  current uncommitted tree, base `e6c58b677b5688c23b4e5ef06b8293aea5121903`, preserving all existing
+  work. Both `flutter build apk --debug` succeeded (Gradle Customer 193.1 s, Merchant 160.1 s).
+  Defines: both `APP_ENV=dev`, `API_BASE_URL=https://backend-production-18646.up.railway.app/api/v1`;
+  Customer also `APP_MODE=api`. Gradle daemons disabled and stopped after each build.
+- Customer `frontend/customer_app/.local/apk/Kesor Bank.apk`: **245,521,948 bytes** (234.15 MiB),
+  SHA-256 `6F74DCEED6FCB7CA10030E9B2B784D469BBEF1B26DE10ED3C867A803D433A214`.
+  Includes latest Assistant with all three exact auto-send questions, Wallets/Wallet Detail/Transaction
+  Detail, navy splash, QR/Analytics, transfer-success and PIN Home preview work.
+- Merchant `frontend/merchant_app/.local/apk/KesorMerchant.apk`: **205,414,739 bytes** (195.90 MiB),
+  SHA-256 `EB495F273A84059DC4B568FFB123873CF1B125BE2B633646F3FF67EE394B6C01`.
+  Includes latest Figma Change list designs, white Merchant splash and M4–M8 functionality.
+- Versioned copies: each app's `.local/apk/20261106-055520/`. Previous canonical APKs copied into
+  each app's `.local/apk/archive/20261106-055520-previous-<old-hash-prefix>/` and verified before
+  replacement; no old APK deleted. New canonical/versioned checksums match.
+- Verified expected package IDs (`com.bank.customer_app`, `com.bank.merchant_app`), valid v2
+  signatures matching previous APKs, Railway URL in both kernels, old Wi-Fi address absent,
+  zero `.env` entries, latest design markers/original assets and ZIP CRC checks. All **550** recorded
+  app/shared build inputs stayed unchanged. Source manifest SHA-256:
+  `c3f6e6ec4eca56be1d5af0643b472c8c9cc80460fcec0bc5e801564ce81c2a60`.
+- Evidence: repository `.local/apk-refresh-20261106-055520/` contains source manifests,
+  `{customer,merchant}-build.log`, Gradle-stop, signature and package logs plus `verification.json`.
+  Existing baselines retained: Customer **298/298**, Merchant **119/119**, both analyzers clean;
+  no source change or suite rerun needed for packaging. Read-only live probes: Swagger **200**,
+  unauthenticated accounts **401**. Usage checked: primary 85%, secondary 30% remaining.
+- No installation, authenticated device/live-provider acceptance, backend/configuration change,
+  restart, migration, payment, commit or push. M9 installation/user acceptance remains open.
+  Customer §21, Merchant §16 and deployment current-APK record updated. Next: install on the user's
+  requested device when authorized, then follow Merchant §9 acceptance without changing device settings.
+
+### 6 November 2026 — AI Assistant Figma redesign completed (uncommitted)
+
+- Implemented current `385:2708`: welcome spacing/type/emblem, original updated SVG, faint gold glows, exact three horizontal questions above the inset composer. At 440×999 the emblem, questions and composer start at y154/y821/y887. Back circle is 44px with a 48px target; title aligns at x72. Device system chrome remains native.
+- Exact prompts auto-send via the existing controller: `How much did I spend this week?`, `How does the 50/30/20 rule work?`, `Show my biggest payment this month`. Khmer equivalents provided. Double taps send once; unavailable/pending/privacy gates, history, recovery, keyboard and PIN behavior retained. Full privacy disclosure remains in history.
+- Customer full **298/298**, analysis clean; focused assistant **16/16**. Visual fixture **72 renders**, six sizes × two themes × EN/KM × three text scales: no overflow, every suggestion reachable. Reference anchors asserted and PNGs inspected. Logs: Customer `.local/assistant-redesign-all-tests.log`, `assistant-redesign-analyze.log`, `assistant-redesign-focused.log`, `assistant-redesign-visual.log`, final repeat `assistant-redesign-final-check.log`. PNGs and exact asset audit: `.local/qa/assistant-redesign/`.
+- Existing work preserved. Customer document §20 updated. No APK/device acceptance, live AI-provider check, backend change, restart, deployment or commit. Usage checkpoint was saved and user notified below 10%; authorized work continued. Figma context: repository `.local/figma-detail-design/assistant-385-2708.txt`, session `fdae9366-897f-4f06-8e89-c06faea9d37f`.
+
+
+### 6 November 2026 — Figma Section 3 implemented in Flutter (uncommitted)
+
+- Customer Wallets, Wallet Detail, receipt overlay and navy splash, plus white Merchant splash implemented from section `431:2446`. Current edits (no detail-header logos, no Wallet Detail Sort button) followed; existing source work preserved.
+- Existing controllers retain authorization, pagination, errors and money precision. Receipt metadata, expansion, PNG Share/Download, copy/account options and back navigation work. Approval code is labelled unavailable because the API provides none. PIN continuation waits for loaded accounts and resolves the receipt's wallet/currency.
+- Automated: Customer **294/294**, Merchant **119/119**, both analyzers clean; **288 Customer + 30 Merchant splash renders**, no layout exceptions. Android receipt export tested with a mocked channel; splash timing/reduced motion tested; splash XML parses; diff check clean.
+- Evidence: Customer `.local/section3-all-tests-verified.log`, `section3-analyze-final.log`, `section3-visual-verified.log`; Merchant `.local/section3-all-tests.log`, `section3-analyze-final.log`, `section3-visual.log`; both apps' `.local/qa/section3/` PNGs. Asset/context ledger: repository `.local/figma-detail-design/`.
+- Not done: APK build/install, actual Android launch/export acceptance, backend restart, migration, real payment, deployment or commit. Usage checked: 20% primary and 36% secondary remaining. Next: user visual review, then separately authorized packaging/device acceptance.
+
+### 6 November 2026 — Transaction and Wallet Detail designs in Figma
+
+- Created two editable screens in the user's working section of `Mkhqgqnt1SQoq4pn9INLY5`, following the attached receipt-sheet and wallet-history references. Board `426:868`; original reference images preserved.
+- Reused Kesor's vector logo, existing text styles/color variables, icons, buttons and transaction-row components. Added one reusable receipt metadata row (`426:1120`) beside the design board.
+- Verified editable layer structure (no complete-screen image fills), Poppins/Google Sans fonts and final composition. Local visual evidence: `.local/figma-detail-design/final.png`; node/session ledger: `.local/figma-detail-design/state.json`.
+- Figma design only; no application/backend changes, tests, builds, deployment or device acceptance. Documentation remains uncommitted. Usage checked: primary 59%, secondary 42% remaining. Next: user design review; implementation is separate work.
+
+### 6 November 2026 — Railway PIN Home preview deployment
+
+- User explicitly authorized backend deployment. Full backend **261/261**, log
+  `backend/digital-banking/.local/railway-pin-preview-full-tests.log`.
+- Deployed isolated, verified 277-file backend build snapshot (no credentials/frontend/local outputs)
+  with explicit project/environment/service selection. Base `e6c58b6`, uncommitted PIN changes;
+  snapshot SHA-256 `98bfa5ada6963a9662c1206db68a8469403ab328e90d49f43f36a79b0f43e849`.
+  Complete file hashes in backend `.local/railway-pin-preview-payload.json`. No commit/push.
+- Deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` **SUCCESS**. Existing Railway URL retained;
+  schema V21 up to date, no migrations; Gmail API configured. No variable or Postgres service changes.
+- Verified live: Swagger 200; preview endpoint and six-field schema in foundation OpenAPI; protected
+  accounts 401 without authentication; invalid dummy ticket returns 401 `PIN_TICKET_INVALID` with
+  `no-store`. Postgres deployment still `0695dccd-17dd-4db5-ba42-8712d5fd9590`, SUCCESS.
+- Build/startup logs and final service-status JSON in backend `.local/railway-pin-preview-*`.
+  Previous backend deployment `1d35a295-87fb-4287-94b0-6a6798490069` is the rollback reference.
+- Not verified: authenticated customer preview/device acceptance. No APK build/install or real money
+  action. The Customer APK must still be rebuilt/installed for the frontend behavior. Source/docs remain
+  uncommitted. Usage checked: primary 67%, secondary 43% remaining. Deployment document §1/§9 updated.
+
+
+### 6 November 2026 — Home preview before PIN (uncommitted)
+
+- **Built:** ticket-authenticated `POST /auth/pin/home-preview`, latest five distinct personal-wallet postings,
+  no amounts/balances/account numbers/remarks. Ticket validation reuses customer/session/device/expiry checks;
+  configured, non-recovery PIN required; `no-store`; grants no banking tokens and changes no attempt budget.
+  No migration. API security and foundation contract updated.
+- **Customer:** existing Home layout shows masked money, preview activity and per-owner manual favorites.
+  Saved labels/initials, masked suffix fallback; live recipient lookups wait for unlock. Typed destination
+  handoff continues Wallet, tabs, transfer/favorite, QR, history/details, Inbox and favorite add/manage after
+  correct PIN. Cancel/back/background/sign-out clear the destination; protected data revalidated after unlock.
+  Every normal background locks; 3-minute foreground idle and trusted image-selection lease retained.
+  Privacy cover now also covers preview; late PIN results are invalidated, foreground rechecks ticket status.
+- **Automated:** Customer full **286/286**; final PIN/preview **11/11**, including 12 EN/KM light/dark phone,
+  landscape and tablet renders with no layout exceptions. Initial backend full run **259/261**: failures were
+  the new preview fixture lacking postings and the foundation route-count assertion. Added seven explicit
+  postings, exact response-field assertions and API contract coverage; corrected affected backend suites
+  **28/28**. Full backend suite was not repeated after those corrections. Final `flutter analyze --no-pub` and
+  `git diff --check` are clean. Font-complete preview matrix rerun **2/2**; representative EN light phone
+  and KM dark tablet renders inspected. Usage checked: 79% primary / 45% secondary remaining.
+- **Evidence:** backend `.local/pin-preview-tests.log` (initial full), `.local/pin-preview-focused.log` (green);
+  Customer `.local/pin-preview-flutter-final.log`, `.local/pin-preview-final-focused.log`,
+  `.local/pin-preview-analyze.log`, `.local/qa/pin-preview/` (fixture values, not live data).
+- **Not verified:** APK/native device appearance, hardware image handoffs or live API acceptance. No backend
+  restart, deployment, live database change, APK build/install, commit/push or payment. Existing unrelated
+  Customer/Merchant/docs/artwork edits preserved. Next: user device acceptance after separately authorized
+  packaging/deployment. Customer document §3 and §17 describe the contract and behavior.
+
+
+### 5 November 2026 — final QR/Analytics checkpoint (usage threshold)
+
+- **Milestone:** Customer Figma section `413:6086`, QR `404:901` and Analytics `413:5956`, source implementation complete, uncommitted.
+- **Built:** dedicated QR entry inside the existing transfer host; exact amount/keypad/currency/wallet/remark layout, verified payee, fixed-payment conversion checks. Existing normal transfer, review/PIN, receipt and unresolved journal recovery preserved. Analytics exact artwork, pale header, rounded panel, paired totals and live chart; single shell navigation with 400px cap. QR tablet max 440×957; Analytics tablet chart retains reference height.
+- **Decisions authorized:** no page scroll or row stacking; locally fitted text/decoration; user explicitly chose smaller keypad targets in short landscape over scrolling. Tested landscape keys ~18–21px, portrait main targets ≥48px. Existing theme/localization retained; new labels translated.
+- **Tests:** full Customer **284/284**. After final layout refinements, affected tests **25/25** and both visual fixtures passed: **144** matrix renders plus **16** Analytics PNGs. Keypad → review → edit works in size/theme variants; main actions hit-test, no page scroll/layout exceptions/chart-navigation overlap. Analyzer and final diff check clean. Backend/Merchant suites not rerun for this Customer-only presentation work.
+- **Evidence:** `frontend/customer_app/.local/section2-all-tests.log`, `section2-final-focused.log`, `section2-final-visual.log`, `section2-analyze.log`, `section2-diff-check.log`; `.local/qa/customer-section-2/` contains Figma reference exports, final 144 PNGs, comparison/contact sheets and asset audit (16 assets, 11 exact SVG comparisons). Customer document §16 records the implementation. Fixture amounts are not live data.
+- **Preserved:** prior uncommitted Merchant/docs/artwork work and transfer-success fixes. No credentials read, changed or packaged; no backend/database/live service changes, APK build/install, commit/push or real payment.
+- **Not verified:** device appearance, hardware camera/gallery round trip, real payment. No pixel-perfect or personal acceptance claimed. Next: user visual review of `comparison.png`; packaging/device acceptance only after separate authorization.
+- **Usage:** primary 8% remaining, secondary 48% remaining. Threshold reported; final handoff continues normally.
+
+
+5 November 2026 checkpoint: generated the optional `monthly-money-overview.png` Analytics
+header with the built-in image tool; inspected the result and verified PNG dimensions and alpha.
+No app code changed, no runtime tests needed, no device acceptance or screen integration.
+Usage windows remain above the reporting threshold. Asset and documentation uncommitted.
+
+5 November follow-up: delivered `frontend/customer_app/assets/analytics/monthly-money-overview-watercolor.png`
+to match the user's painted reference. Built-in image edit; original preserved. Inspected
+output and verified 1536×1024 RGBA with transparent pixels. No app integration; uncommitted.
+
+5 November color follow-up: delivered `monthly-money-overview-watercolor-gold.png` in the same
+Analytics asset folder, with a light gold background wash requested by the user. Built-in image
+edit; visually inspected and PNG alpha verified. Earlier variants preserved; no code changes,
+runtime tests or app integration; uncommitted.
+
 ### Next step
-**M9 — integrated acceptance and pilot APKs.** Start by asking the user for permission to restart the dev backend (applies V19–V21) and build/install APKs. Then: full sequential automated run; inspect port 8080 owner; restart via the launcher; confirm Flyway applied V19–V21 and the new paths in OpenAPI; compile and build both APKs (`KesorMerchant-M9-Pilot.apk`, `KesorBank-M9-Pilot.apk`); verify (no `.env`, API origin, SHA-256); install with `adb install -r` only on the user's go-ahead; hand the user the acceptance script in [MERCHANT_APP.md](MERCHANT_APP.md) §9 and record answers verbatim; write the M9 result into §2 and the Merchant document (no separate report file). **First real-world risks:** the Kotlin in both `MerchantLinkBridge.kt` files and the new debug manifests has never been compiled.
+**M9 — device installation and integrated acceptance.** Latest Railway APKs are built and verified
+(6 Nov entry above); Railway already has V21, and both native link bridges/debug manifests compiled.
+Install with `adb install -r` on the user's requested device only when authorized, preserve its settings,
+then use [MERCHANT_APP.md](MERCHANT_APP.md) §9 and record answers verbatim. Native Telegram,
+app-to-app approval, save/share, sound/vibration, process restoration and current visual acceptance
+remain device checks. A local-backend restart/migration is a separate authorized workflow if requested;
+it is not needed to install these Railway builds. Record M9's remaining gates in §2 and the Merchant
+document without creating a separate report file.
 
 ### Customer device acceptance still owed
 Notification permission/alerts, PIN change and recovery, gallery photo, camera QR scan, fresh signup showing USD+KHR wallets, post-rework masked Home/idle lock, Favorite Recipients, new Home/Wallet UI. Submit no real payment merely to verify UI.
@@ -246,7 +490,13 @@ Notification permission/alerts, PIN change and recovery, gallery photo, camera Q
 5. Older backend ambitions never built: fraud detection and employee review, password recovery/device admin, disputes and monitoring, payment-provider settlement, categorization/budgets. Full text: `git show ccc10bd:docs/BACKEND_ADVANCED_ROADMAP.md`.
 
 ### Dated log
-- **5 Nov 2026 — Railway deployment prepared (uncommitted, not deployed).** User confirmed both `LIVE-TEST` emails reached the Gmail **Inbox**. Added `backend/digital-banking/Dockerfile` (Maven build image instead of `mvnw` so the build does not need curl/wget; JRE 21, non-root, Railway `PORT`) and `.dockerignore`; checklist in §4 "Railway deployment". Findings: profile must be `dev` (MerchantAuthConfig accepts custom-scheme links and MerchantOnboardingPolicy activates shops only under local/dev/test; `local` would add seed users); photos/logos are BYTEA, so no volume needed; per-IP rate limits use `getRemoteAddr()`, which behind Railway's proxy may be the proxy address. Checked: `mvnw -o -DskipTests package` produces the single `digital-banking-0.0.1-SNAPSHOT.jar` (62.6 MB) the Dockerfile copies. **Not verified:** Docker image build (Docker is not installed on this PC), container start on Railway, memory headroom on the Trial instance, APKs against the Railway URL.
+- **5 Nov 2026 — Customer QR entry + Analytics, Figma section 413:6086 (uncommitted).** Built dedicated post-scan `QrTransferScreen` inside the shared payment host, exact QR assets and Analytics illustration, rounded lower Analytics panel, paired totals/chart and centered tablet composition/navigation. Normal entry, review/PIN/receipt and original-key unresolved recovery retained. No page scrolling or row reflow; user explicitly approved sub-48px QR keypad targets in short landscape (about 18–21px in fixtures); portrait main targets remain ≥48px. Customer **284/284**, final focused **25/25**, new visual **144 renders** plus existing Analytics **16 PNGs**, analyzer/diff checks clean; asset audit covers 16 assets and 11 exact SVG comparisons. Final screenshots, contact sheets, comparison and asset audit in Customer `.local/qa/customer-section-2/`; logs `.local/section2-*.log`; Customer document §16. Screenshot data is offline fixture data. Preserved prior uncommitted work, transfer-success fixes, optional artwork and Merchant changes. No APK/build/install/backend/DB/live payment/commit or device acceptance. Next: visual review and separately authorized packaging/device acceptance. Final usage check: primary 92% used (8% remaining), secondary 52% used (48% remaining). Detailed final checkpoint saved below under §8; implementation and checks complete.
+- **5 Nov 2026 — Customer transfer success overflow (uncommitted).** Updated current Figma `308:740` proportions (148 × 126 seal slot, 64px amount, 440 × 956 reference); compact spacing on short screens, side-by-side landscape, complete receipt/messages fitted above unscaled actions and native safe areas. Success page scrolling removed; existing entry/review behavior and transfer safety unchanged. Customer suite **276/276**; final visual fixture **60 renders**, including **20 success variants** with no page scroll, all main sections on screen, no receipt/action overlap, ≥48px action targets and both callbacks tappable. EN/KM, both themes, USD/KHR, native insets, 1×/1.3×/2× text, long details, phones/landscape/tablet covered. Representative final images inspected. Analysis/diff checks clean. Evidence: Customer `.local/transfer-success-tests.log`, `.local/transfer-success-visual.log`, `.local/transfer-success-analyze.log` and `.local/qa/transfer-flow/`. Existing transparent artwork/flags reused; extreme height/text combinations shrink receipt text to meet the one-screen requirement. No APK/build/install, device acceptance, backend or database action. Next: user visual review; native packaging remains subject to §3 approval.
+- **5 Nov 2026 — Merchant Figma Change list source redesign (uncommitted).** All 28 frames from section `363:3084` mapped to current flows, exact Figma artwork/assets bundled, Merchant-only navy/gold card treatment, full-screen Collect, functional Home shortcuts, drawer/profile/settings and responsive layout updates. Merchant **118/118**, analysis clean, **294 responsive renders** without layout exceptions; financial/controller checks retained. Local references, asset audit, overlays/diffs and logs: `frontend/merchant_app/.local/figma-change/`; render matrix: `.local/qa/figma-change/`. Comparison metrics are diagnostic, not pixel-perfect acceptance; approved goldens/device review remain pending. No device attached, no APK build/install/backend restart/live payment. Backend/Customer/shared packages unchanged. Usage checked, both windows above reporting threshold. Next: visual acceptance and separately approved APK/device verification; Merchant document §14.
+- **5 Nov 2026 — Native Telegram login enabled on Railway.** Copied `TELEGRAM_CLIENT_ID`, `TELEGRAM_CLIENT_SECRET` and `TELEGRAM_NATIVE_REDIRECT_URI` from the local `.env` via CLI (values never printed; verified equal by comparison). Not copied: `TELEGRAM_REDIRECT_URI` / `TELEGRAM_FRONTEND_ORIGIN` (browser/web flow, point at local setup). The native flow returns through Telegram's `app937652339-login.tg.dev` App Link, so no BotFather change or APK rebuild. Redeploy `44bd9373` SUCCESS; live `POST /auth/telegram/native/start` → 200 with an `oauth.telegram.org/auth` URL and the registered redirect (one unused 5-minute flow left by the check). **Not verified:** the device round trip (Telegram approval → App Link → `/native/exchange`) with the Railway APKs; App Link opening depends on the APK's debug signing key matching the one used in the earlier tablet test (same PC, expected to match).
+- **5 Nov 2026 — Railway APKs built (not installed).** User confirmed the live OTP email reached the Gmail **Inbox**. Built debug APKs (one at a time, Gradle daemon off) from branch `railway-gmail-otp` (frontend identical to `main`) with `APP_ENV=dev`, `API_BASE_URL=https://backend-production-18646.up.railway.app/api/v1` (Customer also `APP_MODE=api`). **First successful compile of the Merchant Kotlin (`MerchantLinkBridge.kt`) and debug manifests.** `frontend/customer_app/.local/apk/KesorBank-Railway.apk` (later renamed by the user to `Kesor Bank.apk`) 234.1 MB SHA-256 `D57D261EBEE8AB1467F5B78AFDDFC1ADD44937858FCBAF71B5635D5B517F05F4`; `frontend/merchant_app/.local/apk/KesorMerchant-Railway.apk` (later renamed to `KesorMerchant.apk`) 195.9 MB SHA-256 `B3BD7EB04769B2DACC8D02613E4AD1539FFA76FB025B04F9A8842AEDD8382E55`. Both: Railway URL present in `kernel_blob.bin`, no `.env` entry, old Wi-Fi IP absent. Build logs `frontend/*/.local/railway-apk-build.log`. **Not done:** install (`adb install -r`, needs approval; secure storage is scoped by API URL, so expect a new sign-in), device acceptance against Railway.
+- **5 Nov 2026 — Backend live on Railway (docs uncommitted).** Project `superb-respect`, environment `production`, region US East: services `Postgres` (template `postgres-ssl:18`, volume `postgres-volume-Dubs`) and `backend` (deployed with `railway up --service backend` from branch `railway-gmail-otp` @ `e6c58b6`; the org repo `Chips-beans/AiDigitalBankingApp` is not connected to Railway). URL **`https://backend-production-18646.up.railway.app`** (API base `…/api/v1`). Incident: the first `railway up` ran while the CLI was linked to the Postgres service and replaced its container; the empty database service was deleted and recreated, nothing lost; always pass `--service backend`. Variables set via CLI from the local `.env` without printing values (DB references, pool 5/1, `dev` profile, new 32-byte `JWT_SECRET` that differs from local, Gmail API, test opening funding on; no AI or Telegram settings). Evidence: Flyway empty schema → **V21** (20 migrations), started in 7.2 s, log `OTP email is delivered through the Gmail API`; HTTPS `swagger-ui` 200, `v3/api-docs/foundation` 200, `/api/v1/accounts` 401 unauthenticated. Live OTP: `POST /api/v1/auth/email/request` for the user's own address returned 200 in 1.9 s (the CONTINUE flow always delivers and a Gmail failure would be 503, so 200 means Gmail accepted the message); no Gmail warnings in the logs. **Not verified:** inbox placement of that code (user to confirm), either app against the live URL (APKs not built), memory headroom under use. Leftover detached empty volume `postgres-volume` to delete in the dashboard.
+- **5 Nov 2026 — Railway deployment prepared (uncommitted, not deployed).** User confirmed both `LIVE-TEST` emails reached the Gmail **Inbox**. Added `backend/digital-banking/Dockerfile` (Maven build image instead of `mvnw` so the build does not need curl/wget; JRE 21, non-root, Railway `PORT`) and `.dockerignore`; checklist now in `DEPLOYMENT.md`. Findings: profile must be `dev` (MerchantAuthConfig accepts custom-scheme links and MerchantOnboardingPolicy activates shops only under local/dev/test; `local` would add seed users); photos/logos are BYTEA, so no volume needed; per-IP rate limits use `getRemoteAddr()`, which behind Railway's proxy may be the proxy address. Checked: `mvnw -o -DskipTests package` produces the single `digital-banking-0.0.1-SNAPSHOT.jar` (62.6 MB) the Dockerfile copies. **Not verified:** Docker image build (Docker is not installed on this PC), container start on Railway, memory headroom on the Trial instance, APKs against the Railway URL.
 - **5 Nov 2026 — OTP email over the Gmail API for Railway hosting (uncommitted).** Decision (user): host the backend on Railway (Trial, $5 / 30 days) for a ~5-day live run and keep real email OTP. Railway Trial/Hobby and Render free block outbound SMTP 25/465/587, so `smtp.gmail.com:587` would time out. Built: `MailProviderConfig` picks the `EmailService` from `MAIL_PROVIDER` (`smtp` default → existing `EmailServiceImpl`; `gmail-api` → new `GmailApiEmailService`). The Gmail sender refreshes an OAuth access token (cached until 60 s before expiry), posts the same message text (shared `OtpEmailText`) as base64url MIME to `gmail/v1/users/me/messages/send`, retries once after a 401, 5 s timeouts, credentials only to HTTPS/loopback. Every failure is still `503 OTP_DELIVERY_UNAVAILABLE`; logs carry only HTTP status and the OAuth error code (e.g. `invalid_grant` = expired token), never OTP, recipient, tokens or bodies. OTP generation, hashing, rate limits, Flutter apps and schema unchanged (no migration). Tests: `GmailApiEmailServiceTests` 9/9 against a loopback fake of Google's endpoints; full backend **260/260** (existing SMTP path unchanged). User created the Google Cloud OAuth client and refresh token (own Gmail account, Testing mode) and added `GMAIL_*` to the ignored `.env`. **Live check** (temporary test reading `.env`, no backend restart, dev DB untouched; test deleted afterwards): first attempt failed `unauthorized_client` (refresh token issued for the Playground's default client; fixed by regenerating with "Use your own OAuth credentials"); then a real send succeeded but took 10.3 s. Cause: Jakarta Mail's Message-ID generation did a local hostname lookup (≈5 s on this PC). Fix: the Gmail sender's mail Session sets `mail.host`/`mail.from` (same idea as `MAIL_CLIENT_HOSTNAME` for SMTP); MIME build 5,106 ms → 82 ms; confirming real send **1.7 s** cold (token refresh ≈0.5 s cold / 0.1 s warm). Two `LIVE-TEST` emails were sent to the user's own address; inbox/spam placement awaits the user's check. Gmail unit tests rerun 9/9 after the fix (full suite not rerun; SMTP path untouched). **Not done:** Railway deployment (Dockerfile, env variables, Postgres), APK builds against the Railway URL, delivery to a non-Gmail inbox.
 - **5 Nov 2026 — First live Groq run + currency-word fix (uncommitted).** Ran 10 EN/KM questions against the real Groq key on a throwaway embedded database (dev DB untouched, V19–V21 still pending); evidence in `backend/digital-banking/.local/live-assistant-smoke.md`. Intent was correct for all 10, replies took 0.5–2.6 s, figures matched. Run 1: every English data answer was `FALLBACK` because the model writes "your USD balance" and the validator banned USD/KHR words. Fix: currency names are allowed in fact prose (digits stay banned); a code written right next to a placeholder ("USD {{v}}") is rejected; the composer prompt says so. Run 2: English Q1–Q4 all `explanationStatus=AI` (Q4 `MIXED` with tips). **Open:** in run 2 two Khmer questions got HTTP 400 from Groq (shown as 503 `AI_UNAVAILABLE`); run 1 answered them. Follow-up: `GatewayAdapter` now reads only `error.code` from a provider error body (never the message or `failed_generation`), logs it, retries once on `json_validate_failed`, and a second refusal becomes `AI_INVALID_RESPONSE` (data answers then fall back to verified cards). Run 3 confirmed the cause is `json_validate_failed`. Run 3: 8/10 OK; KM "balances" was refused twice in a row (HTTP 502, three runs: OK / 400 / 400+retry 400), and EN "emergency fund" hit the 10 s per-call read timeout once (1–2 s in the other runs). Cause (captured via a loopback relay in a temporary test, evidence `.local/groq-khmer-rejections.md`): Groq checks strict output only after generation, and the strict-mode intent prompt never named the keys, so the model wrote `{"}}` or invented keys. Fix: the intent prompt always carries a compact example object (`GatewayAdapter.INTENT_EXAMPLE`). Re-run: 0/6 format refusals. Then: (1) Groq free tier refused whole requests with 429 "Request too large … OTPM Limit 1000" because `max_tokens` was 2048 → now 300 (intent) / 700 (answer) / 800 (insights) via `GatewayAdapter.maxTokens`. (2) In Khmer the model sometimes copied verified figures literally ("USD 187.50") → `AssistantEngine.restoreFacts` turns an exact, whole copy of a supplied value (≥4 chars, containing a digit) back into its placeholder; any other number is still rejected. Final live run: **16/16 answers `explanationStatus=AI`** (10 EN/KM questions + Khmer balances ×6), 0.5–2.4 s. Remaining risk: the Khmer intent step still degenerates in about 3 of 16 calls (`json_validate_failed`, runaway invented key); the one retry recovered all 3, but two refusals in a row would show `AI_INVALID_RESPONSE`. The temporary live test was deleted (it would call Groq during `mvnw test`); evidence stays in `backend/digital-banking/.local/`. Backend **251/251**.
 - **5 Nov 2026 — AI assistant review fixes (uncommitted).** `TOTALS`: half-open ranges close at today (from only) or the first day of the end's month (to only); the daily average divides only by elapsed days. `AssistantEngine.render`: money directives are blocked only toward a third party ("pay yourself first", "transfer to savings" pass); credential clauses are rejected when they hand a PIN/OTP over without an earlier prohibition in the same clause, or state a 3+ digit number; accented Latin no longer counts as a foreign script. `GatewayAdapter` waits up to 1.5 s for a provider permit and logs non-2xx status plus model/jsonMode/reasoning flag (never the body). New `AIConfigCheck` warns at startup when `GEMINI_*` names remain (names only). Backend **250/250**. Not changed: TOTALS still sums monthly overviews (up to ~13 per currency) to keep one income/outgoing definition. Not verified: any live Groq call.

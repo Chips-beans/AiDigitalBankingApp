@@ -203,27 +203,42 @@ class TransferFlowFrame extends StatelessWidget {
         backgroundColor: background,
         body: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
+            constraints: BoxConstraints(
+              maxWidth: success && MediaQuery.sizeOf(context).aspectRatio > 1
+                  ? 840
+                  : KesorLayout.frameWidth,
+            ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(preview ? 38 : 0),
               child: ColoredBox(
                 color: background,
                 child: success
                     ? LayoutBuilder(
-                        builder: (context, viewport) => SingleChildScrollView(
-                          key: const ValueKey('transfer-flow-scroll'),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: viewport.maxHeight,
-                            ),
-                            child: IntrinsicHeight(
-                              child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [content, footer],
+                        builder: (context, viewport) => Column(
+                          children: [
+                            if (preview)
+                              const TransferStatusBar(success: true)
+                            else
+                              SizedBox(
+                                height: MediaQuery.paddingOf(context).top,
+                              ),
+                            // Fit the complete receipt; keep actions and safe areas
+                            // outside the transform so tap targets never shrink.
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.topCenter,
+                                  child: SizedBox(
+                                    width: viewport.maxWidth,
+                                    child: content,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            footer,
+                          ],
                         ),
                       )
                     : Column(
@@ -372,11 +387,13 @@ class TransferPartyDetails extends StatelessWidget {
     required this.draft,
     required this.walletName,
     this.receipt = false,
+    this.receiptGap = 16,
     super.key,
   });
   final TransferDraft draft;
   final String walletName;
   final bool receipt;
+  final double receiptGap;
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context), navy = transferNavy(context);
@@ -432,7 +449,7 @@ class TransferPartyDetails extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: receipt ? 16 : 14),
+        SizedBox(height: receipt ? receiptGap : 14),
         if (!receipt) ...[
           Divider(height: 1, thickness: 1, color: colors.border),
           const SizedBox(height: 14),

@@ -101,7 +101,9 @@ class AccountsController extends ChangeNotifier {
       // Retain the selected owned account beyond page zero until detail revalidation.
       final old = selected;
       accounts = [...data];
-      if (old != null && !accounts.any((a) => a.number == old.number)) {
+      if (old != null &&
+          (gateway is! MerchantWalletGateway || data.length == 20) &&
+          !accounts.any((a) => a.number == old.number)) {
         accounts.add(old);
       }
       _nextPage = 1;

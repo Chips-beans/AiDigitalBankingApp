@@ -5,7 +5,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../app/design_system/design_system.dart';
 import '../../../app/app_preferences.dart';
-import '../../../shared/widgets/kesor_bottom_bar.dart';
 import '../../../shared/widgets/figma_presentation.dart';
 import '../analytics_controller.dart';
 import '../analytics_gateway.dart';
@@ -47,287 +46,434 @@ class AnalyticsScreen extends StatelessWidget {
     builder: (context, _) {
       final colors = AppColors.of(context);
       final snapshot = controller.snapshot;
+      final dark = Theme.of(context).brightness == Brightness.dark;
       return ColoredBox(
-        color: colors.background,
+        color: colors.surface,
         child: SafeArea(
           bottom: false,
-          child: RefreshIndicator(
-            onRefresh: controller.refresh,
-            child: ListView(
-              key: const PageStorageKey('analytics-scroll'),
-              padding: EdgeInsets.fromLTRB(
-                20,
-                showDeviceChrome ? 61 : 7,
-                20,
-                math.max(24, MediaQuery.paddingOf(context).bottom) +
-                    KesorBottomBar.height(context) +
-                    32,
-              ),
-              children: [
-                LayoutBuilder(
-                  builder: (context, bounds) {
-                    final heading = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final footer =
+                      math.max(32.0, MediaQuery.paddingOf(context).bottom) +
+                      64 +
+                      20;
+                  final top = showDeviceChrome ? 48.0 : 0.0;
+                  // Allocate the lower panel first; decoration yields space before data.
+                  final available = math.max(0.0, box.maxHeight - top - footer);
+                  final scale = (available / 792).clamp(.22, 1.0);
+                  final upper = math.max(
+                    box.maxHeight - top - 577,
+                    math.min(331.0, math.max(68.0, available * .418)),
+                  );
+                  final lower = box.maxHeight - top - upper;
+                  final gap = 20 * scale;
+                  final summaryHeight = 101 * scale;
+                  Widget fitted(
+                    String text,
+                    double size,
+                    double line, {
+                    Color? color,
+                    FontWeight weight = FontWeight.w400,
+                  }) => FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      text,
+                      style: customerText(
+                        context,
+                        size,
+                        line,
+                        color: color,
+                        weight: weight,
+                      ),
+                    ),
+                  );
+                  final media = MediaQuery.of(context);
+                  return MediaQuery(
+                    data: media.copyWith(
+                      textScaler: TextScaler.linear(
+                        math.min(media.textScaler.scale(1), 1.3),
+                      ),
+                    ),
+                    child: Column(
                       children: [
-                        Text(
-                          _label(context, 'Analytic', 'ការវិភាគ'),
-                          style: customerText(
-                            context,
-                            24,
-                            36,
-                            color: customerNavy(context),
-                            weight: FontWeight.w600,
+                        if (showDeviceChrome)
+                          SizedBox(
+                            height: 48,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 36),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '9:41',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SvgPicture.asset(
+                                    'assets/analytics/figma-levels.svg',
+                                    width: 143,
+                                    height: 54,
+                                    excludeFromSemantics: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        SizedBox(
+                          height: upper,
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: math.min(94, upper * .45),
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    20,
+                                    10 * scale,
+                                    20,
+                                    12 * scale,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Flexible(
+                                              child: Tooltip(
+                                                message: _label(
+                                                  context,
+                                                  'Refresh',
+                                                  'ធ្វើបច្ចុប្បន្នភាព',
+                                                ),
+                                                child: InkWell(
+                                                  key: const ValueKey(
+                                                    'analytics-refresh',
+                                                  ),
+                                                  onTap: controller.loading
+                                                      ? null
+                                                      : controller.refresh,
+                                                  child: fitted(
+                                                    _label(
+                                                      context,
+                                                      'Analytic',
+                                                      'ការវិភាគ',
+                                                    ),
+                                                    24,
+                                                    36,
+                                                    color: customerNavy(
+                                                      context,
+                                                    ),
+                                                    weight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(height: 4 * scale),
+                                            Flexible(
+                                              child: fitted(
+                                                _label(
+                                                  context,
+                                                  'Track and Manage Your Money',
+                                                  'តាមដាន និងគ្រប់គ្រងប្រាក់របស់អ្នក',
+                                                ),
+                                                12,
+                                                20,
+                                                color:
+                                                    colors.disabledBackground,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        width: math.min(
+                                          162,
+                                          (box.maxWidth - 40) * .405,
+                                        ),
+                                        child: Row(
+                                          key: const ValueKey(
+                                            'analytics-currency',
+                                          ),
+                                          children: [
+                                            for (final currency in [
+                                              'KHR',
+                                              'USD',
+                                            ])
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 48,
+                                                  child: TextButton(
+                                                    key: ValueKey(
+                                                      'analytics-currency-$currency',
+                                                    ),
+                                                    onPressed: () => controller
+                                                        .selectCurrency(
+                                                          currency,
+                                                        ),
+                                                    style: TextButton.styleFrom(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                            4,
+                                                          ),
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      foregroundColor:
+                                                          controller.currency ==
+                                                              currency
+                                                          ? Colors.white
+                                                          : colors.foreground,
+                                                    ),
+                                                    child: Container(
+                                                      height: 36,
+                                                      width: double.infinity,
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            controller
+                                                                    .currency ==
+                                                                currency
+                                                            ? AppPalette.navy500
+                                                            : Colors
+                                                                  .transparent,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              999,
+                                                            ),
+                                                      ),
+                                                      alignment:
+                                                          Alignment.center,
+                                                      child: FittedBox(
+                                                        child: Text(
+                                                          currency,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontFamily:
+                                                                    'Poppins',
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.zero,
+                                    child: Image.asset(
+                                      'assets/analytics/figma-money-overview.png',
+                                      key: const ValueKey(
+                                        'analytics-illustration',
+                                      ),
+                                      width: 236,
+                                      height: 157,
+                                      fit: BoxFit.contain,
+                                      excludeFromSemantics: true,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _label(
-                            context,
-                            'Track and Manage Your Money',
-                            'តាមដាន និងគ្រប់គ្រងប្រាក់របស់អ្នក',
-                          ),
-                          style: customerText(
-                            context,
-                            12,
-                            20,
-                            color: colors.disabledBackground,
+                        SizedBox(
+                          height: lower,
+                          child: Container(
+                            key: const ValueKey('analytics-panel'),
+                            decoration: BoxDecoration(
+                              color: colors.background,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(36),
+                              ),
+                            ),
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              16 * scale,
+                              20,
+                              footer,
+                            ),
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: 48 * scale,
+                                  child: Row(
+                                    children: [
+                                      IconButton(
+                                        key: const ValueKey(
+                                          'analytics-previous',
+                                        ),
+                                        tooltip: _label(
+                                          context,
+                                          'Previous month',
+                                          'ខែមុន',
+                                        ),
+                                        onPressed: controller.canPrevious
+                                            ? () => controller.selectMonth(-1)
+                                            : null,
+                                        padding: EdgeInsets.zero,
+                                        alignment: Alignment.centerLeft,
+                                        icon: Transform.flip(
+                                          flipX: true,
+                                          child: const CustomerDesignIcon(
+                                            '16298',
+                                            size: 32,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Center(
+                                          child: fitted(
+                                            _monthLabel(context),
+                                            14,
+                                            22,
+                                            color: dark
+                                                ? AppPalette.gold200
+                                                : AppPalette.gold700,
+                                            weight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        key: const ValueKey('analytics-next'),
+                                        tooltip: _label(
+                                          context,
+                                          'Next month',
+                                          'ខែបន្ទាប់',
+                                        ),
+                                        onPressed: controller.canNext
+                                            ? () => controller.selectMonth(1)
+                                            : null,
+                                        padding: EdgeInsets.zero,
+                                        alignment: Alignment.centerRight,
+                                        icon: CustomerDesignIcon(
+                                          controller.canNext
+                                              ? '16298'
+                                              : '205d9',
+                                          size: 32,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 12 * scale),
+                                SizedBox(
+                                  height: summaryHeight,
+                                  child: Row(
+                                    children: [
+                                      for (final income in [true, false]) ...[
+                                        if (!income) const SizedBox(width: 16),
+                                        Expanded(
+                                          child: _SummaryCard(
+                                            income: income,
+                                            amount: snapshot == null
+                                                ? null
+                                                : analyticsMoney(
+                                                    income
+                                                        ? snapshot.income
+                                                        : snapshot.expense,
+                                                    snapshot.currency,
+                                                  ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: gap),
+                                if (controller.loading)
+                                  const LinearProgressIndicator(
+                                    key: ValueKey('analytics-loading'),
+                                  ),
+                                if (controller.error != null)
+                                  SizedBox(
+                                    height: 48 * scale,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: fitted(
+                                            snapshot == null
+                                                ? _label(
+                                                    context,
+                                                    'Analytics could not load. Please retry.',
+                                                    'មិនអាចផ្ទុកការវិភាគបានទេ។ សូមព្យាយាមម្ដងទៀត។',
+                                                  )
+                                                : _label(
+                                                    context,
+                                                    'Showing previously loaded values. Refresh failed.',
+                                                    'កំពុងបង្ហាញទិន្នន័យមុន។ មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។',
+                                                  ),
+                                            12,
+                                            20,
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: controller.refresh,
+                                          child: Text(
+                                            _label(
+                                              context,
+                                              'Retry',
+                                              'ព្យាយាមម្ដងទៀត',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (snapshot != null)
+                                  Expanded(
+                                    child: _ChartCard(
+                                      snapshot: snapshot,
+                                      showIncome: controller.showIncome,
+                                      onSeries: controller.selectSeries,
+                                    ),
+                                  ),
+                                if (snapshot == null)
+                                  Expanded(
+                                    child: Center(
+                                      child: IconButton(
+                                        tooltip: _label(
+                                          context,
+                                          'Refresh',
+                                          'ធ្វើបច្ចុប្បន្នភាព',
+                                        ),
+                                        onPressed: controller.loading
+                                            ? null
+                                            : controller.refresh,
+                                        icon: const Icon(Icons.refresh),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
-                    );
-                    final currencies = Container(
-                      key: const ValueKey('analytics-currency'),
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(32),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final currency in ['KHR', 'USD'])
-                            TextButton(
-                              onPressed: () =>
-                                  controller.selectCurrency(currency),
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(68, 40),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                backgroundColor: controller.currency == currency
-                                    ? colors.primary100
-                                    : Colors.transparent,
-                                foregroundColor: colors.foreground,
-                              ),
-                              child: Text(
-                                currency == 'KHR' ? '៛ KHR' : r'$ USD',
-                                style: customerText(
-                                  context,
-                                  12,
-                                  20,
-                                  weight: FontWeight.w600,
-                                ).copyWith(fontFamily: 'Google Sans'),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                    return bounds.maxWidth < 370 ||
-                            MediaQuery.textScalerOf(context).scale(1) > 1.3
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              heading,
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: currencies,
-                              ),
-                            ],
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(child: heading),
-                              currencies,
-                            ],
-                          );
-                  },
-                ),
-                const SizedBox(height: 40),
-                Row(
-                  children: [
-                    IconButton(
-                      key: const ValueKey('analytics-previous'),
-                      tooltip: _label(context, 'Previous month', 'ខែមុន'),
-                      onPressed: controller.canPrevious
-                          ? () => controller.selectMonth(-1)
-                          : null,
-                      icon: Transform.flip(
-                        flipX: true,
-                        child: const CustomerDesignIcon('16298', size: 32),
-                      ),
                     ),
-                    Expanded(
-                      child: Text(
-                        _monthLabel(context),
-                        textAlign: TextAlign.center,
-                        style: customerText(
-                          context,
-                          14,
-                          22,
-                          color: colors.primary700,
-                          weight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      key: const ValueKey('analytics-next'),
-                      tooltip: _label(context, 'Next month', 'ខែបន្ទាប់'),
-                      onPressed: controller.canNext
-                          ? () => controller.selectMonth(1)
-                          : null,
-                      icon: controller.canNext
-                          ? const CustomerDesignIcon('16298', size: 32)
-                          : const Opacity(
-                              opacity: .45,
-                              child: CustomerDesignIcon('205d9', size: 32),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                LayoutBuilder(
-                  builder: (context, bounds) {
-                    final cards = [
-                      _SummaryCard(
-                        income: true,
-                        amount: snapshot == null
-                            ? null
-                            : analyticsMoney(
-                                snapshot.income,
-                                snapshot.currency,
-                              ),
-                      ),
-                      _SummaryCard(
-                        income: false,
-                        amount: snapshot == null
-                            ? null
-                            : analyticsMoney(
-                                snapshot.expense,
-                                snapshot.currency,
-                              ),
-                      ),
-                    ];
-                    return bounds.maxWidth < 300 ||
-                            MediaQuery.textScalerOf(context).scale(1) > 1.5
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              cards[0],
-                              const SizedBox(height: 12),
-                              cards[1],
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(child: cards[0]),
-                              const SizedBox(width: 16),
-                              Expanded(child: cards[1]),
-                            ],
-                          );
-                  },
-                ),
-                const SizedBox(height: 20),
-                if (controller.loading)
-                  const LinearProgressIndicator(
-                    key: ValueKey('analytics-loading'),
-                  ),
-                if (controller.error != null) ...[
-                  Text(
-                    snapshot == null
-                        ? _label(
-                            context,
-                            'Analytics could not load. Please retry.',
-                            'មិនអាចផ្ទុកការវិភាគបានទេ។ សូមព្យាយាមម្ដងទៀត។',
-                          )
-                        : _label(
-                            context,
-                            'Showing previously loaded values. Refresh failed.',
-                            'កំពុងបង្ហាញទិន្នន័យមុន។ មិនអាចធ្វើបច្ចុប្បន្នភាពបានទេ។',
-                          ),
-                    key: const ValueKey('analytics-error'),
-                  ),
-                  TextButton(
-                    onPressed: controller.refresh,
-                    child: Text(_label(context, 'Retry', 'ព្យាយាមម្ដងទៀត')),
-                  ),
-                ],
-                if (snapshot != null) ...[
-                  _ChartCard(
-                    snapshot: snapshot,
-                    showIncome: controller.showIncome,
-                    onSeries: controller.selectSeries,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _label(context, 'Cash flow breakdown', 'ចំណូល និងចំណាយ'),
-                    style: customerText(
-                      context,
-                      17,
-                      28,
-                      weight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final income in [true, false])
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: AppPalette.navy500,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: CustomerDesignIcon(
-                              income ? 'c35b5' : '9e3ed',
-                              size: 22,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              income
-                                  ? _label(context, 'Income', 'ផ្ទេរចូល')
-                                  : _label(context, 'Expense', 'ផ្ទេរចេញ'),
-                              style: customerText(context, 15, 24),
-                            ),
-                          ),
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                analyticsMoney(
-                                  income ? snapshot.income : snapshot.expense,
-                                  snapshot.currency,
-                                ),
-                                style: customerText(
-                                  context,
-                                  17,
-                                  28,
-                                  weight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -407,40 +553,58 @@ class _SummaryCard extends StatelessWidget {
       key: ValueKey(
         income ? 'analytics-income-card' : 'analytics-expense-card',
       ),
-      constraints: const BoxConstraints(minHeight: 101),
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 13),
+
+      padding: const EdgeInsets.symmetric(horizontal: 13),
       decoration: BoxDecoration(
         color: AppColors.of(context).surface,
         borderRadius: BorderRadius.circular(15),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, box) => Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: math.min(13, box.maxHeight * .13),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CustomerDesignIcon(
-                income ? 'c35b5' : '9e3ed',
-                size: 20,
-                color: accent,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomerDesignIcon(
+                        income ? 'c35b5' : '9e3ed',
+                        size: 20,
+                        color: accent,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        income
+                            ? _label(context, 'Income', 'ផ្ទេរចូល')
+                            : _label(context, 'Expense', 'ផ្ទេរចេញ'),
+                        style: _text(context, 15, color: accent),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  income
-                      ? _label(context, 'Income', 'ផ្ទេរចូល')
-                      : _label(context, 'Expense', 'ផ្ទេរចេញ'),
-                  style: _text(context, 15, color: accent),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    amount ?? '—',
+                    key: ValueKey(
+                      income ? 'analytics-income' : 'analytics-expense',
+                    ),
+                    style: _text(context, 20, weight: FontWeight.w500),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 23),
-          Text(
-            amount ?? '—',
-            key: ValueKey(income ? 'analytics-income' : 'analytics-expense'),
-            style: _text(context, 20, weight: FontWeight.w500),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -476,6 +640,8 @@ class _ChartCard extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
         child: Center(
+          widthFactor: 1,
+          heightFactor: 1,
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
             decoration: BoxDecoration(
@@ -504,7 +670,7 @@ class _ChartCard extends StatelessWidget {
                 RotatedBox(
                   quarterTurns: 1,
                   child: AnalyticsAsset(
-                    'dropdown',
+                    'dropdown-413',
                     width: 22,
                     height: 22,
                     tint: Theme.of(context).brightness == Brightness.dark
@@ -518,87 +684,104 @@ class _ChartCard extends StatelessWidget {
         ),
       ),
     );
-    return Container(
-      key: const ValueKey('analytics-chart-card'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: colors.background,
-        border: Border.all(color: colors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, bounds) {
-              final title = Tooltip(
-                message: _label(
-                  context,
-                  'View daily values',
-                  'មើលទិន្នន័យប្រចាំថ្ងៃ',
-                ),
-                child: InkWell(
-                  key: const ValueKey('analytics-daily-values'),
-                  onTap: () => _dailySheet(context),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        _label(context, 'Overview Trends', 'ទិដ្ឋភាពទូទៅ'),
-                        style: _text(context, 16, weight: FontWeight.w500)
-                            .copyWith(
-                              fontFamily: _label(context, 'en', 'km') == 'en'
-                                  ? 'Poppins'
-                                  : 'Google Sans',
-                            ),
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        final compact = (bounds.maxHeight / 264).clamp(.2, 1.0);
+        return Container(
+          key: const ValueKey('analytics-chart-card'),
+          padding: EdgeInsets.all(18 * compact),
+          decoration: BoxDecoration(
+            color: colors.background,
+            border: Border.all(color: colors.border),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 48 * compact,
+                child: LayoutBuilder(
+                  builder: (context, bounds) {
+                    final title = Tooltip(
+                      message: _label(
+                        context,
+                        'View daily values',
+                        'មើលទិន្នន័យប្រចាំថ្ងៃ',
                       ),
-                    ),
-                  ),
-                ),
-              );
-              return bounds.maxWidth < 280 ||
-                      MediaQuery.textScalerOf(context).scale(1) > 1.4
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      child: InkWell(
+                        key: const ValueKey('analytics-daily-values'),
+                        onTap: () => _dailySheet(context),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _label(
+                                context,
+                                'Overview Trends',
+                                'ទិដ្ឋភាពទូទៅ',
+                              ),
+                              style: _text(context, 16, weight: FontWeight.w500)
+                                  .copyWith(
+                                    fontFamily:
+                                        _label(context, 'en', 'km') == 'en'
+                                        ? 'Poppins'
+                                        : 'Google Sans',
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                    return Row(
                       children: [
-                        title,
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: selector,
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(width: 180, child: title),
+                          ),
+                        ),
+                        SizedBox(
+                          width: math.min(124, bounds.maxWidth * .45),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: selector,
+                          ),
                         ),
                       ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(child: title),
-                        selector,
-                      ],
                     );
-            },
-          ),
-          const SizedBox(height: 9),
-          DailyAnalyticsChart(
-            snapshot: snapshot,
-            showIncome: showIncome,
-            seriesLabel: showIncome
-                ? _label(context, 'Income', 'ផ្ទេរចូល')
-                : _label(context, 'Expense', 'ផ្ទេរចេញ'),
-          ),
-          if (snapshot.empty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _label(
-                  context,
-                  'No activity this month',
-                  'មិនមានប្រតិបត្តិការក្នុងខែនេះទេ',
+                  },
                 ),
-                style: _text(context, 12),
               ),
-            ),
-        ],
-      ),
+              SizedBox(height: 9 * compact),
+              Expanded(
+                child: DailyAnalyticsChart(
+                  height: double.infinity,
+                  snapshot: snapshot,
+                  showIncome: showIncome,
+                  seriesLabel: showIncome
+                      ? _label(context, 'Income', 'ផ្ទេរចូល')
+                      : _label(context, 'Expense', 'ផ្ទេរចេញ'),
+                ),
+              ),
+              if (snapshot.empty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _label(
+                      context,
+                      'No activity this month',
+                      'មិនមានប្រតិបត្តិការក្នុងខែនេះទេ',
+                    ),
+                    style: _text(context, 12),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

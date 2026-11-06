@@ -104,18 +104,18 @@ class _OwnerTransferPageState extends State<OwnerTransferPage> {
           footer: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              QNumberPad(
-                controller: amount,
-                decimal: wallet.currency == 'USD',
-                onChanged: () => setState(() => amountProblem = null),
-              ),
-              const SizedBox(height: 12),
               if (controller.creating) const LinearProgressIndicator(),
               FilledButton(
                 key: const ValueKey('transfer-create'),
                 onPressed: controller.creating ? null : _create,
                 child: Text(t(context, 'Continue', 'បន្ត')),
               ),
+              QNumberPad(
+                controller: amount,
+                decimal: wallet.currency == 'USD',
+                onChanged: () => setState(() => amountProblem = null),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
           child: Column(
@@ -288,7 +288,7 @@ class _OwnerTransferPageState extends State<OwnerTransferPage> {
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.only(top: waiting ? 64 : 48),
+          padding: const EdgeInsets.only(top: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -316,7 +316,7 @@ class _OwnerTransferPageState extends State<OwnerTransferPage> {
                 amountText,
                 key: const ValueKey('transfer-amount'),
                 textAlign: TextAlign.center,
-                style: mText(context, 40, 54, weight: FontWeight.w300),
+                style: mText(context, 28, 40, weight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               if (waiting) ...[
@@ -346,6 +346,35 @@ class _OwnerTransferPageState extends State<OwnerTransferPage> {
                     18,
                     weight: FontWeight.w500,
                     color: merchantNavy(context),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                QGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final step in [
+                        t(
+                          context,
+                          '1  Kesor Bank opens on this phone',
+                          '១  ធនាគារកេសរបើកលើទូរស័ព្ទនេះ',
+                        ),
+                        t(
+                          context,
+                          '2  Check the exact amount',
+                          '២  ពិនិត្យចំនួនប្រាក់',
+                        ),
+                        t(
+                          context,
+                          '3  Approve with your PIN',
+                          '៣  អនុម័តដោយ PIN របស់អ្នក',
+                        ),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Text(step, style: mText(context, 14, 22)),
+                        ),
+                    ],
                   ),
                 ),
                 if (controller.reconnecting) ...[

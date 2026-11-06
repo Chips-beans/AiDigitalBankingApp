@@ -14,6 +14,7 @@ import '../../../shared/widgets/kesor_layout.dart';
 import '../../accounts/account_gateway.dart';
 import '../../accounts/accounts_controller.dart';
 import '../../auth/session_controller.dart';
+import '../../qr/presentation/qr_transfer_screen.dart';
 import '../recipient_favorites.dart';
 import '../transfer_controller.dart';
 import '../transfer_models.dart';
@@ -490,7 +491,7 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
         widget.accounts.loadingDetail) {
       return;
     }
-    if (!form.currentState!.validate()) return;
+    if (qr == null && !form.currentState!.validate()) return;
     var amountText = amount.text;
     final fixed = qr?.fixedAmount;
     if (fixed != null) {
@@ -1115,250 +1116,410 @@ class _KesorTransferScreenState extends State<KesorTransferScreen> {
     },
   );
 
-  Widget _buildEntry(
-    BuildContext context,
-  ) => AnnotatedRegion<SystemUiOverlayStyle>(
-    value: SystemUiOverlayStyle.light.copyWith(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: AppColors.of(context).background,
-      systemNavigationBarIconBrightness:
-          Theme.of(context).brightness == Brightness.dark
-          ? Brightness.light
-          : Brightness.dark,
-    ),
-    child: Scaffold(
-      backgroundColor: AppPalette.navy500,
-      bottomNavigationBar: entry
-          ? Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: Center(
-                heightFactor: 1,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: KesorLayout.frameWidth,
-                  ),
-                  child: ColoredBox(
-                    color: AppColors.of(context).background,
-                    child: _footer(),
+  bool get _qrCanContinue {
+    if (!current ||
+        !widget.enabled ||
+        !model.ready ||
+        model.busy ||
+        model.saved != null ||
+        model.storageError != null ||
+        selected == null ||
+        widget.accounts.loadingDetail ||
+        entryError != null) {
+      return false;
+    }
+    try {
+      TransferDraft.validate(
+        selected!,
+        destination.text,
+        amount.text,
+        remark.text,
+      );
+      return true;
+    } on ApiFailure {
+      return false;
+    }
+  }
+
+  void _qrCurrency(String currency) {
+    if (!current || model.busy) return;
+    if (selected?.currency == currency) {
+      setState(() => entryError = null);
+      return;
+    }
+    final account = widget.accounts.accounts
+        .where(
+          (a) =>
+              a.currency == currency &&
+              a.status == 'ACTIVE' &&
+              a.number != destination.text,
+        )
+        .firstOrNull;
+    if (account == null) {
+      setState(
+        () => entryError = tx(
+          context,
+          'No active source account matches this currency.',
+        ),
+      );
+      return;
+    }
+    setState(() {
+      entryError = null;
+      if (qr?.fixedAmount == null) amount.clear();
+    });
+    widget.accounts.select(account);
+  }
+
+  Future<void> _qrRemark() async {
+    if (!current || model.busy) return;
+    final editor = TextEditingController(text: remark.text);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _TransferPrivateSheet(
+        session: model.session,
+        child: AlertDialog(
+          title: Text(tx(context, 'Add a remark')),
+          content: TextField(
+            key: const ValueKey('qr-remark-editor'),
+            controller: editor,
+            autofocus: true,
+            maxLength: 255,
+            minLines: 1,
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tx(context, 'Cancel')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, editor.text),
+              child: Text(tx(context, 'Save')),
+            ),
+          ],
+        ),
+      ),
+    );
+    // Dialog dismissal animates while its field still uses this controller.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    editor.dispose();
+    if (current && result != null) setState(() => remark.text = result);
+  }
+
+  String? get _qrValidationError {
+    if (selected == null || amount.text.isEmpty) return null;
+    try {
+      TransferDraft.validate(
+        selected!,
+        destination.text,
+        amount.text,
+        remark.text,
+      );
+      return null;
+    } on ApiFailure catch (error) {
+      return tx(context, error.message);
+    }
+  }
+
+  Widget _qrEntry() => QrTransferScreen(
+    name: recipient?.name ?? qr!.name ?? destination.text,
+    destination: destination.text,
+    photo: recipientPhoto,
+    amount: amount.text,
+    remark: remark.text,
+    account: selected,
+    fixed: qr!.fixedAmount != null,
+    verifiedShop: qr!.shop != null,
+    showDeviceChrome: widget.showDeviceChrome,
+    message:
+        entryError ??
+        model.storageError?.message ??
+        model.error?.message ??
+        widget.accounts.detailError?.message ??
+        _qrValidationError ??
+        (selected == null
+            ? tx(context, 'Choose an active source account.')
+            : null),
+    onBack: widget.onBack,
+    onCurrency: _qrCurrency,
+    onWallet: () async {
+      final currency = selected?.currency;
+      await _chooseAccount();
+      if (current &&
+          qr?.fixedAmount == null &&
+          currency != selected?.currency) {
+        setState(() {
+          amount.clear();
+          entryError = null;
+        });
+      }
+    },
+    onAmountChanged: (value) {
+      if (current && !model.busy) {
+        setState(() {
+          amount.text = value;
+          entryError = null;
+        });
+      }
+    },
+    onRemark: _qrRemark,
+    onContinue: _qrCanContinue ? _continue : null,
+  );
+
+  Widget _buildEntry(BuildContext context) {
+    if (qr != null && model.saved == null && model.storageError == null) {
+      return _qrEntry();
+    }
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.of(context).background,
+        systemNavigationBarIconBrightness:
+            Theme.of(context).brightness == Brightness.dark
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: AppPalette.navy500,
+        bottomNavigationBar: entry
+            ? Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: Center(
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: KesorLayout.frameWidth,
+                    ),
+                    child: ColoredBox(
+                      color: AppColors.of(context).background,
+                      child: _footer(),
+                    ),
                   ),
                 ),
-              ),
-            )
-          : null,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
-          child: ListenableBuilder(
-            listenable: changes,
-            builder: (context, _) => LayoutBuilder(
-              builder: (context, constraints) {
-                final top = widget.showDeviceChrome
-                    ? 54.0
-                    : MediaQuery.paddingOf(context).top;
-                final extra = math.max(
-                  0.0,
-                  constraints.maxHeight - top - 234 - 510,
-                );
-                final body = SingleChildScrollView(
-                  key: const ValueKey('transfer-scroll'),
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.showDeviceChrome)
+              )
+            : null,
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: KesorLayout.frameWidth),
+            child: ListenableBuilder(
+              listenable: changes,
+              builder: (context, _) => LayoutBuilder(
+                builder: (context, constraints) {
+                  final top = widget.showDeviceChrome
+                      ? 54.0
+                      : MediaQuery.paddingOf(context).top;
+                  final extra = math.max(
+                    0.0,
+                    constraints.maxHeight - top - 234 - 510,
+                  );
+                  final body = SingleChildScrollView(
+                    key: const ValueKey('transfer-scroll'),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.showDeviceChrome)
+                          SizedBox(
+                            height: 54,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                left: 37,
+                                right: 30,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '9:41',
+                                    style: _type(
+                                      context,
+                                      20,
+                                      28,
+                                      weight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const TransferAsset('device-status.svg'),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          SizedBox(height: top),
                         SizedBox(
-                          height: 54,
+                          height: 60,
                           child: Padding(
-                            padding: const EdgeInsets.only(left: 37, right: 30),
+                            padding: const EdgeInsets.symmetric(horizontal: 22),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  '9:41',
-                                  style: _type(
-                                    context,
-                                    20,
-                                    28,
-                                    weight: FontWeight.w700,
-                                    color: Colors.white,
+                                Semantics(
+                                  button: true,
+                                  label: tx(context, 'Back'),
+                                  child: InkWell(
+                                    key: const ValueKey('transfer-back'),
+                                    borderRadius: BorderRadius.circular(24),
+                                    onTap: () {
+                                      FocusScope.of(context).unfocus();
+                                      widget.onBack();
+                                    },
+                                    child: const SizedBox(
+                                      width: 48,
+                                      height: 48,
+                                      child: Center(
+                                        child: TransferAsset('back.svg'),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                const TransferAsset('device-status.svg'),
+                                Expanded(
+                                  child: Text(
+                                    tx(context, 'Transfer'),
+                                    textAlign: TextAlign.center,
+                                    style: _type(
+                                      context,
+                                      20,
+                                      28,
+                                      weight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 48),
                               ],
                             ),
                           ),
-                        )
-                      else
-                        SizedBox(height: top),
-                      SizedBox(
-                        height: 60,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          child: Row(
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                          child: Column(
                             children: [
-                              Semantics(
-                                button: true,
-                                label: tx(context, 'Back'),
-                                child: InkWell(
-                                  key: const ValueKey('transfer-back'),
-                                  borderRadius: BorderRadius.circular(24),
-                                  onTap: () {
-                                    FocusScope.of(context).unfocus();
-                                    widget.onBack();
-                                  },
-                                  child: const SizedBox(
-                                    width: 48,
-                                    height: 48,
-                                    child: Center(
-                                      child: TransferAsset('back.svg'),
+                              Container(
+                                key: const ValueKey('transfer-emblem'),
+                                width: 72,
+                                height: 72,
+                                decoration: const BoxDecoration(
+                                  color: AppPalette.gold100,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 36,
+                                    height: 36,
+                                    child: Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 7.875,
+                                          top: 7.875,
+                                          child: TransferAsset(
+                                            'emblem-transfer.svg',
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
                               ),
-                              Expanded(
-                                child: Text(
-                                  tx(context, 'Transfer'),
-                                  textAlign: TextAlign.center,
-                                  style: _type(
-                                    context,
-                                    20,
-                                    28,
-                                    weight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
+                              const SizedBox(height: 12),
+                              Text(
+                                tx(context, 'Kesor Transfer'),
+                                style: _type(
+                                  context,
+                                  20,
+                                  28,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(width: 48),
+                              const SizedBox(height: 4),
+                              Text(
+                                tx(context, 'Fast, secure wallet transfers'),
+                                style: _type(
+                                  context,
+                                  12,
+                                  18,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                        child: Column(
-                          children: [
-                            Container(
-                              key: const ValueKey('transfer-emblem'),
-                              width: 72,
-                              height: 72,
-                              decoration: const BoxDecoration(
-                                color: AppPalette.gold100,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 36,
-                                  height: 36,
-                                  child: Stack(
+                        Container(
+                          key: const ValueKey('transfer-form-panel'),
+                          decoration: BoxDecoration(
+                            color: AppColors.of(context).background,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(32),
+                            ),
+                          ),
+                          child: entry
+                              ? Column(
+                                  children: [
+                                    _fields(),
+                                    SizedBox(height: extra),
+                                  ],
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      Positioned(
-                                        left: 7.875,
-                                        top: 7.875,
-                                        child: TransferAsset(
-                                          'emblem-transfer.svg',
-                                        ),
+                                      TransferPanel(
+                                        controller: model,
+                                        accounts: widget.accounts,
+                                        enabled: widget.enabled,
+                                        onDone: () => setState(() {
+                                          destination.clear();
+                                          amount.clear();
+                                          remark.clear();
+                                          saveFavorite = false;
+                                          favoriteError = null;
+                                        }),
                                       ),
+                                      if (model.saved?.outcome == 'success' &&
+                                          !bookmarked.contains(
+                                            model.saved!.key,
+                                          ))
+                                        TextButton.icon(
+                                          onPressed: favoriteBusy
+                                              ? null
+                                              : () => _bookmark(model.saved!),
+                                          icon: const Icon(
+                                            Icons.bookmark_add_outlined,
+                                          ),
+                                          label: Text(
+                                            tx(context, 'Save recipient'),
+                                          ),
+                                        ),
+                                      if (favoriteError != null)
+                                        NoticePanel(
+                                          tx(context, favoriteError!),
+                                          error: true,
+                                        ),
+                                      _safeBottom(),
                                     ],
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              tx(context, 'Kesor Transfer'),
-                              style: _type(
-                                context,
-                                20,
-                                28,
-                                weight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              tx(context, 'Fast, secure wallet transfers'),
-                              style: _type(
-                                context,
-                                12,
-                                18,
-                                color: Colors.white,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
                         ),
-                      ),
-                      Container(
-                        key: const ValueKey('transfer-form-panel'),
-                        decoration: BoxDecoration(
-                          color: AppColors.of(context).background,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
-                        ),
-                        child: entry
-                            ? Column(
-                                children: [
-                                  _fields(),
-                                  SizedBox(height: extra),
-                                ],
-                              )
-                            : Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    TransferPanel(
-                                      controller: model,
-                                      accounts: widget.accounts,
-                                      enabled: widget.enabled,
-                                      onDone: () => setState(() {
-                                        destination.clear();
-                                        amount.clear();
-                                        remark.clear();
-                                        saveFavorite = false;
-                                        favoriteError = null;
-                                      }),
-                                    ),
-                                    if (model.saved?.outcome == 'success' &&
-                                        !bookmarked.contains(model.saved!.key))
-                                      TextButton.icon(
-                                        onPressed: favoriteBusy
-                                            ? null
-                                            : () => _bookmark(model.saved!),
-                                        icon: const Icon(
-                                          Icons.bookmark_add_outlined,
-                                        ),
-                                        label: Text(
-                                          tx(context, 'Save recipient'),
-                                        ),
-                                      ),
-                                    if (favoriteError != null)
-                                      NoticePanel(
-                                        tx(context, favoriteError!),
-                                        error: true,
-                                      ),
-                                    _safeBottom(),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                );
-                return body;
-              },
+                      ],
+                    ),
+                  );
+                  return body;
+                },
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 TextStyle _type(

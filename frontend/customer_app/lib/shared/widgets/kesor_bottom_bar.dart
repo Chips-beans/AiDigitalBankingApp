@@ -74,7 +74,9 @@ class KesorBottomBar extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     SvgPicture.asset(
-                                      selectedIndex == 0
+                                      selectedIndex == 1 && index == 0
+                                          ? 'assets/analytics/figma-home.svg'
+                                          : selectedIndex == 0
                                           ? 'assets/figma/${['34550', '6bee9', '1cbfc'][index]}.svg'
                                           : selectedIndex == 1
                                           ? 'assets/figma/${['f640a', '05ff1', '5b6a1'][index]}.svg'

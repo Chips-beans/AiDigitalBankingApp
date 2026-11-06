@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import 'dart:math' as math;
 
 import '../../../app/app_preferences.dart';
 import '../../../app/design_system/design_system.dart';
@@ -11,6 +14,12 @@ import '../../../shared/widgets/figma_presentation.dart';
 import '../assistant_controller.dart';
 import '../assistant_labels.dart';
 import '../assistant_models.dart';
+
+const assistantSuggestedQuestions = [
+  'How much did I spend this week?',
+  'How does the 50/30/20 rule work?',
+  'Show my biggest payment this month',
+];
 
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({
@@ -118,6 +127,13 @@ class _AssistantScreenState extends State<AssistantScreen>
                     aiText(
                       context,
                       'Conversations expire after 30 days. You can delete them earlier.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    aiText(
+                      context,
+                      'Your question and only the figures needed to answer it are sent to the AI service; names and account numbers are not. General answers are information, not financial advice. Conversations are kept for 30 days.',
                     ),
                   ),
                   if (model.busy) const LinearProgressIndicator(),
@@ -259,148 +275,306 @@ class _AssistantScreenState extends State<AssistantScreen>
         model.session.identity?.firstName ??
         model.session.identity?.username ??
         '';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 32),
-          child: Column(
-            children: [
-              Tooltip(
-                message: aiText(context, 'Conversation history'),
-                child: InkWell(
-                  onTap: _history,
-                  borderRadius: BorderRadius.circular(100),
-                  child: Container(
-                    width: 96,
-                    height: 96,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colors.primary50,
-                      shape: BoxShape.circle,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Tooltip(
+              message: aiText(context, 'Conversation history'),
+              child: InkWell(
+                onTap: _history,
+                borderRadius: BorderRadius.circular(100),
+                child: Container(
+                  key: const ValueKey('assistant-emblem'),
+                  width: 96,
+                  height: 96,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.primary50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox.square(
+                    dimension: 76,
+                    child: SvgPicture.asset(
+                      'assets/assistant/68b0e.svg',
+                      excludeFromSemantics: true,
                     ),
-                    child: const CustomerDesignIcon('68b0e', size: 76),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                name.isEmpty
-                    ? tr(context, 'Hi there', 'សួស្ដី')
-                    : tr(context, 'Hi, $name', 'សួស្ដី $name'),
-                textAlign: TextAlign.center,
-                style: customerText(context, 15, 24, color: colors.primary700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                aiText(context, 'How can I help you today?'),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            name.isEmpty
+                ? tr(context, 'Hi there', 'សួស្ដី')
+                : tr(context, 'Hi, $name', 'សួស្ដី $name'),
+            textAlign: TextAlign.center,
+            style: customerText(context, 15, 24, color: colors.primary700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            aiText(context, 'How can I help you today?'),
+            key: const ValueKey('assistant-headline'),
+            textAlign: TextAlign.center,
+            style: customerText(
+              context,
+              32,
+              44,
+              color: customerNavy(context),
+              weight: FontWeight.w300,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 356),
+              child: Text(
+                aiText(
+                  context,
+                  'Ask about your spending, transfers or account security.',
+                ),
                 textAlign: TextAlign.center,
                 style: customerText(
                   context,
-                  32,
-                  44,
-                  color: customerNavy(context),
-                  weight: FontWeight.w300,
+                  15,
+                  24,
+                  color: colors.disabledBackground,
                 ),
               ),
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 356),
-                child: Text(
-                  aiText(
-                    context,
-                    'Ask about your spending, your accounts, or money in general.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _suggestions() {
+    final colors = AppColors.of(context);
+    final style = customerText(context, 12, 20);
+    final labels = assistantSuggestedQuestions
+        .map((q) => aiText(context, q))
+        .toList();
+    var height = 56.0;
+    for (final label in labels) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: 177);
+      height = math.max(height, painter.height + 16);
+      painter.dispose();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            SizedBox.square(
+              dimension: 20,
+              child: Center(
+                child: SizedBox(
+                  width: 14.8333,
+                  height: 18.1667,
+                  child: SvgPicture.asset(
+                    'assets/assistant/0e542.svg',
+                    excludeFromSemantics: true,
                   ),
-                  textAlign: TextAlign.center,
-                  style: customerText(
-                    context,
-                    15,
-                    24,
-                    color: colors.disabledBackground,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                aiText(context, 'Try Ask: '),
+                style: customerText(context, 12, 20, color: colors.primary500),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 13),
+        SizedBox(
+          height: height,
+          child: SingleChildScrollView(
+            key: const ValueKey('assistant-suggestions'),
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var index = 0; index < labels.length; index++) ...[
+                  if (index != 0) const SizedBox(width: 6),
+                  SizedBox(
+                    width: 201,
+                    height: height,
+                    child: Material(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? colors.accent
+                          : AppPalette.navy50,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        key: ValueKey('assistant-suggestion-$index'),
+                        onTap: model.canSend
+                            ? () => _send(labels[index])
+                            : null,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(labels[index], style: style),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _composer(bool compact) {
+    final colors = AppColors.of(context);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.border),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const ValueKey('assistant-question'),
+                  controller: draft,
+                  minLines: 1,
+                  maxLines: compact ? 1 : 3,
+                  maxLength: 2000,
+                  enabled: model.canSend,
+                  keyboardType: TextInputType.multiline,
+                  style: customerText(context, 15, 24),
+                  buildCounter: (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) => null,
+                  decoration: InputDecoration(
+                    hintText: aiText(context, 'Ask Kesor Assistant…'),
+                    hintStyle: customerText(
+                      context,
+                      15,
+                      24,
+                      color: colors.disabledBackground,
+                    ),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              ValueListenableBuilder(
+                valueListenable: draft,
+                builder: (context, value, _) => IconButton(
+                  key: const ValueKey('assistant-send'),
+                  tooltip: aiText(context, 'Send question'),
+                  onPressed: model.canSend && value.text.trim().isNotEmpty
+                      ? () => _send()
+                      : null,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  icon: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colors.primary100,
+                      shape: BoxShape.circle,
+                    ),
+                    child: CustomerDesignIcon(
+                      '6fd29',
+                      size: 22,
+                      color: customerNavy(context),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        Text(
-          aiText(context, 'Try asking'),
-          style: customerText(
-            context,
-            14,
-            22,
-            color: customerNavy(context),
-            weight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (final suggestion in [
-          ('How much have I spent this month?', '2d864'),
-          ('Compare this month with last month', '9653a'),
-          ('How can I build an emergency fund?', 'c3050'),
-          ('How can I keep my account secure?', 'c3050'),
-        ])
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: model.canSend
-                    ? () => _send(aiText(context, suggestion.$1))
-                    : null,
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? colors.accent
-                              : AppPalette.navy50,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: CustomerDesignIcon(
-                          suggestion.$2,
-                          size: 22,
-                          color: customerNavy(context),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          aiText(context, suggestion.$1),
-                          style: customerText(context, 15, 24),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      CustomerDesignIcon(
-                        '38515',
-                        size: 20,
-                        color: colors.disabledBackground,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        const SizedBox(height: 4),
-        Text(
-          aiText(
-            context,
-            'Your question and only the figures needed to answer it are sent to the AI service; names and account numbers are not. General answers are information, not financial advice. Conversations are kept for 30 days.',
-          ),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
       ],
     );
   }
+
+  Widget _inputFooter(
+    bool compact,
+    bool keyboard,
+    bool pinnedSuggestions,
+    double maxHeight,
+  ) => ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: math.max(0, maxHeight)),
+    child: SingleChildScrollView(
+      key: const ValueKey('assistant-footer-scroll'),
+      primary: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: keyboard
+              ? math.max(8, MediaQuery.paddingOf(context).bottom)
+              : math.max(32, MediaQuery.paddingOf(context).bottom + 8) +
+                    widget.bottomClearance,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (pinnedSuggestions) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 20),
+                child: _suggestions(),
+              ),
+              const SizedBox(height: 10),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _composer(compact),
+            ),
+            if (!keyboard)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Text(
+                  aiText(context, 'Never share your PIN, password or OTP.'),
+                  textAlign: TextAlign.center,
+                  style: customerText(
+                    context,
+                    12,
+                    20,
+                    color: AppColors.of(context).disabledBackground,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _answer(AiAnswer answer) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -563,36 +737,96 @@ class _AssistantScreenState extends State<AssistantScreen>
     );
   }
 
-  Widget _header(bool compact) => CustomerPageHeader(
-    title: aiText(context, 'AI Assistant'),
-    onBack: widget.onBack ?? () => Navigator.maybePop(context),
-    trailing:
-        model.messages.isEmpty &&
-            model.pending == null &&
-            model.lastTurn == null
-        ? null
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: aiText(context, 'Conversation history'),
-                onPressed: model.busy ? null : _history,
-                icon: const Icon(Icons.history),
+  Widget _welcomeHeader() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 0, 16, 20),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox.square(
+          dimension: 48,
+          child: Tooltip(
+            message: MaterialLocalizations.of(context).backButtonTooltip,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: widget.onBack ?? () => Navigator.maybePop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.of(context).surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: CustomerDesignIcon(
+                      '03138',
+                      size: 22,
+                      color: customerNavy(context),
+                    ),
+                  ),
+                ),
               ),
-              IconButton(
-                tooltip: aiText(context, 'New conversation'),
-                onPressed: model.busy || model.pending != null
-                    ? null
-                    : () {
-                        draft.clear();
-                        consumed.clear();
-                        model.newChat();
-                      },
-                icon: const Icon(Icons.edit_square),
-              ),
-            ],
+            ),
           ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              aiText(context, 'AI Assistant'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: customerText(
+                context,
+                24,
+                36,
+                color: customerNavy(context),
+                weight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
   );
+
+  Widget _header(bool compact) =>
+      model.messages.isEmpty && model.pending == null && model.lastTurn == null
+      ? _welcomeHeader()
+      : CustomerPageHeader(
+          title: aiText(context, 'AI Assistant'),
+          onBack: widget.onBack ?? () => Navigator.maybePop(context),
+          trailing:
+              model.messages.isEmpty &&
+                  model.pending == null &&
+                  model.lastTurn == null
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: aiText(context, 'Conversation history'),
+                      onPressed: model.busy ? null : _history,
+                      icon: const Icon(Icons.history),
+                    ),
+                    IconButton(
+                      tooltip: aiText(context, 'New conversation'),
+                      onPressed: model.busy || model.pending != null
+                          ? null
+                          : () {
+                              draft.clear();
+                              consumed.clear();
+                              model.newChat();
+                            },
+                      icon: const Icon(Icons.edit_square),
+                    ),
+                  ],
+                ),
+        );
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -607,11 +841,21 @@ class _AssistantScreenState extends State<AssistantScreen>
             constraints.maxHeight < 600 ||
             MediaQuery.textScalerOf(context).scale(14) > 20;
         final shortLayout = constraints.maxHeight < 430;
+        final welcome =
+            model.messages.isEmpty &&
+            model.lastTurn?.answer == null &&
+            model.pending == null;
+        final pinnedSuggestions =
+            welcome &&
+            !keyboard &&
+            constraints.maxHeight - widget.bottomClearance >=
+                (MediaQuery.textScalerOf(context).scale(14) > 20 ? 760 : 600);
         final entries = <Widget>[
           if (model.messages.isEmpty &&
               model.lastTurn?.answer == null &&
               model.pending == null)
             _welcome(context),
+          if (welcome && !keyboard && !pinnedSuggestions) _suggestions(),
           if (model.messageCursor != null)
             TextButton(
               onPressed: model.busy ? null : model.olderMessages,
@@ -713,144 +957,49 @@ class _AssistantScreenState extends State<AssistantScreen>
                         ? Brightness.light
                         : Brightness.dark,
                   ),
-          child: CustomerAssistantBackground(
-            child: SafeArea(
-              top: true,
-              bottom: false,
-              child: Column(
-                children: [
-                  if (!shortLayout && !(compact && keyboard)) _header(compact),
-                  Expanded(
-                    child: ListView(
-                      key: const ValueKey('assistant-messages'),
-                      controller: scroll,
-                      padding: EdgeInsets.fromLTRB(
-                        shortLayout ? 0 : 20,
-                        0,
-                        shortLayout ? 0 : 20,
-                        16,
-                      ),
-                      children: [
-                        if (shortLayout && !keyboard) _header(compact),
-                        for (final entry in entries)
-                          Padding(
-                            padding: shortLayout
-                                ? const EdgeInsets.symmetric(horizontal: 24)
-                                : EdgeInsets.zero,
-                            child: entry,
+          child: Center(
+            child: SizedBox(
+              width: 440,
+              child: CustomerAssistantBackground(
+                child: SafeArea(
+                  top: true,
+                  bottom: false,
+                  child: Column(
+                    children: [
+                      if (!shortLayout && !(compact && keyboard))
+                        _header(compact),
+                      Expanded(
+                        child: ListView(
+                          key: const ValueKey('assistant-messages'),
+                          controller: scroll,
+                          padding: EdgeInsets.fromLTRB(
+                            shortLayout ? 0 : 20,
+                            0,
+                            shortLayout ? 0 : 20,
+                            16,
                           ),
-                      ],
-                    ),
-                  ),
-
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(20, compact ? 8 : 24, 20, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: colors.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: colors.border),
-                          ),
-                          padding: const EdgeInsets.only(left: 12, right: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  key: const ValueKey('assistant-question'),
-                                  controller: draft,
-                                  minLines: 1,
-                                  maxLines: compact ? 1 : 3,
-                                  maxLength: 2000,
-                                  enabled: model.canSend,
-                                  keyboardType: TextInputType.multiline,
-                                  style: customerText(context, 15, 24),
-                                  buildCounter: (
-                                    context, {
-                                    required currentLength,
-                                    required isFocused,
-                                    required maxLength,
-                                  }) => null,
-                                  decoration: InputDecoration(
-                                    hintText: aiText(
-                                      context,
-                                      'Ask Kesor Assistant…',
-                                    ),
-                                    hintStyle: customerText(
-                                      context,
-                                      15,
-                                      24,
-                                      color: colors.disabledBackground,
-                                    ),
-                                    filled: false,
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
+                          children: [
+                            if (shortLayout && !keyboard) _header(compact),
+                            for (final entry in entries)
+                              Padding(
+                                padding: shortLayout
+                                    ? const EdgeInsets.symmetric(horizontal: 24)
+                                    : EdgeInsets.zero,
+                                child: entry,
                               ),
-                              ValueListenableBuilder(
-                                valueListenable: draft,
-                                builder: (context, value, _) => IconButton(
-                                  key: const ValueKey('assistant-send'),
-                                  tooltip: aiText(context, 'Send question'),
-                                  onPressed:
-                                      model.canSend &&
-                                          value.text.trim().isNotEmpty
-                                      ? () => _send()
-                                      : null,
-                                  icon: Container(
-                                    width: 32,
-                                    height: 32,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: colors.primary100,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: CustomerDesignIcon(
-                                      '6fd29',
-                                      size: 22,
-                                      color: customerNavy(context),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
-                        if (!keyboard) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            aiText(
-                              context,
-                              'Never share your PIN, password or OTP.',
-                            ),
-                            textAlign: TextAlign.center,
-                            style: customerText(
-                              context,
-                              12,
-                              20,
-                              color: colors.disabledBackground,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+
+                      _inputFooter(
+                        compact,
+                        keyboard,
+                        pinnedSuggestions,
+                        constraints.maxHeight * (shortLayout ? .65 : .8),
+                      ),
+                    ],
                   ),
-                  SizedBox(
-                    height: keyboard
-                        ? MediaQuery.paddingOf(context).bottom
-                        : widget.bottomClearance +
-                              MediaQuery.paddingOf(context).bottom,
-                  ),
-                ],
+                ),
               ),
             ),
           ),

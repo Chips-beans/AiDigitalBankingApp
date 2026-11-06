@@ -1,6 +1,7 @@
 package com.bank.merchant_app
 
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -12,6 +13,7 @@ import java.security.MessageDigest
 
 /** Development transport only. Never log intent data or private channel arguments. */
 class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCallHandler {
+    private class VerificationFailure(val reason: String) : Exception()
     private val customer = context.packageName == "com.bank.customer_app"
     private val target = if (customer) "com.bank.merchant_app" else "com.bank.customer_app"
     private val incoming = if (customer) "kesorbank://merchant/approve" else "kesormerchant://auth/callback"
@@ -42,15 +44,15 @@ class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCal
 
     @Suppress("DEPRECATION")
     private fun verifyTarget() {
-        check(development())
+        if (!development()) throw VerificationFailure("HANDOFF_UNSUPPORTED_BUILD")
         val pm = context.packageManager
         val info = pm.getPackageInfo(target, if (Build.VERSION.SDK_INT >= 28)
             PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES)
         val signers = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else info.signatures
-        check(signers != null && signers.size == 1)
+        if (signers == null || signers.size != 1) throw VerificationFailure("PEER_SIGNATURE_MISMATCH")
         val digest = MessageDigest.getInstance("SHA-256").digest(signers[0].toByteArray())
             .joinToString("") { "%02x".format(it.toInt() and 255) }
-        check(digest == debugCertificate)
+        if (digest != debugCertificate) throw VerificationFailure("PEER_SIGNATURE_MISMATCH")
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -88,6 +90,12 @@ class MerchantLinkBridge(private val context: Context) : MethodChannel.MethodCal
                 }
                 else -> result.notImplemented()
             }
+        } catch (failure: VerificationFailure) {
+            result.error(failure.reason, "Use matching supported Kesor app builds.", null)
+        } catch (_: ActivityNotFoundException) {
+            result.error("PEER_OPEN_FAILED", "The other Kesor app could not be opened.", null)
+        } catch (_: SecurityException) {
+            result.error("PEER_OPEN_FAILED", "The other Kesor app could not be opened.", null)
         } catch (_: PackageManager.NameNotFoundException) {
             result.error("PEER_MISSING", "Install the other Kesor app to continue.", null)
         } catch (_: Exception) {

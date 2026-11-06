@@ -16,12 +16,14 @@ Shared Flutter packages live in `frontend/packages`.
 
 ## Documentation
 
-Start with [AGENTS.md](AGENTS.md), then the three project documents in `docs/`:
+Start with [AGENTS.md](AGENTS.md), then the project documents in `docs/`:
 
 - [docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md](docs/PROJECT_PROGRESS_AND_AGENT_GUIDE.md):
   current progress, agent rules, setup, commands and open work.
 - [docs/CUSTOMER_APP.md](docs/CUSTOMER_APP.md): the Customer App and banking backend.
 - [docs/MERCHANT_APP.md](docs/MERCHANT_APP.md): the Merchant App contracts and build record.
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): hosting on Railway and runbooks for changing the
+  live backend, database, configuration or APKs.
 
 ## Built with
 

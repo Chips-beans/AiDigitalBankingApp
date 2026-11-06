@@ -10,8 +10,6 @@ import 'features/shop/merchant_shop_api.dart';
 import 'package:kesor_auth_handoff/kesor_auth_handoff.dart'
     show SecureHandoffStore;
 
-import 'dart:async';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
@@ -26,6 +24,7 @@ Future<void> main() async {
       MerchantApp(
         preferences: preferences,
         session: session,
+        startup: session.initialize(),
         shopGateway: MerchantShopApi(config, auth),
         // Saved registration intents live in their own secure namespace.
         shopStore: SecureHandoffStore(
@@ -33,7 +32,6 @@ Future<void> main() async {
         ),
       ),
     );
-    unawaited(session.initialize());
   } on ArgumentError {
     runApp(
       const MaterialApp(

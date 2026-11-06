@@ -170,6 +170,10 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
           onChanged: (_) => _changed(),
           validator: required,
           decoration: InputDecoration(
+            prefixIcon: const Padding(
+              padding: EdgeInsets.all(14),
+              child: QIcon('b8ce6'),
+            ),
             hintText: t(context, 'e.g. Sokha Coffee', 'ឧ. កាហ្វេសុខា'),
             counterText: '',
           ),
@@ -191,6 +195,10 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
               ? t(context, 'Choose a category', 'សូមជ្រើសប្រភេទ')
               : null,
           decoration: InputDecoration(
+            prefixIcon: const Padding(
+              padding: EdgeInsets.all(14),
+              child: QIcon('1409f'),
+            ),
             hintText: t(context, 'Choose a category', 'ជ្រើសប្រភេទ'),
           ),
           items: [
@@ -218,7 +226,13 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
           ],
           onChanged: (_) => _changed(),
           validator: (v) => validatePhone(context, v),
-          decoration: const InputDecoration(hintText: '012 345 678'),
+          decoration: const InputDecoration(
+            prefixIcon: Padding(
+              padding: EdgeInsets.all(14),
+              child: QIcon('form-phone'),
+            ),
+            hintText: '012 345 678',
+          ),
         ),
         const SizedBox(height: 16),
         _Label(t(context, 'City or province', 'ទីក្រុង / ខេត្ត')),
@@ -242,6 +256,10 @@ class _ShopFormFieldsState extends State<ShopFormFields> {
                 )
               : null,
           decoration: InputDecoration(
+            prefixIcon: const Padding(
+              padding: EdgeInsets.all(14),
+              child: QIcon('form-pin'),
+            ),
             hintText: t(context, 'Choose a location', 'ជ្រើសទីតាំង'),
           ),
           items: [

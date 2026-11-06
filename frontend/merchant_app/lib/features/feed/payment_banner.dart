@@ -86,8 +86,9 @@ class PaymentAlertSettings extends StatelessWidget {
           ),
         ])
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
+              color: AppColors.of(context).background,
               border: Border(
                 bottom: BorderSide(color: AppColors.of(context).border),
               ),
@@ -151,17 +152,11 @@ class PaymentAlertSettings extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        Text(
+        NoticeBanner(
           t(
             context,
             'Alerts work while Kesor Merchant is open. Background notifications are coming later.',
             'ការជូនដំណឹងដំណើរការពេលកម្មវិធី Kesor Merchant បើកនៅឡើយ។ ការជូនដំណឹងផ្ទៃខាងក្រោយនឹងមកនៅពេលក្រោយ។',
-          ),
-          style: mText(
-            context,
-            13,
-            18,
-            color: AppColors.of(context).disabledBackground,
           ),
         ),
       ],

@@ -45,11 +45,13 @@ class DailyAnalyticsChart extends StatefulWidget {
     required this.snapshot,
     required this.showIncome,
     required this.seriesLabel,
+    this.height,
     super.key,
   });
   final AnalyticsSnapshot snapshot;
   final bool showIncome;
   final String seriesLabel;
+  final double? height;
   @override
   State<DailyAnalyticsChart> createState() => _DailyAnalyticsChartState();
 }
@@ -125,7 +127,7 @@ class _DailyAnalyticsChartState extends State<DailyAnalyticsChart> {
                   ),
                   child: SizedBox(
                     key: const ValueKey('analytics-chart'),
-                    height: 153 + 18 * textScale,
+                    height: widget.height ?? 153 + 18 * textScale,
                     child: Stack(
                       children: [
                         Positioned.fill(

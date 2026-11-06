@@ -55,6 +55,9 @@ public class FoundationOpenApiConfig {
             describe(api, "/auth/pin/prepare", PathItem.HttpMethod.POST, "Authentication", "Prepare app PIN gate",
                     "Authenticated, completed customer profile. Locks this session and returns an opaque device/session-bound app ticket. Persist this instead of banking refresh tokens.",
                     "200", false, null, "401", "403");
+            describe(api, "/auth/pin/home-preview", PathItem.HttpMethod.POST, "Authentication", "Locked Home preview",
+                    "Private PIN ticket in JSON body. Returns at most five personal-wallet transactions without amounts, balances, account numbers or remarks; does not unlock banking.",
+                    "200", true, null, "400", "401", "403");
             for (String path : List.of("status", "setup", "unlock", "discard")) {
                 describe(api, "/auth/pin/" + path, PathItem.HttpMethod.POST, "Authentication", "App PIN: " + path,
                         "Authorized by the private app ticket in the JSON body. Five wrong PINs require fresh verified identity recovery. Setup/reset requires matching four-digit values; reset requires a fresh identity session and revokes other sessions. Never log tickets or PINs.",

@@ -8,6 +8,8 @@ next steps. Then read the product document for the area you touch:
 
 - `docs/CUSTOMER_APP.md` — Customer App and the shared banking backend.
 - `docs/MERCHANT_APP.md` — Merchant App decisions, contracts and the build record (M0–M8, M9 plan).
+- `docs/DEPLOYMENT.md` — hosting on Railway: what is live, variables, and runbooks for changing the
+  backend, database, configuration or APKs. Read it before any deploy; live changes need the user's approval.
 
 Older per-milestone reports were consolidated into these three files; the last commit that
 still has them is `ccc10bd` (`git show ccc10bd:docs/<NAME>.md`). Do not recreate per-milestone

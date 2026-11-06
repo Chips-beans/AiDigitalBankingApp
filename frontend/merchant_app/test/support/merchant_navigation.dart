@@ -10,6 +10,13 @@ Future<void> openMerchantSection(WidgetTester tester, int section) async {
   if (section == 2) {
     await openMerchantMenu(tester, '5e757');
   } else {
+    final target = find.byKey(
+      ValueKey('merchant-tab-${section == 3 ? 2 : section}'),
+    );
+    if (target.evaluate().isEmpty) {
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
     await tester.tap(
       find.byKey(ValueKey('merchant-tab-${section == 3 ? 2 : section}')),
     );

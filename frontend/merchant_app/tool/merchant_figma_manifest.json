@@ -1,0 +1,157 @@
+{
+  "fileKey": "Mkhqgqnt1SQoq4pn9INLY5",
+  "section": "363:3084",
+  "referenceViewport": {
+    "width": 393,
+    "height": 852
+  },
+  "comparisonNotes": [
+    "Compare English/light at 1x text; responsive reflow is deliberate elsewhere.",
+    "Native status bar is not painted by Flutter and is excluded from differences.",
+    "Amounts, QR codes, names, dates, account suffixes and preference values use fixture/live data.",
+    "Alternate-outcome annotations are rendered as the applicable runtime state, not as instructional UI.",
+    "Visual difference metrics are diagnostic; they do not certify acceptance."
+  ],
+  "frames": [
+    {
+      "node": "379:5547",
+      "name": "A1 Welcome",
+      "catalogPrefix": "01"
+    },
+    {
+      "node": "365:3208",
+      "name": "A2 Approve sign-in",
+      "catalogPrefix": "02"
+    },
+    {
+      "node": "365:3259",
+      "name": "A3 Sign-in not approved",
+      "catalogPrefix": "34"
+    },
+    {
+      "node": "365:3306",
+      "name": "A4 Register shop",
+      "catalogPrefix": "04"
+    },
+    {
+      "node": "365:3382",
+      "name": "A5 Registration not confirmed",
+      "catalogPrefix": "05"
+    },
+    {
+      "node": "365:3435",
+      "name": "A6 Shop restricted",
+      "catalogPrefix": "27"
+    },
+    {
+      "node": "365:3506",
+      "name": "A7 Account review",
+      "catalogPrefix": "06"
+    },
+    {
+      "node": "366:3324",
+      "name": "B1 Home",
+      "catalogPrefix": "07"
+    },
+    {
+      "node": "366:3479",
+      "name": "B2 Drawer",
+      "catalogPrefix": "29"
+    },
+    {
+      "node": "366:3628",
+      "name": "B3 Payment banner",
+      "catalogPrefix": "26"
+    },
+    {
+      "node": "366:3713",
+      "name": "B4 Wallet details",
+      "catalogPrefix": "08"
+    },
+    {
+      "node": "366:3804",
+      "name": "B5 Transfer amount",
+      "catalogPrefix": "22"
+    },
+    {
+      "node": "366:3883",
+      "name": "B6 Transfer approval",
+      "catalogPrefix": "23"
+    },
+    {
+      "node": "366:3935",
+      "name": "B7 Transfer completed",
+      "catalogPrefix": "24"
+    },
+    {
+      "node": "367:3761",
+      "name": "C1 Collect amount",
+      "catalogPrefix": "09"
+    },
+    {
+      "node": "367:3858",
+      "name": "C2 Waiting QR",
+      "catalogPrefix": "10"
+    },
+    {
+      "node": "367:3923",
+      "name": "C3 Payment received",
+      "catalogPrefix": "11"
+    },
+    {
+      "node": "367:3997",
+      "name": "C4 Expired request",
+      "catalogPrefix": "33"
+    },
+    {
+      "node": "367:4060",
+      "name": "C5 Shop QR",
+      "catalogPrefix": "13"
+    },
+    {
+      "node": "367:4110",
+      "name": "C6 Receipt",
+      "catalogPrefix": "16"
+    },
+    {
+      "node": "367:4182",
+      "name": "C7 Requests",
+      "catalogPrefix": "19"
+    },
+    {
+      "node": "368:4050",
+      "name": "D1 Sales",
+      "catalogPrefix": "14"
+    },
+    {
+      "node": "368:4144",
+      "name": "D2 Reports",
+      "catalogPrefix": "17"
+    },
+    {
+      "node": "368:4232",
+      "name": "D3 More",
+      "catalogPrefix": "20"
+    },
+    {
+      "node": "368:4354",
+      "name": "D4 Shop profile",
+      "catalogPrefix": "21"
+    },
+    {
+      "node": "368:4431",
+      "name": "D5 Alerts",
+      "catalogPrefix": "31"
+    },
+    {
+      "node": "368:4490",
+      "name": "D6 Appearance",
+      "catalogPrefix": "30"
+    },
+    {
+      "node": "368:4534",
+      "name": "D7 Sign out",
+      "catalogPrefix": "32"
+    }
+  ]
+}

@@ -124,7 +124,8 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
       return PopScope(
         canPop: !shop.submitting,
         child: Scaffold(
-          appBar: AppBar(
+          appBar: merchantAppBar(
+            context,
             leading: QBack(
               onPressed: () =>
                   shop.submitting ? null : Navigator.of(context).pop(),

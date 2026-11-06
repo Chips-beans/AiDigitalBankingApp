@@ -23,6 +23,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t FROM Transaction t WHERE t.sourceAccount = :account OR t.destinationAccount = :account ORDER BY t.createdAt DESC, t.id DESC")
     Page<Transaction> findAllByAccount(@Param("account") Account account, Pageable pageable);
 
+    @Query("""
+        SELECT t FROM Transaction t LEFT JOIN t.sourceAccount src LEFT JOIN t.destinationAccount dst
+        WHERE (src.user.id = :owner AND src.accountCategory = com.bank.digital_banking.module.account.entity.AccountCategory.WALLET)
+           OR (dst.user.id = :owner AND dst.accountCategory = com.bank.digital_banking.module.account.entity.AccountCategory.WALLET)
+        ORDER BY t.createdAt DESC, t.id DESC
+        """)
+    List<Transaction> findHomePreview(@Param("owner") Long owner, Pageable pageable);
+
     interface DailyAggregateProjection {
         java.time.LocalDate getTxDate();
         BigDecimal getTotalIncome();

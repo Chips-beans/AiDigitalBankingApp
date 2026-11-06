@@ -92,7 +92,12 @@ Future<void> loadAnalyticsFonts(WidgetTester tester) async {
         'GoogleSans-Medium.ttf',
         'GoogleSans-Bold.ttf',
       ],
-      'Poppins': ['Poppins-Regular.ttf', 'Poppins-Medium.ttf'],
+      'Poppins': [
+        'Poppins-Regular.ttf',
+        'Poppins-Medium.ttf',
+        'Poppins-SemiBold.ttf',
+        'Poppins-Bold.ttf',
+      ],
       'Noto Sans Khmer': ['NotoSansKhmer-Variable.ttf'],
     }.entries) {
       final loader = FontLoader(family.key);
@@ -428,21 +433,23 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.drag(
-          find.byKey(const PageStorageKey('analytics-scroll')),
-          const Offset(0, -5000),
+        expect(find.byType(Scrollable), findsNothing);
+        final chart = tester.getRect(
+          find.byKey(const ValueKey('analytics-chart-card')),
         );
-        await tester.pumpAndSettle();
-        // The final real data row must scroll clear of the floating bar.
-        final lastAmount = find
-            .text(
-              analyticsMoney(model.snapshot!.expense, model.snapshot!.currency),
-            )
-            .last;
-        expect(
-          tester.getRect(lastAmount).bottom,
-          lessThanOrEqualTo(size.height - 34 - 102 - 20),
+        final panel = tester.getRect(
+          find.byKey(const ValueKey('analytics-panel')),
         );
+        expect(chart.top, greaterThanOrEqualTo(panel.top));
+        expect(chart.bottom, lessThanOrEqualTo(size.height - 34 - 64 - 20));
+        final income = tester.getRect(
+          find.byKey(const ValueKey('analytics-income-card')),
+        );
+        final expense = tester.getRect(
+          find.byKey(const ValueKey('analytics-expense-card')),
+        );
+        expect(income.top, expense.top);
+        expect(income.right, lessThan(expense.left));
         expect(tester.takeException(), isNull, reason: '$size');
       }
     },
@@ -520,8 +527,10 @@ void main() {
       expect(find.text('2026-10-01'), findsOneWidget);
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('៛ KHR'));
-      await tester.tap(find.text('៛ KHR'));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('analytics-currency-KHR')),
+      );
+      await tester.tap(find.byKey(const ValueKey('analytics-currency-KHR')));
       await tester.pumpAndSettle();
       expect(model.currency, 'KHR');
       expect(tester.takeException(), isNull);
@@ -579,46 +588,49 @@ void main() {
     },
   );
 
-  testWidgets('narrow large-text Khmer dark screen scrolls without overflow', (
-    tester,
-  ) async {
-    await loadAnalyticsFonts(tester);
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final session = await analyticsSession();
-    addTearDown(session.dispose);
-    final model = AnalyticsController(
-      session,
-      DemoAnalyticsGateway(),
-      clock: () => month,
-    );
-    addTearDown(model.dispose);
-    await model.refresh();
-    await tester.pumpWidget(
-      MaterialApp(
-        locale: const Locale('km'),
-        supportedLocales: const [Locale('km')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: AppTheme.build(Brightness.dark, locale: const Locale('km')),
-        home: MediaQuery(
-          data: const MediaQueryData(
-            size: Size(320, 568),
-            textScaler: TextScaler.linear(2),
+  testWidgets(
+    'narrow large-text Khmer dark screen fits without scrolling or reflow',
+    (tester) async {
+      await loadAnalyticsFonts(tester);
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final session = await analyticsSession();
+      addTearDown(session.dispose);
+      final model = AnalyticsController(
+        session,
+        DemoAnalyticsGateway(),
+        clock: () => month,
+      );
+      addTearDown(model.dispose);
+      await model.refresh();
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('km'),
+          supportedLocales: const [Locale('km')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          theme: AppTheme.build(Brightness.dark, locale: const Locale('km')),
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 568),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Scaffold(body: AnalyticsScreen(controller: model)),
           ),
-          child: Scaffold(body: AnalyticsScreen(controller: model)),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const PageStorageKey('analytics-scroll')),
-      const Offset(0, -900),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(Scrollable), findsNothing);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('analytics-chart-card')))
+            .bottom,
+        lessThanOrEqualTo(568 - 64 - 32 - 20),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'banking navigation preserves analytics selection and balance visibility',

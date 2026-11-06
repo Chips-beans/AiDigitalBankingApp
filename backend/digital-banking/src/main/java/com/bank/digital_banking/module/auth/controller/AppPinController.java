@@ -39,6 +39,9 @@ public class AppPinController {
             Authentication auth, @Valid @RequestBody TransferVerifyRequest request) {
         return ApiResponse.success(pins.verifyForTransfer(user, (UUID) auth.getDetails(), request.pin()), "Transfer confirmed with PIN");
     }
+    @PostMapping("/home-preview") public ApiResponse<java.util.List<AppPinService.PreviewEntry>> preview(@Valid @RequestBody TicketRequest request) {
+        return ApiResponse.success(pins.homePreview(request.ticket()), "Home preview");
+    }
     @PostMapping("/status") public ApiResponse<AppPinService.Challenge> status(@Valid @RequestBody TicketRequest request) {
         return ApiResponse.success(pins.lock(request.ticket()), "App locked");
     }

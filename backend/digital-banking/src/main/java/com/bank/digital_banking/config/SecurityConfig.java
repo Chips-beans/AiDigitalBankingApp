@@ -65,7 +65,7 @@ public class SecurityConfig {
                         "/api/v1/auth/telegram/start", "/api/v1/auth/telegram/exchange",
                         "/api/v1/auth/telegram/native/start", "/api/v1/auth/telegram/native/exchange").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/telegram/callback").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/pin/home-preview", "/api/v1/auth/pin/status", "/api/v1/auth/pin/setup", "/api/v1/auth/pin/unlock", "/api/v1/auth/pin/discard").permitAll()
                 .requestMatchers("/api/v1/auth/pin/prepare", "/api/v1/auth/pin/change", "/api/v1/auth/pin/transfer-proof", "/api/v1/auth/profile/details").authenticated()
                 .requestMatchers("/api/v1/auth/profile/photo").authenticated()
                 .requestMatchers("/api/v1/auth/profile", "/api/v1/auth/email/link/request",

@@ -35,9 +35,47 @@ class MerchantApiAuth
 
   Future<void> _load() async {
     if (_loaded) return;
-    final raw = await store.read('auth');
+    final raw = await _storage(
+      () => store.read('auth'),
+      MerchantAuthStage.storageRead,
+    );
     if (raw != null) {
-      journal = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is! Map<String, dynamic>) throw const FormatException();
+        for (final key in ['pending', 'tokens']) {
+          if (decoded[key] != null && decoded[key] is! Map<String, dynamic>) {
+            throw const FormatException();
+          }
+        }
+        final pending = decoded['pending'] as Map<String, dynamic>?;
+        final tokens = decoded['tokens'] as Map<String, dynamic>?;
+        if ((pending != null &&
+                DateTime.tryParse(
+                      pending['expiresAt'] is String
+                          ? pending['expiresAt']
+                          : '',
+                    ) ==
+                    null) ||
+            (tokens != null &&
+                (tokens['access'] is! String ||
+                    tokens['refresh'] is! String ||
+                    DateTime.tryParse(
+                          tokens['until'] is String ? tokens['until'] : '',
+                        ) ==
+                        null))) {
+          throw const FormatException();
+        }
+        journal = decoded;
+      } catch (_) {
+        throw const MerchantAuthFailure(
+          MerchantAuthIssue.storageUnavailable,
+          diagnostic: MerchantAuthDiagnostic(
+            MerchantAuthStage.storageRead,
+            'STORAGE_INVALID',
+          ),
+        );
+      }
     }
     _loaded = true;
   }
@@ -51,7 +89,13 @@ class MerchantApiAuth
         _storageBlocked = false;
       } catch (_) {
         _storageBlocked = true;
-        rethrow;
+        throw const MerchantAuthFailure(
+          MerchantAuthIssue.storageUnavailable,
+          diagnostic: MerchantAuthDiagnostic(
+            MerchantAuthStage.storageWrite,
+            'STORAGE_UNAVAILABLE',
+          ),
+        );
       }
     });
     _writes = flight;
@@ -71,6 +115,43 @@ class MerchantApiAuth
   Map<String, dynamic>? get _tokens =>
       journal['tokens'] as Map<String, dynamic>?;
   bool _current(int generation) => generation == _generation;
+
+  Future<T> _storage<T>(
+    Future<T> Function() work,
+    MerchantAuthStage stage,
+  ) async {
+    try {
+      return await work();
+    } catch (_) {
+      throw MerchantAuthFailure(
+        MerchantAuthIssue.storageUnavailable,
+        diagnostic: MerchantAuthDiagnostic(stage, 'STORAGE_UNAVAILABLE'),
+      );
+    }
+  }
+
+  Future<T> _at<T>(MerchantAuthStage stage, Future<T> Function() work) async {
+    try {
+      return await work();
+    } on MerchantAuthFailure {
+      rethrow;
+    } on HandoffFailure catch (e) {
+      throw MerchantAuthFailure.fromHandoff(e, stage);
+    } catch (_) {
+      throw MerchantAuthFailure(
+        MerchantAuthIssue.unavailable,
+        diagnostic: MerchantAuthDiagnostic(stage, 'UNKNOWN_ERROR'),
+      );
+    }
+  }
+
+  Future<dynamic> _request(
+    MerchantAuthStage stage,
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    String? access,
+  }) => _at(stage, () => api.request(method, path, body: body, access: access));
   void _check(int generation) {
     if (!_current(generation)) {
       throw const MerchantAuthFailure(MerchantAuthIssue.denied);
@@ -86,20 +167,15 @@ class MerchantApiAuth
     } on MerchantAuthFailure {
       rethrow;
     } on HandoffFailure catch (e) {
-      throw MerchantAuthFailure(switch (e.code) {
-        'PEER_MISSING' => MerchantAuthIssue.customerMissing,
-        'OFFLINE' || 'TIMEOUT' => MerchantAuthIssue.offline,
-        'MERCHANT_AUTH_EXPIRED' ||
-        'TOKEN_INVALID' ||
-        'SESSION_INVALID' ||
-        'REFRESH_REUSED' => MerchantAuthIssue.expired,
-        'MERCHANT_AUTH_DENIED' ||
-        'MERCHANT_AUTH_CANCELLED' => MerchantAuthIssue.denied,
-        'MERCHANT_AUTH_RATE_LIMITED' => MerchantAuthIssue.rateLimited,
-        _ => MerchantAuthIssue.unavailable,
-      });
+      throw MerchantAuthFailure.fromHandoff(e, MerchantAuthStage.unknown);
     } catch (_) {
-      throw const MerchantAuthUnavailable();
+      throw const MerchantAuthFailure(
+        MerchantAuthIssue.unavailable,
+        diagnostic: MerchantAuthDiagnostic(
+          MerchantAuthStage.unknown,
+          'UNKNOWN_ERROR',
+        ),
+      );
     } finally {
       _active = false;
     }
@@ -114,7 +190,13 @@ class MerchantApiAuth
         return null;
       }
       if (_pending!['code'] != null) {
-        throw const MerchantAuthFailure(MerchantAuthIssue.uncertain);
+        throw const MerchantAuthFailure(
+          MerchantAuthIssue.uncertain,
+          diagnostic: MerchantAuthDiagnostic(
+            MerchantAuthStage.exchange,
+            'EXCHANGE_RECOVERY_REQUIRED',
+          ),
+        );
       }
       return _wait(++_generation);
     }
@@ -129,21 +211,47 @@ class MerchantApiAuth
   @override
   Future<MerchantIdentity> authorize() => _guard(() async {
     await _load();
-    if (config.environment != 'dev') throw const MerchantAuthUnavailable();
+    if (config.environment != 'dev') {
+      throw const MerchantAuthFailure(
+        MerchantAuthIssue.unsupportedBuild,
+        diagnostic: MerchantAuthDiagnostic(
+          MerchantAuthStage.configuration,
+          'HANDOFF_UNSUPPORTED_BUILD',
+        ),
+      );
+    }
     if (journal['logout'] == true) await _logout();
     if (_pending?['cancelled'] == true) await _cancelPending();
     if (_pending?['code'] != null) {
-      throw const MerchantAuthFailure(MerchantAuthIssue.uncertain);
+      throw const MerchantAuthFailure(
+        MerchantAuthIssue.uncertain,
+        diagnostic: MerchantAuthDiagnostic(
+          MerchantAuthStage.exchange,
+          'EXCHANGE_RECOVERY_REQUIRED',
+        ),
+      );
+    }
+    // A failed start with no ID cannot be approved or exchanged. Clear only
+    // that incomplete draft; known attempts and recovery bodies stay immutable.
+    if (_pending != null && _pending!['id'] == null) {
+      journal.remove('pending');
+      await _save();
     }
     final generation = ++_generation;
     if (_tokens != null) return _identity(generation);
     if (_pending != null) return _wait(generation);
-    await native.verify();
+    await _at(MerchantAuthStage.verifyCustomer, native.verify);
     _check(generation);
-    var installation = await store.read('installation');
+    var installation = await _storage(
+      () => store.read('installation'),
+      MerchantAuthStage.storageRead,
+    );
     if (installation == null) {
       installation = randomCredential();
-      await store.write('installation', installation);
+      await _storage(
+        () => store.write('installation', installation),
+        MerchantAuthStage.storageWrite,
+      );
     }
     _check(generation);
     final p = <String, dynamic>{
@@ -156,38 +264,60 @@ class MerchantApiAuth
     journal['pending'] = p;
     await _save();
     _check(generation);
-    final data = await api.request(
-      'POST',
-      '/merchant-auth/attempts',
-      body: {
-        'clientId': merchantClient,
-        'redirectUri': callbackBase,
-        'state': p['state'],
-        'codeChallenge': challenge(p['verifier']),
-        'codeChallengeMethod': 'S256',
-        'attemptSecretHash': secretHash(p['secret']),
-        'installationId': installation,
-        'deviceName': 'Android phone',
-      },
-    );
-    if (data is! Map ||
-        !attemptId(data['attemptId']) ||
-        data['customerPackage'] != customerPackage) {
-      throw const MerchantAuthUnavailable();
-    }
-    final link = exactLink(data['approvalUri'], approvalBase, {
-      'attemptId',
-      'handoffToken',
-    });
-    if (link['attemptId'] != data['attemptId'] ||
-        !credential(link['handoffToken'])) {
-      throw const MerchantAuthUnavailable();
-    }
-    p['id'] = data['attemptId'];
-    p['approvalUri'] = data['approvalUri'];
-    final expires = DateTime.parse(data['expiresAt']);
-    if (expires.isBefore(DateTime.parse(p['expiresAt']))) {
-      p['expiresAt'] = expires.toIso8601String();
+    try {
+      final data = await _request(
+        MerchantAuthStage.createAttempt,
+        'POST',
+        '/merchant-auth/attempts',
+        body: {
+          'clientId': merchantClient,
+          'redirectUri': callbackBase,
+          'state': p['state'],
+          'codeChallenge': challenge(p['verifier']),
+          'codeChallengeMethod': 'S256',
+          'attemptSecretHash': secretHash(p['secret']),
+          'installationId': installation,
+          'deviceName': 'Android phone',
+        },
+      );
+      if (data is! Map ||
+          data['attemptId'] is! String ||
+          !attemptId(data['attemptId']) ||
+          data['customerPackage'] != customerPackage ||
+          data['approvalUri'] is! String ||
+          data['expiresAt'] is! String ||
+          DateTime.tryParse(data['expiresAt']) == null) {
+        throw MerchantAuthFailure.fromHandoff(
+          const HandoffFailure('INVALID_RESPONSE'),
+          MerchantAuthStage.createAttempt,
+        );
+      }
+      final link = await _at(
+        MerchantAuthStage.createAttempt,
+        () async => exactLink(data['approvalUri'], approvalBase, {
+          'attemptId',
+          'handoffToken',
+        }),
+      );
+      if (link['attemptId'] != data['attemptId'] ||
+          !credential(link['handoffToken'])) {
+        throw MerchantAuthFailure.fromHandoff(
+          const HandoffFailure('INVALID_RESPONSE'),
+          MerchantAuthStage.createAttempt,
+        );
+      }
+      p['id'] = data['attemptId'];
+      p['approvalUri'] = data['approvalUri'];
+      final expires = DateTime.parse(data['expiresAt']);
+      if (expires.isBefore(DateTime.parse(p['expiresAt']))) {
+        p['expiresAt'] = expires.toIso8601String();
+      }
+    } catch (_) {
+      if (p['id'] == null && identical(_pending, p)) {
+        journal.remove('pending');
+        await _save();
+      }
+      rethrow;
     }
     await _save();
     if (!_current(generation) || p['cancelled'] == true) {
@@ -195,7 +325,10 @@ class MerchantApiAuth
       _check(generation);
     }
     try {
-      await native.open(p['approvalUri']);
+      await _at(
+        MerchantAuthStage.openCustomer,
+        () => native.open(p['approvalUri']),
+      );
     } catch (_) {
       p['cancelled'] = true;
       await _save();
@@ -220,7 +353,7 @@ class MerchantApiAuth
         await _cancelPending();
         throw const MerchantAuthFailure(MerchantAuthIssue.expired);
       }
-      final raw = await native.take();
+      final raw = await _at(MerchantAuthStage.awaitApproval, native.take);
       _check(generation);
       if (raw != null) {
         try {
@@ -260,14 +393,18 @@ class MerchantApiAuth
       if (!clock().isBefore(nextStatus)) {
         nextStatus = clock().add(const Duration(seconds: 5));
         try {
-          final status = await api.request(
+          final status = await _request(
+            MerchantAuthStage.awaitApproval,
             'POST',
             '/merchant-auth/attempts/${p['id']}/status',
             body: {'attemptSecret': p['secret']},
           );
           _check(generation);
           if (status is! Map || status['attemptId'] != p['id']) {
-            throw const HandoffFailure('INVALID_RESPONSE');
+            throw MerchantAuthFailure.fromHandoff(
+              const HandoffFailure('INVALID_RESPONSE'),
+              MerchantAuthStage.awaitApproval,
+            );
           }
           if (['DENIED', 'CANCELLED', 'EXPIRED'].contains(status['status'])) {
             journal.remove('pending');
@@ -278,8 +415,8 @@ class MerchantApiAuth
                   : MerchantAuthIssue.denied,
             );
           }
-        } on HandoffFailure catch (e) {
-          if (!['OFFLINE', 'TIMEOUT'].contains(e.code)) rethrow;
+        } on MerchantAuthFailure catch (e) {
+          if (e.issue != MerchantAuthIssue.offline) rethrow;
         }
       }
       await Future<void>.delayed(const Duration(milliseconds: 400));
@@ -305,26 +442,35 @@ class MerchantApiAuth
 
   Future<MerchantIdentity> _exchange(int generation) async {
     final p = _pending!;
-    dynamic response;
+    late Map<String, dynamic> tokenData;
     try {
-      response = await api.request(
-        'POST',
-        '/merchant-auth/exchange',
-        body: {
-          'attemptId': p['id'],
-          'code': p['code'],
-          'codeVerifier': p['verifier'],
-          'attemptSecret': p['secret'],
-          'exchangeKey': p['key'],
-          'state': p['state'],
-          'clientId': merchantClient,
-          'redirectUri': callbackBase,
-        },
+      tokenData = await _at(
+        MerchantAuthStage.exchange,
+        () async => _tokenResponse(
+          await api.request(
+            'POST',
+            '/merchant-auth/exchange',
+            body: {
+              'attemptId': p['id'],
+              'code': p['code'],
+              'codeVerifier': p['verifier'],
+              'attemptSecret': p['secret'],
+              'exchangeKey': p['key'],
+              'state': p['state'],
+              'clientId': merchantClient,
+              'redirectUri': callbackBase,
+            },
+          ),
+        ),
       );
-    } on HandoffFailure catch (e) {
-      if (['OFFLINE', 'TIMEOUT', 'INVALID_RESPONSE'].contains(e.code) ||
-          (e.status ?? 0) >= 500) {
-        throw const MerchantAuthFailure(MerchantAuthIssue.uncertain);
+    } on MerchantAuthFailure catch (e) {
+      if (e.issue == MerchantAuthIssue.offline ||
+          e.issue == MerchantAuthIssue.invalidResponse ||
+          (e.diagnostic?.httpStatus ?? 0) >= 500) {
+        throw MerchantAuthFailure(
+          MerchantAuthIssue.uncertain,
+          diagnostic: e.diagnostic,
+        );
       }
       p['cancelled'] = true;
       await _save();
@@ -335,7 +481,7 @@ class MerchantApiAuth
       await _cancelPending();
       _check(generation);
     }
-    journal['tokens'] = _tokenResponse(response);
+    journal['tokens'] = tokenData;
     // One atomic vault write: save credentials and erase attempt secrets together.
     journal.remove('pending');
     await _save();
@@ -346,18 +492,25 @@ class MerchantApiAuth
   Map<String, dynamic> _tokenResponse(dynamic data) {
     if (data is! Map ||
         data['accessToken'] is! String ||
+        data['accessToken'].isEmpty ||
         data['refreshToken'] is! String ||
+        data['refreshToken'].isEmpty ||
         data['expiresInMs'] is! num ||
+        !(data['expiresInMs'] as num).isFinite ||
         data['expiresInMs'] <= 0) {
       throw const HandoffFailure('INVALID_RESPONSE');
     }
-    return {
-      'access': data['accessToken'],
-      'refresh': data['refreshToken'],
-      'until': clock()
-          .add(Duration(milliseconds: (data['expiresInMs'] as num).toInt()))
-          .toIso8601String(),
-    };
+    try {
+      return {
+        'access': data['accessToken'],
+        'refresh': data['refreshToken'],
+        'until': clock()
+            .add(Duration(milliseconds: (data['expiresInMs'] as num).toInt()))
+            .toIso8601String(),
+      };
+    } catch (_) {
+      throw const HandoffFailure('INVALID_RESPONSE');
+    }
   }
 
   Future<MerchantIdentity> _identity(int generation) async {
@@ -368,7 +521,13 @@ class MerchantApiAuth
       // Never replay a rotating refresh whose response may have been lost.
       journal['logout'] = true;
       await _save();
-      throw const MerchantAuthFailure(MerchantAuthIssue.expired);
+      throw const MerchantAuthFailure(
+        MerchantAuthIssue.expired,
+        diagnostic: MerchantAuthDiagnostic(
+          MerchantAuthStage.refresh,
+          'REFRESH_UNCERTAIN',
+        ),
+      );
     }
     if (!DateTime.parse(_tokens!['until'])
         .isAfter(clock().add(const Duration(seconds: 10)))) {
@@ -376,16 +535,20 @@ class MerchantApiAuth
     }
     dynamic data;
     try {
-      data = await api.request(
+      data = await _request(
+        MerchantAuthStage.identity,
         'GET',
         '/merchant-auth/session',
         access: _tokens!['access'],
       );
-    } on HandoffFailure catch (e) {
-      if (e.status == 401) {
+    } on MerchantAuthFailure catch (e) {
+      if (e.diagnostic?.httpStatus == 401) {
         journal.remove('tokens');
         await _save();
-        throw const MerchantAuthFailure(MerchantAuthIssue.expired);
+        throw MerchantAuthFailure(
+          MerchantAuthIssue.expired,
+          diagnostic: e.diagnostic,
+        );
       }
       rethrow;
     }
@@ -394,8 +557,12 @@ class MerchantApiAuth
         data['ownerId'] is! int ||
         data['ownerId'] <= 0 ||
         data['clientId'] != merchantClient ||
+        data['sessionId'] is! String ||
         !attemptId(data['sessionId'])) {
-      throw const HandoffFailure('INVALID_RESPONSE');
+      throw MerchantAuthFailure.fromHandoff(
+        const HandoffFailure('INVALID_RESPONSE'),
+        MerchantAuthStage.identity,
+      );
     }
     final state = data['onboardingState'];
     if (![
@@ -404,14 +571,20 @@ class MerchantApiAuth
       'RESTRICTED',
       'RECOVERY_REQUIRED',
     ].contains(state)) {
-      throw const HandoffFailure('INVALID_RESPONSE');
+      throw MerchantAuthFailure.fromHandoff(
+        const HandoffFailure('INVALID_RESPONSE'),
+        MerchantAuthStage.identity,
+      );
     }
     final shop = data['shop'];
     if (['READY', 'RESTRICTED'].contains(state) &&
         (shop is! Map ||
             shop['merchantId'] is! String ||
             shop['storeName'] is! String)) {
-      throw const HandoffFailure('INVALID_RESPONSE');
+      throw MerchantAuthFailure.fromHandoff(
+        const HandoffFailure('INVALID_RESPONSE'),
+        MerchantAuthStage.identity,
+      );
     }
     return MerchantIdentity(
       ownerId: data['ownerId'],
@@ -431,13 +604,17 @@ class MerchantApiAuth
     journal['refreshing'] = true;
     await _save();
     _check(generation);
-    final data = await api.request(
+    final data = await _request(
+      MerchantAuthStage.refresh,
       'POST',
       '/merchant-auth/refresh',
       body: {'refreshToken': refresh},
     );
     _check(generation);
-    journal['tokens'] = _tokenResponse(data);
+    journal['tokens'] = await _at(
+      MerchantAuthStage.refresh,
+      () async => _tokenResponse(data),
+    );
     journal.remove('refreshing');
     await _save();
   }
@@ -480,7 +657,10 @@ class MerchantApiAuth
         !DateTime.parse(p['expiresAt']).isAfter(clock())) {
       return;
     }
-    await native.open(p['approvalUri']);
+    await _at(
+      MerchantAuthStage.openCustomer,
+      () => native.open(p['approvalUri']),
+    );
   }
 
   @override
@@ -515,13 +695,14 @@ class MerchantApiAuth
     }
     if (p['id'] != null) {
       try {
-        await api.request(
+        await _request(
+          MerchantAuthStage.cancel,
           'POST',
           '/merchant-auth/attempts/${p['id']}/cancel',
           body: {'attemptSecret': p['secret']},
         );
-      } on HandoffFailure catch (e) {
-        if (e.code != 'MERCHANT_AUTH_EXPIRED') rethrow;
+      } on MerchantAuthFailure catch (e) {
+        if (e.diagnostic?.safeCode != 'MERCHANT_AUTH_EXPIRED') rethrow;
       }
     }
     journal.remove('pending');
@@ -553,28 +734,30 @@ class MerchantApiAuth
         try {
           // Logout-only recovery: reuse revokes a lost rotation; a returned pair
           // is used solely to revoke. Never restore identity from this branch.
-          final response = await api.request(
+          final response = await _request(
+            MerchantAuthStage.logout,
             'POST',
             '/merchant-auth/refresh',
             body: {'refreshToken': _tokens!['refresh']},
           );
           journal['tokens'] = _tokenResponse(response);
           journal.remove('refreshing');
-        } on HandoffFailure catch (e) {
-          if (e.status != 401) rethrow;
+        } on MerchantAuthFailure catch (e) {
+          if (e.diagnostic?.httpStatus != 401) rethrow;
           journal.clear();
           await _save();
           return;
         }
       }
       try {
-        await api.request(
+        await _request(
+          MerchantAuthStage.logout,
           'POST',
           '/merchant-auth/logout',
           access: _tokens!['access'],
         );
-      } on HandoffFailure catch (e) {
-        if (e.status != 401) rethrow;
+      } on MerchantAuthFailure catch (e) {
+        if (e.diagnostic?.httpStatus != 401) rethrow;
       }
     }
     journal.clear();

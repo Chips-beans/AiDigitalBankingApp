@@ -56,7 +56,12 @@ void main() {
                   .evaluate()
                   .isNotEmpty
               ? find.byKey(const ValueKey('transfer-back-home'))
-              : find.byKey(const ValueKey('transfer-back')))
+              : find
+                    .byKey(const ValueKey('transfer-back'))
+                    .evaluate()
+                    .isNotEmpty
+              ? find.byKey(const ValueKey('transfer-back'))
+              : find.byTooltip('Back'))
         : find.text(label).evaluate().isNotEmpty
         ? find.text(label).first
         : find.byTooltip(label).first;
@@ -137,13 +142,20 @@ void main() {
     gateway.historyItems = [posting(record)];
     gateway.committed[record.key] = posting(record);
     await tap(tester, 'All transactions');
-    await tap(tester, 'Refresh recent activity');
-    await tap(tester, 'View transaction details');
-    expect(find.text('Transaction details'), findsOneWidget);
-    expect(find.text('Remark: memo'), findsOneWidget);
+    await tap(tester, 'Account options');
+    await tap(tester, 'Refresh wallet');
+    await tester.tap(
+      find.byKey(ValueKey('wallet-posting-${posting(record).reference}')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(posting(record).reference), findsOneWidget);
+    await tap(tester, 'View more');
+    expect(find.text('memo'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Transaction history'), findsOneWidget);
+    expect(find.text('Wallet details'), findsOneWidget);
+    await tap(tester, 'Back');
+    await tap(tester, 'View accounts');
     await tap(tester, 'Profile');
     await tap(tester, 'Sign out');
     expect(find.textContaining('TXN-'), findsNothing);

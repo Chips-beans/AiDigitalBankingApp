@@ -1,3 +1,5 @@
+import '../features/home/home_unlock_target.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -25,6 +27,7 @@ import '../features/assistant/assistant_gateway.dart';
 import '../features/assistant/assistant_store.dart';
 import '../core/network/api_client.dart';
 import '../shared/widgets/app_states.dart';
+import '../shared/widgets/customer_splash.dart';
 import 'app_theme.dart';
 import '../features/merchant/merchant_approval.dart';
 import '../features/merchant/merchant_approval_screen.dart';
@@ -47,6 +50,7 @@ class BankingApp extends StatefulWidget {
     this.preferences,
     this.merchantApproval,
     this.merchantTransfer,
+    this.splashDuration = Duration.zero,
     super.key,
   });
   final SessionController session;
@@ -63,6 +67,7 @@ class BankingApp extends StatefulWidget {
   final AppPreferences? preferences;
   final MerchantApproval? merchantApproval;
   final MerchantTransferApproval? merchantTransfer;
+  final Duration splashDuration;
   @override
   State<BankingApp> createState() => _BankingAppState();
 }
@@ -79,14 +84,20 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   late final AssistantPendingStore assistantStore;
   ApiClient? assistantClient;
   Timer? _idleTimer;
+  Timer? _splashTimer;
+  bool _showStartup = false;
 
   /// The customer tapped a feature on the masked Home, so show the PIN pad.
   bool _pinRequested = false;
+  HomeUnlockTarget? _unlockTarget;
   SessionPhase? _lastPhase;
   void _phaseChanged() {
     final phase = widget.session.phase;
     if (phase != _lastPhase) {
       _lastPhase = phase;
+      if (phase == SessionPhase.signedOut || phase == SessionPhase.pinLocked) {
+        _unlockTarget = null;
+      }
       // Every new lock starts on the masked Home again.
       if (phase != SessionPhase.pinLocked && _pinRequested) {
         setState(() => _pinRequested = false);
@@ -97,6 +108,12 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _showStartup = widget.splashDuration > Duration.zero;
+    if (_showStartup) {
+      _splashTimer = Timer(widget.splashDuration, () {
+        if (mounted) setState(() => _showStartup = false);
+      });
+    }
     widget.session.addListener(_phaseChanged);
     widget.merchantApproval?.addListener(_merchantChanged);
     widget.merchantTransfer?.addListener(_merchantChanged);
@@ -172,6 +189,7 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _splashTimer?.cancel();
     _idleTimer?.cancel();
     widget.session.removeListener(_phaseChanged);
     widget.merchantApproval?.removeListener(_merchantChanged);
@@ -186,11 +204,16 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final session = widget.session;
     // The privacy cover still hides balances in the app switcher; the PIN is only
-    // required again after [SessionController.idleLimit] away (user decision).
+    // required again after every normal background visit.
     if (state == AppLifecycleState.inactive) session.coverPrivateContent();
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      if (!session.trustedImageSelection) session.markBackground();
+      if (!session.trustedImageSelection) {
+        session.markBackground();
+        _unlockTarget = null;
+        _pinRequested = false;
+        if (session.phase == SessionPhase.signedIn) session.lockApp();
+      }
     }
     if (state == AppLifecycleState.resumed) {
       session.markForeground();
@@ -324,8 +347,8 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
           listenable: widget.session,
           builder: (context, _) {
             final session = widget.session;
-            if (session.phase == SessionPhase.starting) {
-              return const LoadingPage();
+            if (_showStartup || session.phase == SessionPhase.starting) {
+              return const CustomerSplash();
             }
             if (session.phase == SessionPhase.storageError) {
               return LoadingPage(
@@ -346,13 +369,24 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                   widget.merchantApproval?.hasRequest != true &&
                   widget.merchantTransfer?.hasRequest != true) {
                 return LockedHomePage(
-                  onUnlock: () => setState(() => _pinRequested = true),
+                  key: ValueKey(
+                    '${session.pinChallenge?.ticket}:${session.pinStage}',
+                  ),
+                  session: session,
+                  favorites: recipientFavorites,
+                  onUnlock: (target) => setState(() {
+                    _unlockTarget = target;
+                    _pinRequested = true;
+                  }),
                 );
               }
               return AppPinPage(
                 session,
                 onCancel: enterOnly
-                    ? () => setState(() => _pinRequested = false)
+                    ? () => setState(() {
+                        _pinRequested = false;
+                        _unlockTarget = null;
+                      })
                     : null,
               );
             }
@@ -378,6 +412,8 @@ class _BankingAppState extends State<BankingApp> with WidgetsBindingObserver {
                 );
               }
               return AccountsShell(
+                initialTarget: _unlockTarget,
+                onInitialTargetConsumed: () => _unlockTarget = null,
                 session: session,
                 gateway: accounts,
                 analyticsGateway:

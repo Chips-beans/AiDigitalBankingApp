@@ -276,7 +276,15 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         expect(find.byKey(const ValueKey('request-qr')), findsOneWidget);
         expect(find.text('25,000 ៛'), findsOneWidget);
-        expect(find.text('Waiting for payment'), findsOneWidget);
+        // The Figma header repeats the status; verify the live QR body itself.
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const ValueKey('request-payment-status')),
+              )
+              .data,
+          'Waiting for payment',
+        );
         expect(
           tester
               .widget<Text>(find.byKey(const ValueKey('request-countdown')))

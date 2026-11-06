@@ -264,7 +264,7 @@ void main() {
   );
 
   testWidgets(
-    'inactive conceals private UI; only 3 minutes away or idle requires the PIN',
+    'inactive conceals private UI; every background visit requires PIN again',
     (tester) async {
       // User decision (31 Oct 2026): one PIN per use; re-ask after 3 minutes.
       var now = DateTime.utc(2026, 10, 31, 9);
@@ -316,8 +316,10 @@ void main() {
       now = now.add(const Duration(minutes: 2));
       resume();
       await tester.pumpAndSettle();
-      expect(session.phase, SessionPhase.signedIn);
+      expect(session.phase, SessionPhase.pinLocked);
       expect(session.privacyCovered, isFalse);
+      await tester.runAsync(() => session.submitPin('0427'));
+      await tester.pumpAndSettle();
       // Idle for 3 minutes locks.
       now = now.add(SessionController.idleLimit);
       session.checkIdle();
@@ -336,7 +338,8 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       resume();
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+      expect(find.byKey(const ValueKey('locked-home')), findsOneWidget);
+      expect(find.byKey(const ValueKey('pin-input')), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

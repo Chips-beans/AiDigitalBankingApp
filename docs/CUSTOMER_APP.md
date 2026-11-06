@@ -1,6 +1,6 @@
 # Kesor Bank — Customer App and banking backend
 
-Updated 4 November 2026. Status, rules, setup and commands are in
+Updated 6 November 2026. Status, rules, setup and commands are in
 [PROJECT_PROGRESS_AND_AGENT_GUIDE.md](PROJECT_PROGRESS_AND_AGENT_GUIDE.md); the Merchant App is in
 [MERCHANT_APP.md](MERCHANT_APP.md). Screen-level design notes remain in
 `frontend/customer_app/docs/` (design system, email auth screens, Home, Scanner, Settings,
@@ -62,15 +62,34 @@ and recovery of uncertain requests are enforced on every financial operation.
   epoch so older tokens die. PIN hash = BCrypt over domain-separated HMAC-SHA256(customerId, pin) with
   server-only `app.pin.pepper`. PIN change: `POST /auth/pin/change` (verifies the current PIN, revokes
   other sessions); profile edit of completed profiles: `PUT /auth/profile/details`.
-- **Client behavior (Phase 4.5):** launch with an existing PIN shows a masked Home (`$••••`, no accounts
-  or transactions); any feature, the bottom bar or the balance toggle opens the PIN pad; back returns to
-  the masked Home. A session locks after **3 minutes** idle or away; transfers always ask the PIN again
-  at confirm. A partially typed PIN clears when backgrounded; the privacy cover hides content while
-  inactive. Web uses memory-only storage. The native vault stores only the ticket, never the PIN or a
-  PIN-enabled refresh token.
+- **Client behavior (6 November 2026):** a returning customer starts on Home with the latest five
+  personal-wallet transactions (names, dates, direction/status; amounts masked) and device-local manual
+  favorites. Both USD/KHR balances remain masked. Every protected feature, other tab, transaction,
+  favorite, Inbox and balance reveal requests PIN; success continues to the selected destination.
+  Back/cancel clears that destination. Normal background visits and 3-minute foreground inactivity lock
+  the app; trusted bounded image selection remains supported. Backgrounding clears partial PIN input
+  and invalidates in-flight unlock results. Transfers still ask for a confirmation PIN.
+- `POST /auth/pin/home-preview` accepts the existing opaque ticket in the JSON body, validates its
+  customer/session/device/expiry and configured, non-recovery PIN, and returns at most five distinct
+  personal-wallet transactions. The response contains only reference, counterparty name, timestamp,
+  direction, type and status; never amounts, balances, account numbers or remarks. It grants no banking
+  tokens, changes no PIN attempts and uses `no-store`. No schema migration.
+- Preview transactions stay in memory; favorites use existing per-owner secure storage, saved labels
+  and initials (masked account suffix if unnamed). Live name/photo lookups wait until unlock. Loading,
+  empty and retry states are separate. Native storage still keeps only the PIN ticket; no PIN or
+  PIN-enabled refresh token. Web remains memory-only.
+
 
 ## 4. Accounts and test funding
 
+- **Linked merchant wallets (6 November 2026):** Wallets shows actual personal accounts, followed by
+  the owner's merchant KHR/USD accounts from `GET /accounts/me?category=MERCHANT&page=&size=20`.
+  No shop/business wallets means no merchant cards or placeholder; signing into Merchant before
+  shop registration is not enough. Merchant sign-out does not remove shop ownership. Separate
+  read-only controllers keep merchant selection/history out of personal transfer and QR flows.
+  Details and receipts are available in Customer; merchant QR and owner-transfer initiation stay
+  in Merchant. Loading, retry, stale-balance notice, per-account copy and actual wallet counts are
+  supported. See §22 for evidence; the §21 APK does not yet include this source change.
 - Every customer gets exactly one USD and one KHR `WALLET` automatically at signup and profile completion
   (V16, user decision, same transaction). Legacy customers without wallets use **Open accounts**.
 - `POST /accounts/pairs` (`Idempotency-Key`, `{accountType:"SAVINGS"}`) creates only missing wallets and
@@ -139,6 +158,24 @@ large faded lotus header with a flat title and currency selector.
 as an optional Analytics header illustration: a Khmer woman reviewing a journal and chart beside
 the Phnom Penh riverside, matching the existing watercolor artwork and navy/gold accents.
 The PNG has transparent edges. Asset delivered separately; screen integration remains unchanged.
+
+5 November 2026: generated `frontend/customer_app/assets/analytics/monthly-money-overview.png`
+with the built-in image generator for the whitespace above the month selector. Prompt: isolated
+navy wallet, gold coins and a miniature bar/line chart, pale lavender/cream accents, compact
+landscape composition, transparent background, no text. Delivered as a separate optional asset;
+not wired into the screen.
+
+5 November follow-up: `monthly-money-overview-watercolor.png` is a separate transparent
+1536×1024 variant, redrawn with the built-in image tool to match the user's watercolor
+Phnom Penh reference. Prompt: preserve wallet, coins and chart; use fine hand-drawn details,
+pigment washes, paper texture within painted shapes and soft transparent edges. Original
+preserved; neither variant is integrated into the screen.
+
+5 November color revision: `monthly-money-overview-watercolor-gold.png` changes the purple/blue
+background wash and lavender chart baseline to light gold, preserving the watercolor subjects
+and transparent edges. Built-in image edit prompt: change only the background wash to pale
+champagne gold and the baseline to gold; preserve composition and details. Separate 1536×1024
+RGBA PNG; previous variants preserved; no screen integration.
 
 ## 8. AI assistant (read-only)
 
@@ -224,8 +261,8 @@ customer data. It **cannot** prepare or submit a payment.
 - **Home:** three equal actions (Wallet, Scan QR, Transfer); balance/transaction amounts stay on one line and
   scale down; Favorite Recipients; recent activity with photo/initial + counterparty name + amount + time.
   Header keeps the Figma layout (logo, inbox, My QR) with no profile slot.
-- **Wallet** (`WalletAccountsScreen`): separate KHR/USD cards, account copy controls, an explicitly
-  unconfigured Merchant Wallet, and per-currency guidance. Tap a live wallet for details; existing
+- **Wallet** (`WalletAccountsScreen`): personal KHR/USD cards, account copy controls, and the owner's
+  actual merchant KHR/USD cards when registered (§22), plus per-currency guidance. Tap a wallet for details; existing
   profile, account-opening and activity actions remain below the cards.
 - **Settings** (Figma `320:308`): profile name/photo/contact editing, PIN change, local Android alert
   preferences with test alert, English/Khmer, System/Light/Dark, FAQ/AI help, support email, demo policy readers,
@@ -295,3 +332,282 @@ adjustments; **300 responsive renders without layout exceptions**, and clean ana
 
 Uncommitted. No APK build/install, backend restart, live database action or real payment.
 Native device appearance and personal acceptance remain pending.
+
+## 15. Transfer success screen — 5 November 2026
+
+Updated the existing success screen against current Figma frame `308:740` (440 × 956):
+148 × 126 gold seal slot, 64px amount, original receipt, navy Home action and secondary
+transfer action. The existing transparent seal artwork and corrected currency flags are reused.
+This supersedes the older 440 × 978 success measurements in the screen-level transfer notes.
+
+Success has no page scroll. Status/bottom safe areas and both actions remain outside the
+content fitting transform; action targets stay at least 48px tall. Short screens reduce
+decoration/receipt spacing first, then fit the complete confirmation, receipt and recovery
+messages into the remaining height. Long names, references and remarks wrap without truncation.
+Landscape uses confirmation/receipt and actions side by side. Extreme height/text combinations
+necessarily shrink receipt text to retain the requested single-screen presentation; device
+font/accessibility settings are unchanged. Review and transfer entry retain their scrolling.
+
+Verification: updated `tool/transfer_flow_visual_qa.dart` checks full-screen visibility,
+receipt/action separation, unscaled action target sizes, no success page scroll and taps on both
+actions, including native safe insets, EN/KM, USD/KHR, both themes, 1×/1.3×/2× text, long details,
+small phones, landscape and tablet. Local renders/logs are in `.local/qa/transfer-flow/` and
+`.local/transfer-success-*.log`. Automated results are recorded in the progress guide.
+Final result: **276/276 Customer tests**, **60 fixture renders** (20 success variants),
+and clean analysis/diff checks. Representative final images were inspected against Figma.
+
+Uncommitted. No APK build/install, device acceptance, backend restart, database change or payment.
+
+
+## 16. Separate QR entry and Analytics Figma redesign — 5 November 2026
+
+Implemented the two frames in Figma section `413:6086`, file
+`Mkhqgqnt1SQoq4pn9INLY5`: QR transfer `404:901` (440 × 957) and Analytics
+`413:5956` (440 × 956). Source remains **uncommitted**.
+
+- **QR entry:** `QrTransferScreen` is a dedicated view within the existing transfer host.
+  Camera/gallery verified handoff keeps `TransferPrefill`; manual/favorite entry keeps its
+  previous design. Navy recipient header, real person/shop identity and imagery, cream
+  amount panel, KHR/USD paying-wallet selection, available balance, remark dialog, decimal
+  keypad and disabled-at-zero Transfer follow the reference. USD precision is two decimal
+  places; KHR is whole units. Changing a static payment's currency clears its debit entry.
+  Fixed requests are immutable, use `exactDebitFor`, and block inexact conversion. Review,
+  PIN proof, persisted original-key retry, owner cleanup and receipt remain shared. Pending
+  payments and secure-storage recovery retain the existing recovery UI rather than being
+  replaced by a new scan. Merchant verification badge and its existing test identifier remain.
+- **Analytics:** pale header, exact Figma wallet illustration at the 236 × 157 reference slot,
+  navy selected currency pill, white panel with 36px top corners, paired totals and bordered
+  daily chart. Removed the extra cash-flow rows absent from this frame. Existing monthly
+  API/controller, integer-based chart scale, currency/month/series state, cache/invalidation,
+  loading/error/stale/empty states, accessible daily-value sheet and keyboard/tap chart
+  interactions remain. Tap the title (Refresh tooltip) to refresh without page scrolling.
+  The shell owns the single navigation bar; Analytics caps it to 400px and reserves its
+  bottom clearance. Tall tablets retain the chart's reference height instead of stretching it.
+- **Fit policy approved by user:** no page scrolling or new stacked rows on either screen;
+  compact spacing, decoration and locally fitted text. QR keypad/Back/Transfer targets are
+  at least 48px in the tested portrait sizes. The user explicitly approved **smaller QR
+  keypad targets in short landscape windows** to preserve readable details without scrolling
+  (about 18–21px in the tested native-inset landscape fixtures). Wallet/currency/remark rows
+  also compact with their containing details area. Tablet QR composition is centered with
+  a 440 × 957 maximum. Native safe areas are respected; fake system chrome is fixture-only.
+- **Assets:** exact illustration and QR back/wallet/chevron/backspace assets bundled locally.
+  Analytics uses screen-specific Home/disclosure exports where earlier assets differed.
+  All 16 used static assets are nonempty; 11 existing/reference SVG hash comparisons are
+  exact. No temporary Figma asset URLs are used at runtime. Audit and source references:
+  `.local/qa/customer-section-2/asset-audit.json` and `source-comparison.json` in Customer App.
+
+**Automated evidence:** Customer full suite **284/284**; affected Analytics/QR/merchant-payee
+checks **25/25** rerun after visual refinements; analyzer and diff checks clean. New fixture
+`tool/customer_section2_visual_qa.dart`: **144 renders**, no layout exceptions or page scroll,
+paired cards remain in one row, no chart/navigation overlap, portrait main targets ≥48px,
+landscape keypad exception checked, keypad → review → edit exercised across sizes/themes.
+Matrix: 320×568, 375×812, 440×956/957, 667×375, 844×390, 800×1280; EN/KM, light/dark,
+1×/1.3×/2× text, native insets, both currencies, fixed requests and long recipient names.
+Existing Analytics fixture also passed (16 PNGs, including series/month variations).
+Logs: `.local/section2-all-tests.log`, `section2-final-focused.log`, `section2-final-visual.log`,
+`section2-analyze.log`, `section2-diff-check.log`. Reference comparisons and 144 screenshots:
+`.local/qa/customer-section-2/` (`comparison.png`, `qr-contact.png`, `analytics-contact.png`).
+Screenshots use offline controller fixtures, not live banking values or device evidence.
+
+**Not done:** APK build/install, native device acceptance, camera/gallery hardware round trip,
+real payment, backend/DB/live deployment or commit. Existing transfer-success fixes, optional
+artwork and Merchant changes were preserved. Next: user visual review, then separately
+approved packaging/device acceptance under the project rules.
+
+## 17. Home preview and PIN continuation — 6 November 2026
+
+Implemented the user-approved Home preview behavior in §3. Protected destination handoff covers
+balances, tabs, Wallet, Transfer, QR, transaction details, favorite transfer/add/manage and Inbox.
+Every normal reopen returns to preview, including a departure during PIN entry. Trusted image-selection
+leases, recovery, server attempt budgets, one-time transfer proofs and Merchant approval gates remain.
+
+Source is uncommitted. No APK build/install, deployment, backend restart, live database migration or
+real payment. Automated evidence and outstanding device acceptance are recorded in the progress guide.
+
+Verification: Customer full **286/286**, final PIN/preview **11/11**, then font-complete preview
+matrix rerun **2/2** (12 EN/KM × light/dark × phone/landscape/tablet renders). Representative renders
+inspected. Analyzer and diff check clean. Backend affected auth/contract suites **28/28** after fixing
+the new fixture and route-count assertion; initial full run was 259/261 and was not repeated in full.
+Logs and native/device acceptance limits are recorded in the progress guide.
+
+6 November deployment follow-up: the backend endpoint is now live on Railway, deployment
+`8fc7d198-bdc9-4a93-bd16-793b8c6b9668` (SUCCESS), after a clean **261/261** full backend run.
+Schema remains V21. Live OpenAPI, unauthorized account access and invalid-ticket/no-store checks pass.
+No authenticated/device acceptance or Customer APK rebuild/install yet. Details: DEPLOYMENT.md §9.
+
+## 18. Transaction and Wallet Detail Figma designs — 6 November 2026
+
+Designed two editable **440×956** screens in the user's Figma working section `422:2062`,
+file `Mkhqgqnt1SQoq4pn9INLY5`. Review board: `426:868`; Transaction Detail: `426:993`;
+Wallet Detail: `426:877`. Original reference rectangles `422:2057` and `422:2060` remain intact.
+
+- **Transaction Detail:** dimmed USD account history behind a white receipt sheet, merchant icon,
+  amount, completion indicator, transaction ID/date/original amount/approval code, View more,
+  Share and Download actions. The sheet follows the supplied reference layout.
+- **Wallet Detail:** navy balance header with Kesor logo, owner/account identity, available and
+  account balances, KHR activity grouped by date, semantic debit/credit colors and Sort transactions.
+- **Design system:** existing vector logo, Poppins and Google Sans text styles, bound Kesor
+  color variables, local icon/button/payment-row instances; one reusable metadata-row component
+  `426:1120` beside the board. No full-screen raster images inside either screen.
+- **Evidence:** final composition visually inspected after spacing/action alignment refinements;
+  local preview `.local/figma-detail-design/final.png`, ledger `.local/figma-detail-design/state.json`.
+
+These are **Figma designs only**, with illustrative reference content. Flutter implementation,
+interactive behavior, runtime tests, builds, device acceptance and deployment were not part of
+this task. Existing application work was preserved; documentation is uncommitted.
+
+## 19. Figma Section 3 Flutter implementation — 6 November 2026
+
+Implemented the current section `431:2446` in `Mkhqgqnt1SQoq4pn9INLY5`: Wallets `421:1965`,
+Wallet Detail `426:877`, Transaction Detail `426:993`, Customer splash `420:752`. Merchant
+splash `418:6159` is recorded in MERCHANT_APP.md §15. This supersedes §18's Figma-only delivery.
+The user's subsequent removal of detail-header logos, completion badge and Wallet Detail Sort
+action was followed.
+
+- **Wallets:** `wallet_accounts_screen.dart` / `figma_wallet_card.dart` match the reference cards,
+  original icons, currency note and copy geometry, with 48px copy targets. Existing Profile,
+  Open accounts and Activity controls remain below the reference's trailing space. The Merchant
+  card remains honestly unconfigured; no business balance is manufactured.
+- **Wallet Detail:** new `wallet_detail_screen.dart` uses the selected owned account and existing
+  paginated history controller. Navy owner/balance header, date groups and signed semantic amounts;
+  refresh, copy, account information and My QR in the account menu. Loading, unavailable, empty,
+  frozen/closed and refresh-error states remain visible. Dates use Asia/Phnom_Penh (UTC+7).
+- **Receipt:** new `transaction_detail_screen.dart` overlays real wallet history. Reference/date/
+  original amount, expandable status/fee/accounts/remark/conversion information, dismissal/back and
+  PNG Share/Download use existing services. Non-success status is visible without expanding.
+  The API has no approval-code field, so that row says **Unavailable**. Wallet-side and original
+  debit currencies stay distinct. Export waits for paint, rechecks the session/reference and
+  disposes its image. No new payment operation or backend contract was introduced.
+- **PIN continuation:** account/Home initialization completes before an initial receipt lookup.
+  The newly authorized Home posting identifies its owned wallet and currency, including KHR.
+  A gated-load regression test covers the non-default-wallet case.
+- **Splash:** exact exported logo on navy with `.Bank` lettering. Shared `KesorBrandSplash`
+  follows the 2-second loop: 120ms hold, opacity complete at 850ms, scale .88→1 at 1050ms.
+  Production startup shows it for at least 1100ms and until restoration finishes. Reduced motion
+  uses the final static mark. Android pre-Flutter backgrounds use the same navy.
+- **Assets/layout:** 29 unique original SVG exports checked across both apps; five Wallet exports
+  match existing assets byte-for-byte and are reused. No temporary Figma runtime URLs, full-screen
+  raster assets, dependency upgrades or credentials. Native safe areas and scrolling support
+  short windows and enlarged text; the device supplies system chrome.
+
+**Automated evidence:** Customer full **294/294** (`.local/section3-all-tests-verified.log`),
+analysis clean (`section3-analyze-final.log`); `tool/wallet_details_visual_qa.dart` produced
+**288 renders without layout exceptions**, with receipt-action reachability checked: six viewports,
+EN/KM, light/dark, 1×/1.3×/2× text. PNGs: `.local/qa/section3/`; log: `section3-visual-verified.log`.
+Reference and representative compact/large-Khmer views inspected. New tests cover date grouping,
+row navigation, exact converted/pending amounts, metadata expansion, error/retry/export gating,
+actual PNG bytes through mocked Android save/share, PIN continuation, motion and reduced motion.
+Existing navigation tests follow the new controls while retaining exact data and sign-out checks.
+Splash XML parses; diff check clean. Asset/context evidence: repository `.local/figma-detail-design/`.
+
+**Acceptance limits:** source is uncommitted. No APK build/install, physical-device launch or
+MediaStore/share-sheet check, real payment, backend restart, migration or deployment. Fixture
+images contain illustrative data; they are not device captures or a certified pixel-diff baseline.
+Next: user visual review and separately approved APK/device acceptance.
+
+## 20. AI Assistant Figma redesign — 6 November 2026
+
+Implemented the current `385:2708` in `Mkhqgqnt1SQoq4pn9INLY5`, reference 440×999.
+Welcome copy, Poppins Light headline, updated original identity SVG, faint gold glows and
+bottom composer follow the design. Exact reference anchors are asserted: emblem y154,
+question carousel y821, composer y887. The 44px Back circle keeps a 48px touch target;
+its title aligns at x72. Native system chrome is not painted into the app.
+
+Exactly three horizontally scrollable suggestions are shown, with localized Khmer equivalents:
+
+- How much did I spend this week?
+- How does the 50/30/20 rule work?
+- Show my biggest payment this month
+
+Each tap sends immediately through the existing assistant controller. Tests assert the exact
+request message, response rendering and rapid-tap duplicate prevention. Existing availability,
+pending-request recovery, history, privacy, keyboard and PIN-lock behavior remain. The full
+privacy disclosure is available in conversation history; the reference security reminder stays
+below the composer. Short windows and large text retain the same vertical/horizontal ordering
+with bounded scrolling; all three questions remain reachable. Tablet composition stays centered
+at the reference width. No backend/model/gateway changes or manufactured answers were added.
+
+**Evidence:** full Customer **298/298**, focused assistant **16/16**, analysis clean, diff check
+clean. `tool/assistant_visual_qa.dart` rendered **72 variants** across six sizes, EN/KM,
+light/dark and 1×/1.3×/2× text with no overflow and all suggestion targets reachable.
+Original assets are nonempty and exact; reference and compact/large-Khmer PNGs inspected.
+Logs: `.local/assistant-redesign-all-tests.log`, `assistant-redesign-analyze.log`,
+`assistant-redesign-focused.log`, `assistant-redesign-visual.log`, final repeat
+`assistant-redesign-final-check.log`. PNGs and asset audit: `.local/qa/assistant-redesign/`.
+
+Source is uncommitted. No APK build/install, native-device or live-provider acceptance,
+backend restart, migration or deployment. Existing in-progress work was preserved.
+
+## 21. Updated Railway APK — 6 November 2026
+
+User authorized building both updated APKs. Customer debug build succeeded with `APP_ENV=dev`,
+`APP_MODE=api` and `API_BASE_URL=https://backend-production-18646.up.railway.app/api/v1`, using
+the current uncommitted source (base `e6c58b6`). Includes the latest Assistant, Wallets,
+Wallet/Transaction Detail, QR/Analytics, transfer-success, Customer splash and PIN Home preview work.
+
+- Current APK: `frontend/customer_app/.local/apk/Kesor Bank.apk`; versioned copy:
+  `frontend/customer_app/.local/apk/20261106-055520/Kesor Bank.apk`.
+- Size: **245,521,948 bytes** (234.15 MiB); SHA-256:
+  `6F74DCEED6FCB7CA10030E9B2B784D469BBEF1B26DE10ED3C867A803D433A214`.
+- Package `com.bank.customer_app`, version `1.0.0+1`; signature valid and matches the prior APK.
+  Railway URL, all three exact suggested questions, detail-screen/splash classes and selected original
+  design assets verified inside the package; old Wi-Fi IP absent, zero `.env` entries, ZIP CRC clean.
+- Previous APK preserved under `.local/apk/archive/20261106-055520-previous-d57d261ebee8/` in this app.
+  Shared build evidence: repository `.local/apk-refresh-20261106-055520/`, including source manifests,
+  build/signature/package logs and `verification.json`. All 550 recorded app/shared inputs unchanged.
+
+Existing test baseline remains **298/298** with clean analysis (§20); no source changes or test rerun
+were needed for packaging. Gradle stopped after the build. Railway read-only probes passed
+(Swagger 200, accounts without authentication 401). No installation, native/device or live-provider
+acceptance, backend change, migration, payment or commit. This supersedes earlier APK-pending notes;
+device acceptance is still outstanding.
+
+## 22. Linked merchant wallets in Customer — 6 November 2026
+
+Removed the unconditional empty Merchant Wallet card and hardcoded extra wallet count. Real
+business wallets appear after personal wallets, KHR then USD, with merchant/currency labels,
+exact balances, account status and functional account-number copying. Account parsing retains
+`accountCategory` and `merchantId`, defaults older personal fixtures to `WALLET`, and rejects
+invalid merchant data. No backend API, authorization, schema or Merchant App source change.
+
+`MerchantWalletSource` provides paged reads through the existing Customer-session accounts route;
+`MerchantWalletGateway` validates merchant-only results and rejects account creation. The shell
+uses independent account/history controllers, an in-memory unused creation store and separate
+merchant detail/receipt routes. Personal Home, transfers and QR keep their original controllers.
+Merchant details retain account information, activity pagination, receipts and back navigation;
+personal My QR is absent. Lists refresh on Wallets entry and pull-to-refresh; failed reads retain
+old values with an explicit stale notice and separate retry. Session invalidation clears memory
+and request generations ignore delayed results. Empty complete refreshes remove old merchant cards.
+
+- Full Customer suite **307/307**; new merchant-wallet tests **9/9**. Covers exact HTTP category,
+  auth/paging and money parsing; unregistered/registered states and entry refresh; merchant read-only
+  enforcement; separate selection; pagination; errors/retry; masking/copy; sign-out and out-of-order
+  responses; both currencies' detail → receipt → detail → Wallets and personal-history isolation.
+- Analyzer clean; diff check clean. Visual fixture **96 renders**, linked/unlinked/business-scroll/
+  merchant-detail states at 320×568, 393×852 and 800×1280, EN/KM, light/dark, 1×/2× text. No layout
+  exceptions; all four contact sheets and representative full-size images inspected.
+- Evidence in this app: `.local/merchant-wallets-{focused,all-tests,analyze,visual}.log`,
+  `.local/qa/merchant-wallets/`; reproducible fixture `tool/merchant_wallets_visual_qa.dart`.
+- Uncommitted. Existing APKs unchanged; no build/install, authenticated live/device acceptance,
+  backend restart, migration, deployment, payment, commit or push. Backend/Merchant suites were
+  not rerun because their source and contracts are unchanged. Next: separately authorized Customer
+  APK packaging and device verification against the same owner's live Merchant wallets.
+
+## 23. Shared Merchant sign-in diagnostics — 6 November 2026
+
+The shared `HandoffApi` preserves HTTP status on malformed/non-JSON responses. Both Android
+Merchant bridges return distinct missing-app, signature-mismatch, unsupported-build and
+app-opening errors while retaining the existing pinned certificate/package/debug/URI checks.
+Customer approval/PIN rules and backend contracts are unchanged; Merchant's error classification,
+safe Copy error details action and retry fixes are documented in Merchant §18.
+
+Customer handoff/payment tests **38/38** pass (`merchant_approval`, `merchant_resume`,
+`merchant_transfer`, `merchant_payee`); Customer analyzer clean. Native `:app:compileDebugKotlin` succeeds without Flutter
+compilation or APK assembly. Gradle daemons stopped; existing deprecation warnings remain.
+Evidence in this app: `.local/merchant-auth-{customer-handoff,analyze,kotlin}.log`. Full Customer
+**307/307** remains the preceding wallet-change baseline; it was not rerun for this transport-only
+change. Merchant's current full suite is **144/144**, with **192** responsive error-screen renders.
+
+Uncommitted; no backend changes, APK packaging/install, device/live acceptance, deployment or
+real authentication/payment. Existing APKs are unchanged and do not include these fixes or §22's
+wallet change. The friend's exact failure needs reproduction with the updated diagnostic UI.

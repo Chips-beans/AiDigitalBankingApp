@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'dart:async';
 
@@ -12,6 +13,7 @@ import 'package:kesor_auth_handoff/kesor_auth_handoff.dart'
 import '../core/merchant_preferences.dart';
 import '../core/merchant_strings.dart';
 import '../core/merchant_ui.dart';
+import '../core/merchant_splash.dart';
 import '../features/settings/merchant_settings.dart';
 import '../features/sales/reports_page.dart';
 import '../features/sales/requests_page.dart';
@@ -29,6 +31,7 @@ import '../features/shop/register_shop_page.dart';
 import '../features/shop/shop_controller.dart';
 import '../features/shop/shop_form.dart';
 import '../features/shop/shop_home.dart';
+import '../features/shop/shop_widgets.dart';
 import '../features/shop/shop_profile_page.dart';
 import '../features/transfer/owner_transfer_controller.dart';
 
@@ -43,6 +46,7 @@ class MerchantApp extends StatefulWidget {
     this.pickLogo = pickLogoFile,
     this.alertEffects = const SystemAlertEffects(),
     this.transferNative = const NativeHandoff(),
+    this.startup,
     super.key,
   });
   final MerchantPreferences preferences;
@@ -58,11 +62,13 @@ class MerchantApp extends StatefulWidget {
 
   /// Return links and opening Kesor Bank for owner transfers; replaced in tests.
   final NativeHandoff transferNative;
+  final Future<void>? startup;
   @override
   State<MerchantApp> createState() => _MerchantAppState();
 }
 
 class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
+  bool starting = false;
   bool covered = false;
   Timer? validation;
   ShopController? shop;
@@ -76,6 +82,17 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    starting = widget.startup != null;
+    if (starting) {
+      unawaited(
+        Future.wait([
+          widget.startup!,
+          Future<void>.delayed(const Duration(milliseconds: 1100)),
+        ]).then((_) {
+          if (mounted) setState(() => starting = false);
+        }),
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     widget.session.addListener(_syncShop);
     _syncShop();
@@ -226,37 +243,41 @@ class _MerchantAppState extends State<MerchantApp> with WidgetsBindingObserver {
           ),
         ),
         home: Builder(
-          builder: (context) => switch (widget.session.phase) {
-            MerchantPhase.signedOut => _Welcome(
-              prefs: prefs,
-              session: widget.session,
-            ),
-            MerchantPhase.approving => _ApprovalWaiting(
-              session: widget.session,
-            ),
-            MerchantPhase.shopRequired => RegisterShopPage(
-              key: ValueKey('register-${widget.session.identity?.ownerId}'),
-              controller: shop,
-              pickLogo: widget.pickLogo,
-              onRegistered: widget.session.validate,
-              onSignOut: widget.session.signOut,
-            ),
-            MerchantPhase.recoveryRequired => _AccountReview(
-              session: widget.session,
-            ),
-            MerchantPhase.ready || MerchantPhase.restricted => _ShopShell(
-              key: ValueKey(widget.session.identity!.shop!.id),
-              preferences: prefs,
-              session: widget.session,
-              shop: shop,
-              collect: collect,
-              sales: sales,
-              feed: feed,
-              transfer: transfer,
-              gateway: widget.shopGateway,
-              pickLogo: widget.pickLogo,
-            ),
-          },
+          builder: (context) => starting
+              ? const MerchantSplash()
+              : switch (widget.session.phase) {
+                  MerchantPhase.signedOut => _Welcome(
+                    prefs: prefs,
+                    session: widget.session,
+                  ),
+                  MerchantPhase.approving => _ApprovalWaiting(
+                    session: widget.session,
+                  ),
+                  MerchantPhase.shopRequired => RegisterShopPage(
+                    key: ValueKey(
+                      'register-${widget.session.identity?.ownerId}',
+                    ),
+                    controller: shop,
+                    pickLogo: widget.pickLogo,
+                    onRegistered: widget.session.validate,
+                    onSignOut: widget.session.signOut,
+                  ),
+                  MerchantPhase.recoveryRequired => _AccountReview(
+                    session: widget.session,
+                  ),
+                  MerchantPhase.ready || MerchantPhase.restricted => _ShopShell(
+                    key: ValueKey(widget.session.identity!.shop!.id),
+                    preferences: prefs,
+                    session: widget.session,
+                    shop: shop,
+                    collect: collect,
+                    sales: sales,
+                    feed: feed,
+                    transfer: transfer,
+                    gateway: widget.shopGateway,
+                    pickLogo: widget.pickLogo,
+                  ),
+                },
         ),
       );
     },
@@ -299,6 +320,41 @@ String _authMessage(
     'Install Kesor Bank and sign in there to continue.',
     'សូមដំឡើងធនាគារកេសរ ហើយចូលប្រើនៅទីនោះដើម្បីបន្ត។',
   ),
+  MerchantAuthIssue.appMismatch => _t(
+    context,
+    'The installed Kesor Bank app could not be verified. Install the matching Kesor Bank and Merchant test APKs, then try again.',
+    'មិនអាចផ្ទៀងផ្ទាត់កម្មវិធីធនាគារកេសរដែលបានដំឡើងបានទេ។ សូមដំឡើង APK សាកល្បងធនាគារកេសរ និង Merchant ដែលត្រូវគ្នា រួចព្យាយាមម្ដងទៀត។',
+  ),
+  MerchantAuthIssue.unsupportedBuild => _t(
+    context,
+    'This app build does not support test sign-in. Install the supported Kesor Bank and Merchant test APKs.',
+    'កំណែកម្មវិធីនេះមិនគាំទ្រការចូលប្រើសាកល្បងទេ។ សូមដំឡើង APK សាកល្បងធនាគារកេសរ និង Merchant ដែលគាំទ្រ។',
+  ),
+  MerchantAuthIssue.openFailed => _t(
+    context,
+    'Kesor Bank could not be opened. Open Kesor Bank on this phone, then return and try again.',
+    'មិនអាចបើកធនាគារកេសរបានទេ។ សូមបើកធនាគារកេសរនៅលើទូរសព្ទនេះ រួចត្រឡប់មកព្យាយាមម្ដងទៀត។',
+  ),
+  MerchantAuthIssue.storageUnavailable => _t(
+    context,
+    'Secure sign-in storage could not be read or saved. Restart the app and try again. If it continues, copy the error details for support.',
+    'មិនអាចអាន ឬរក្សាទុកទិន្នន័យចូលប្រើដែលមានសុវត្ថិភាពបានទេ។ សូមបើកកម្មវិធីឡើងវិញ ហើយព្យាយាមម្ដងទៀត។ ប្រសិនបើនៅតែមានបញ្ហា សូមចម្លងព័ត៌មានកំហុសសម្រាប់ជំនួយ។',
+  ),
+  MerchantAuthIssue.serverUnavailable => _t(
+    context,
+    'The sign-in service is unavailable right now. Please try again shortly.',
+    'សេវាចូលប្រើមិនអាចប្រើបានឥឡូវនេះទេ។ សូមព្យាយាមម្ដងទៀតបន្តិចទៀត។',
+  ),
+  MerchantAuthIssue.rejected => _t(
+    context,
+    'The sign-in service rejected this request. Try again; if it continues, copy the error details for support.',
+    'សេវាចូលប្រើបានបដិសេធសំណើនេះ។ សូមព្យាយាមម្ដងទៀត។ ប្រសិនបើនៅតែមានបញ្ហា សូមចម្លងព័ត៌មានកំហុសសម្រាប់ជំនួយ។',
+  ),
+  MerchantAuthIssue.invalidResponse => _t(
+    context,
+    'The sign-in response could not be read. Try again; if it continues, copy the error details for support.',
+    'មិនអាចអានការឆ្លើយតបចូលប្រើបានទេ។ សូមព្យាយាមម្ដងទៀត។ ប្រសិនបើនៅតែមានបញ្ហា សូមចម្លងព័ត៌មានកំហុសសម្រាប់ជំនួយ។',
+  ),
   MerchantAuthIssue.unavailable => _t(
     context,
     'Sign-in is temporarily unavailable. Please try again.',
@@ -340,7 +396,6 @@ class _Welcome extends StatelessWidget {
   final MerchantSession session;
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     if (session.failure != null) return _SignInFailure(session: session);
     Widget feature(String asset, String en, String km) => Padding(
       padding: const EdgeInsets.only(bottom: 18),
@@ -355,166 +410,130 @@ class _Welcome extends StatelessWidget {
       ),
     );
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: LayoutBuilder(
-              builder: (context, box) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: box.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 72, 20, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: QIcon('3633f', darkAdaptive: false),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            t(
-                              context,
-                              'Your shop,\nready for business.',
-                              'ហាងរបស់អ្នក\nត្រៀមសម្រាប់អាជីវកម្ម។',
-                            ),
-                            style: mText(
-                              context,
-                              32,
-                              43,
-                              weight: FontWeight.w300,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            t(
-                              context,
-                              'Collect payments in riel and dollars, see every sale, and move money to your own wallet.',
-                              'ទទួលការទូទាត់ជាប្រាក់រៀល និងដុល្លារ តាមដានការលក់ ហើយផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន។',
-                            ),
-                            style: mText(
-                              context,
-                              15,
-                              24,
-                              color: colors.disabledBackground,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          const Spacer(),
-                          feature(
-                            'a83fb',
-                            'QR payments in KHR and USD',
-                            'ការទូទាត់ QR ជាប្រាក់រៀល និងដុល្លារ',
-                          ),
-                          feature(
-                            '156fc',
-                            'A receipt for every sale',
-                            'បង្កាន់ដៃសម្រាប់ការលក់នីមួយៗ',
-                          ),
-                          feature(
-                            'd8c8d',
-                            'Transfers to your own wallet',
-                            'ផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន',
-                          ),
-                          const Spacer(),
-                          const SizedBox(height: 32),
-                          if (session.busy) ...[
-                            const LinearProgressIndicator(),
-                            Text(
-                              t(
-                                context,
-                                'Finishing your previous request…',
-                                'កំពុងបញ្ចប់សំណើមុនរបស់អ្នក…',
-                              ),
-                            ),
-                          ],
-                          FilledButton(
-                            key: const ValueKey('continue-with-kesor'),
-                            onPressed: session.busy ? null : session.signIn,
-                            child: Text(
-                              t(
-                                context,
-                                'Continue with Kesor Bank',
-                                'បន្តជាមួយធនាគារកេសរ',
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t(
-                              context,
-                              'You approve in Kesor Bank. No new password or PIN.',
-                              'អ្នកអនុម័តក្នុងធនាគារកេសរ។ មិនត្រូវការពាក្យសម្ងាត់ ឬ PIN ថ្មីទេ។',
-                            ),
-                            textAlign: TextAlign.center,
-                            style: mText(
-                              context,
-                              13,
-                              18,
-                              color: colors.disabledBackground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(48, 18),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onPressed: () => prefs.setLanguage(
-                                  prefs.isKhmer ? 'en' : 'km',
-                                ),
-                                child: Text(
-                                  prefs.isKhmer ? 'ខ្មែរ' : 'English',
-                                ),
-                              ),
-                              Text(
-                                '·',
-                                style: mText(
-                                  context,
-                                  13,
-                                  18,
-                                  color: merchantNavy(context),
-                                ),
-                              ),
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size(48, 18),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => MerchantAppearancePage(
-                                      preferences: prefs,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  themeLabel(context, prefs.themeMode),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+      backgroundColor: AppColors.of(context).background,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: QStage(
+            padding: EdgeInsets.zero,
+            footer: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                0,
+                20,
+                MediaQuery.paddingOf(context).bottom + 61,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (session.busy) const LinearProgressIndicator(),
+                  FilledButton(
+                    key: const ValueKey('continue-with-kesor'),
+                    style: FilledButton.styleFrom(
+                      textStyle: mText(
+                        context,
+                        14,
+                        22,
+                        weight: FontWeight.w500,
                       ),
+                    ),
+                    onPressed: session.busy ? null : session.signIn,
+                    child: Text(
+                      t(
+                        context,
+                        'Continue with Kesor Bank',
+                        'បន្តជាមួយធនាគារកេសរ',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ExcludeSemantics(
+                  child: ShaderMask(
+                    shaderCallback: (rect) => const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, Colors.white, Colors.transparent],
+                      stops: [0, .55, 1],
+                    ).createShader(rect),
+                    blendMode: BlendMode.dstIn,
+                    child: Image.asset(
+                      'assets/figma-change/795a3.png',
+                      height: 262,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-              ),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 86,
+                        height: 86,
+                        child: Center(
+                          child: SvgPicture.asset(
+                            'assets/figma-change/70338.svg',
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Merchant',
+                        textAlign: TextAlign.center,
+                        style: mText(
+                          context,
+                          15,
+                          23,
+                          color: AppPalette.gold500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 42),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        t(
+                          context,
+                          'Collect payments in riel and dollars, see every sale, and move money to your own wallet.',
+                          'ទទួលការទូទាត់ជាប្រាក់រៀល និងដុល្លារ តាមដានការលក់ ហើយផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន។',
+                        ),
+                        style: mText(
+                          context,
+                          15,
+                          24,
+                          color: AppColors.of(context).disabledBackground,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      feature(
+                        'a83fb',
+                        'QR payments in KHR and USD',
+                        'ការទូទាត់ QR ជាប្រាក់រៀល និងដុល្លារ',
+                      ),
+                      feature(
+                        '156fc',
+                        'A receipt for every sale',
+                        'បង្កាន់ដៃសម្រាប់ការលក់នីមួយៗ',
+                      ),
+                      feature(
+                        'd8c8d',
+                        'Transfers to your own wallet',
+                        'ផ្ទេរទៅកាបូបផ្ទាល់ខ្លួន',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -534,18 +553,64 @@ class _SignInFailure extends StatelessWidget {
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FilledButton(
-            key: const ValueKey('continue-with-kesor'),
-            onPressed: session.busy
-                ? null
-                : issue == MerchantAuthIssue.uncertain
-                ? session.recover
-                : session.signIn,
-            child: Text(
-              issue == MerchantAuthIssue.uncertain
-                  ? t(context, 'Recover sign-in result', 'យកលទ្ធផលចូលប្រើវិញ')
-                  : t(context, 'Try again', 'ព្យាយាមម្ដងទៀត'),
+          if (issue != MerchantAuthIssue.unsupportedBuild)
+            FilledButton(
+              key: const ValueKey('continue-with-kesor'),
+              onPressed: session.busy
+                  ? null
+                  : issue == MerchantAuthIssue.uncertain
+                  ? session.recover
+                  : session.signIn,
+              child: Text(
+                issue == MerchantAuthIssue.uncertain
+                    ? t(context, 'Recover sign-in result', 'យកលទ្ធផលចូលប្រើវិញ')
+                    : issue == MerchantAuthIssue.storageUnavailable
+                    ? t(
+                        context,
+                        'Retry secure storage',
+                        'សាកល្បងការរក្សាទុកសុវត្ថិភាពម្ដងទៀត',
+                      )
+                    : t(context, 'Try again', 'ព្យាយាមម្ដងទៀត'),
+              ),
             ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const ValueKey('copy-merchant-auth-details'),
+            onPressed: () async {
+              final details = session.errorDetails;
+              try {
+                await Clipboard.setData(ClipboardData(text: details));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        t(
+                          context,
+                          'Error details copied',
+                          'បានចម្លងព័ត៌មានកំហុស',
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        t(
+                          context,
+                          'Could not copy error details. Try again.',
+                          'មិនអាចចម្លងព័ត៌មានកំហុសបានទេ។ សូមព្យាយាមម្ដងទៀត។',
+                        ),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.copy_outlined, size: 20),
+            label: Text(t(context, 'Copy error details', 'ចម្លងព័ត៌មានកំហុស')),
           ),
           const SizedBox(height: 8),
           OutlinedButton(
@@ -555,7 +620,7 @@ class _SignInFailure extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.only(top: 96),
+        padding: const EdgeInsets.only(top: 36),
         child: Column(
           children: [
             const QStatusIcon('00600', tone: 'error'),
@@ -621,7 +686,7 @@ class _ApprovalWaitingState extends State<_ApprovalWaiting> {
       if (!didPop) session.cancel();
     },
     child: QPage(
-      title: t(context, 'Sign in', 'ចូលប្រើ'),
+      title: t(context, 'Approve sign-in', 'អនុម័តការចូលប្រើ'),
       footer: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -629,103 +694,135 @@ class _ApprovalWaitingState extends State<_ApprovalWaiting> {
             onPressed: session.reopen,
             child: Text(t(context, 'Open Kesor Bank', 'បើកធនាគារកេសរ')),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           OutlinedButton(
             onPressed: session.cancel,
-            child: Text(t(context, 'Cancel', 'បោះបង់')),
+            child: Text(t(context, 'Cancel sign-in', 'បោះបង់ការចូលប្រើ')),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const QStatusIcon('c0d59'),
-            const SizedBox(height: 16),
-            Text(
-              t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
-              textAlign: TextAlign.center,
-              style: mText(context, 20, 27, weight: FontWeight.w500),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              t(
-                context,
-                'Approve this sign-in with your Kesor Bank PIN, then come back here.',
-                'អនុម័តការចូលប្រើដោយ PIN ធនាគារកេសរ រួចត្រឡប់មកទីនេះ។',
-              ),
-              textAlign: TextAlign.center,
-              style: mText(
-                context,
-                15,
-                24,
-                color: AppColors.of(context).disabledBackground,
-              ),
-            ),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              minHeight: 4,
-              value: session.approvalRemaining == null
-                  ? null
-                  : (session.approvalRemaining!.inSeconds / 120).clamp(0, 1),
-              color: merchantNavy(context),
-              backgroundColor: AppColors.of(context).surface,
-            ),
-            if (session.approvalRemaining != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '${t(context, 'Expires in', 'ផុតកំណត់ក្នុង')} ${session.approvalRemaining!.inMinutes}:${(session.approvalRemaining!.inSeconds % 60).toString().padLeft(2, '0')}',
-                textAlign: TextAlign.center,
-                style: mText(
-                  context,
-                  13,
-                  18,
-                  color: AppColors.of(context).disabledBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          QGroup(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const QStatusIcon('c0d59'),
+                const SizedBox(height: 14),
+                Text(
+                  t(context, 'Continue in Kesor Bank', 'បន្តក្នុងធនាគារកេសរ'),
+                  textAlign: TextAlign.center,
+                  style: mText(context, 20, 30, weight: FontWeight.w600),
                 ),
-              ),
-            ],
-            if (session.failure != null) ...[
-              const SizedBox(height: 12),
-              Text(_authMessage(context, session.failure!)),
-            ],
-            const SizedBox(height: 40),
-            for (final step in [
-              t(
-                context,
-                'Kesor Bank opens on this phone',
-                'ធនាគារកេសរបើកលើទូរស័ព្ទនេះ',
-              ),
-              t(
-                context,
-                'Check the shop app and device',
-                'ពិនិត្យកម្មវិធីហាង និងឧបករណ៍',
-              ),
-              t(context, 'Approve with your PIN', 'អនុម័តដោយ PIN របស់អ្នក'),
-            ].asMap().entries)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      child: Text(
-                        '${step.key + 1}',
-                        style: mText(
-                          context,
-                          15,
-                          24,
-                          color: AppColors.of(context).disabledBackground,
+                const SizedBox(height: 14),
+                Text(
+                  t(
+                    context,
+                    'We opened Kesor Bank for you. Approve this sign-in with your PIN there, then come back here.',
+                    'អនុម័តការចូលប្រើដោយ PIN ធនាគារកេសរ រួចត្រឡប់មកទីនេះ។',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: mText(
+                    context,
+                    15,
+                    24,
+                    color: AppColors.of(context).disabledBackground,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                LinearProgressIndicator(
+                  minHeight: 6,
+                  color: AppPalette.gold500,
+                  value: session.approvalRemaining == null
+                      ? null
+                      : (session.approvalRemaining!.inSeconds / 120).clamp(
+                          0,
+                          1,
                         ),
-                      ),
-                    ),
-                    Expanded(child: Text(step.value)),
-                  ],
                 ),
-              ),
-          ],
-        ),
+                if (session.approvalRemaining != null) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    '${t(context, 'Expires in', 'ផុតកំណត់ក្នុង')} ${session.approvalRemaining!.inMinutes}:${(session.approvalRemaining!.inSeconds % 60).toString().padLeft(2, '0')}',
+                    style: mText(
+                      context,
+                      12,
+                      20,
+                      color: AppColors.of(context).disabledBackground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          QGroup(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  t(context, 'What happens next', 'ជំហានបន្ទាប់'),
+                  style: mText(context, 14, 22, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 14),
+                for (final step in [
+                  t(
+                    context,
+                    'Kesor Bank opens on this phone',
+                    'ធនាគារកេសរបើកលើទូរស័ព្ទនេះ',
+                  ),
+                  t(
+                    context,
+                    'Check the shop app and device',
+                    'ពិនិត្យកម្មវិធីហាង និងឧបករណ៍',
+                  ),
+                  t(
+                    context,
+                    'Approve with your Kesor Bank PIN',
+                    'អនុម័តដោយ PIN របស់អ្នក',
+                  ),
+                ].asMap().entries)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: AppPalette.gold100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${step.key + 1}',
+                            style: mText(
+                              context,
+                              12,
+                              20,
+                              color: AppPalette.navy700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            step.value,
+                            style: mText(context, 15, 24),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (session.failure != null)
+            Text(_authMessage(context, session.failure!)),
+        ],
       ),
     ),
   );
@@ -746,7 +843,7 @@ class _AccountReview extends StatelessWidget {
               child: Text(t(context, 'Sign out', 'ចាកចេញ')),
             ),
             child: Padding(
-              padding: const EdgeInsets.only(top: 132),
+              padding: const EdgeInsets.only(top: 64),
               child: Column(
                 children: [
                   const QStatusIcon('6e46a', tone: 'warning'),
@@ -885,7 +982,8 @@ class _ShopShellState extends State<_ShopShell> {
     }
     _push(
       Scaffold(
-        appBar: AppBar(
+        appBar: merchantAppBar(
+          context,
           leadingWidth: 52,
           leading: const QBack(),
           title: Text(t(context, 'Sales', 'ការលក់')),
@@ -965,12 +1063,7 @@ class _ShopShellState extends State<_ShopShell> {
       child: ListView(
         key: const PageStorageKey('shop-tab-0'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          controller?.shop?.active == false ? 8 : 4,
-          20,
-          24,
-        ),
+        padding: EdgeInsets.zero,
         children: [
           if (controller != null)
             ShopHomeView(
@@ -978,6 +1071,9 @@ class _ShopShellState extends State<_ShopShell> {
               fallbackName: identity.name,
               onCollect: active ? () => setState(() => tab = 1) : null,
               onSales: _openSales,
+              onShopQr: _openQr,
+              onReports: _openReports,
+              onRequests: _openRequests,
               onEditShop: () => _push(const MerchantSupportPage()),
               onOpenWallet: widget.gateway == null ? null : _openWallet,
               onSeeSales: _openSales,
@@ -1009,51 +1105,69 @@ class _ShopShellState extends State<_ShopShell> {
       },
       child: _withBanner(
         Scaffold(
-          appBar: AppBar(
-            leadingWidth: 52,
-            leading: tab == 1 && widget.collect?.waiting == true
-                ? QBack(onPressed: () => setState(() => tab = 0))
-                : Builder(
-                    builder: (context) => IconButton(
-                      key: const ValueKey('merchant-menu'),
-                      tooltip: t(context, 'Menu', 'ម៉ឺនុយ'),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      icon: const QIcon('56124'),
-                    ),
-                  ),
-            title: tab == 0 && controller != null
-                ? ListenableBuilder(
-                    listenable: controller,
-                    builder: (context, _) =>
-                        Text(controller.shop?.storeName ?? identity.name),
-                  )
-                : tab == 1 && widget.collect != null
-                ? ListenableBuilder(
-                    listenable: widget.collect!,
-                    builder: (context, _) => Text(
-                      widget.collect!.waiting
-                          ? t(
+          appBar: tab == 0
+              ? null
+              : merchantAppBar(
+                  context,
+                  leadingWidth: 52,
+                  shape: tab == 2 ? const RoundedRectangleBorder() : null,
+                  leading: tab == 1 && widget.collect?.waiting == true
+                      ? QBack(onPressed: () => setState(() => tab = 0))
+                      : Builder(
+                          builder: (context) => IconButton(
+                            key: const ValueKey('merchant-menu'),
+                            tooltip: t(context, 'Menu', 'ម៉ឺនុយ'),
+                            onPressed: () => Scaffold.of(context).openDrawer(),
+                            icon: const ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                AppPalette.navy50,
+                                BlendMode.srcIn,
+                              ),
+                              child: QIcon('56124', darkAdaptive: false),
+                            ),
+                          ),
+                        ),
+                  title: tab == 0 && controller != null
+                      ? ListenableBuilder(
+                          listenable: controller,
+                          builder: (context, _) =>
+                              Text(controller.shop?.storeName ?? identity.name),
+                        )
+                      : tab == 1 && widget.collect != null
+                      ? ListenableBuilder(
+                          listenable: widget.collect!,
+                          builder: (context, _) => Text(
+                            widget.collect!.waiting
+                                ? t(
+                                    context,
+                                    'Waiting for payment',
+                                    'កំពុងរង់ចាំការទូទាត់',
+                                  )
+                                : t(
+                                    context,
+                                    'Collect payment',
+                                    'ទទួលការទូទាត់',
+                                  ),
+                          ),
+                        )
+                      : Text(tab == 0 ? identity.name : titles[tab]),
+                  actions: tab == 0
+                      ? [
+                          IconButton(
+                            tooltip: t(
                               context,
-                              'Waiting for payment',
-                              'កំពុងរង់ចាំការទូទាត់',
-                            )
-                          : titles[tab],
-                    ),
-                  )
-                : Text(tab == 0 ? identity.name : titles[tab]),
-            actions: tab == 0
-                ? [
-                    IconButton(
-                      tooltip: t(context, 'Refresh', 'ធ្វើបច្ចុប្បន្នភាព'),
-                      onPressed: controller?.refresh,
-                      icon: const QIcon('8d19a'),
-                    ),
-                  ]
-                : null,
-          ),
+                              'Refresh',
+                              'ធ្វើបច្ចុប្បន្នភាព',
+                            ),
+                            onPressed: controller?.refresh,
+                            icon: const QIcon('8d19a'),
+                          ),
+                        ]
+                      : null,
+                ),
           drawer: Drawer(
-            width: 296,
-            backgroundColor: colors.background,
+            width: 304,
+            backgroundColor: AppPalette.navy700,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
             ),
@@ -1062,27 +1176,40 @@ class _ShopShellState extends State<_ShopShell> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 24, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Row(
                       children: [
-                        Text(
-                          controller?.shop?.storeName ?? identity.name,
-                          style: mText(
-                            context,
-                            17,
-                            23,
-                            weight: FontWeight.w500,
-                          ),
+                        ShopAvatar(
+                          name: controller?.shop?.storeName ?? identity.name,
+                          logo: controller?.logoBytes,
+                          size: 52,
+                          onDark: true,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          controller?.shop?.merchantId ?? '',
-                          style: mText(
-                            context,
-                            13,
-                            18,
-                            color: colors.disabledBackground,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                controller?.shop?.storeName ?? identity.name,
+                                style: mText(
+                                  context,
+                                  18,
+                                  28,
+                                  weight: FontWeight.w500,
+                                  color: AppPalette.navy50,
+                                ),
+                              ),
+                              Text(
+                                controller?.shop?.merchantId ?? identity.id,
+                                style: mText(
+                                  context,
+                                  12,
+                                  20,
+                                  color: AppPalette.navy200,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1143,16 +1270,50 @@ class _ShopShellState extends State<_ShopShell> {
                                 '875aa',
                                 _openQr,
                               ),
+                              (
+                                t(context, 'Shop profile', 'ប្រវត្តិរូបហាង'),
+                                'b8ce6',
+                                _openProfile,
+                              ),
+                              (
+                                t(context, 'Settings', 'ការកំណត់'),
+                                'ff372',
+                                () => setState(() => tab = 2),
+                              ),
+                              (
+                                t(context, 'Help & support', 'ជំនួយ និងគាំទ្រ'),
+                                'e82c5',
+                                () => _push(const MerchantSupportPage()),
+                              ),
+                              (
+                                t(context, 'Sign out', 'ចាកចេញ'),
+                                '64959',
+                                () => showMerchantSignOut(
+                                  context,
+                                  widget.session.signOut,
+                                ),
+                              ),
                             ])
                               ListTile(
                                 key: ValueKey('merchant-menu-${item.$2}'),
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                 ),
-                                leading: QIcon(item.$2),
+                                leading: ColorFiltered(
+                                  colorFilter: const ColorFilter.mode(
+                                    AppPalette.navy50,
+                                    BlendMode.srcIn,
+                                  ),
+                                  child: QIcon(item.$2, darkAdaptive: false),
+                                ),
                                 title: Text(
                                   item.$1,
-                                  style: mText(context, 15, 24),
+                                  style: mText(
+                                    context,
+                                    15,
+                                    24,
+                                    color: AppPalette.navy50,
+                                  ),
                                 ),
                                 onTap: () {
                                   Navigator.of(context).pop();
@@ -1172,12 +1333,7 @@ class _ShopShellState extends State<_ShopShell> {
                         'Settings and sign out are in More.',
                         'ការកំណត់ និងចាកចេញនៅក្នុងបន្ថែម។',
                       ),
-                      style: mText(
-                        context,
-                        13,
-                        18,
-                        color: colors.disabledBackground,
-                      ),
+                      style: mText(context, 13, 18, color: AppPalette.navy200),
                     ),
                   ),
                 ],
@@ -1215,74 +1371,84 @@ class _ShopShellState extends State<_ShopShell> {
             ),
           ),
 
-          bottomNavigationBar: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: colors.border)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < 3; i++)
-                      Expanded(
-                        child: Semantics(
-                          key: ValueKey('merchant-tab-$i'),
-                          selected: tab == i,
-                          button: true,
-                          child: InkWell(
-                            onTap: () => setState(() => tab = i),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 56,
-                                    height: 28,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: tab == i
-                                          ? colors.accent50
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(14),
+          bottomNavigationBar: tab == 1
+              ? null
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: colors.border)),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < 3; i++)
+                            Expanded(
+                              child: Semantics(
+                                key: ValueKey('merchant-tab-$i'),
+                                selected: tab == i,
+                                button: true,
+                                child: InkWell(
+                                  onTap: () => setState(() => tab = i),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 3,
                                     ),
-                                    child: QIcon(
-                                      i == 0
-                                          ? (tab == 0 ? '19f2d' : '5b56c')
-                                          : i == 1
-                                          ? (tab == 1 ? 'e306f' : 'f6e9c')
-                                          : (tab == 2 ? 'be895' : 'ff372'),
-                                      darkAdaptive: tab != i,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: tab == i
+                                                ? (i == 1
+                                                      ? AppPalette.gold500
+                                                      : AppPalette.gold100)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: QIcon(
+                                            i == 0
+                                                ? (tab == 0 ? '19f2d' : '5b56c')
+                                                : i == 1
+                                                ? (tab == 1 ? 'e306f' : 'f6e9c')
+                                                : (tab == 2
+                                                      ? 'be895'
+                                                      : 'ff372'),
+                                            darkAdaptive: tab != i,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          titles[i],
+                                          textAlign: TextAlign.center,
+                                          style: mText(
+                                            context,
+                                            11,
+                                            14,
+                                            weight: FontWeight.w500,
+                                            color: tab == i
+                                                ? merchantNavy(context)
+                                                : colors.disabledBackground,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    titles[i],
-                                    textAlign: TextAlign.center,
-                                    style: mText(
-                                      context,
-                                      11,
-                                      14,
-                                      weight: FontWeight.w500,
-                                      color: tab == i
-                                          ? merchantNavy(context)
-                                          : colors.disabledBackground,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        ),
+                        ],
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     );

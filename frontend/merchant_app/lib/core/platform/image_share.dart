@@ -160,7 +160,7 @@ class _ImageActionsState extends State<ImageActions> {
               key: const ValueKey('save-image'),
               onPressed: busy ? null : () => act(true),
               child: Text(
-                t(context, 'Save image', 'រក្សាទុករូបភាព'),
+                t(context, 'Save to gallery', 'រក្សាទុកក្នុងវិចិត្រសាល'),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -171,7 +171,11 @@ class _ImageActionsState extends State<ImageActions> {
               key: const ValueKey('share-image'),
               onPressed: busy ? null : () => act(false),
               child: Text(
-                t(context, 'Share', 'ចែករំលែក'),
+                t(
+                  context,
+                  widget.receipt ? 'Share receipt' : 'Share',
+                  'ចែករំលែក',
+                ),
                 textAlign: TextAlign.center,
               ),
             ),

@@ -10,12 +10,13 @@ import 'figma_wallet_card.dart';
 import '../../../shared/widgets/kesor_layout.dart';
 
 import '../accounts_controller.dart';
+import '../../auth/session_controller.dart';
 
 /// Wallet & Accounts, opened from the Home balance card.
 ///
 /// Presentation only: every action is delegated to the accounts shell, which
 /// keeps ownership of navigation, refresh and transfer recovery.
-class WalletAccountsScreen extends StatelessWidget {
+class WalletAccountsScreen extends StatefulWidget {
   const WalletAccountsScreen({
     required this.model,
     required this.greetingName,
@@ -32,10 +33,14 @@ class WalletAccountsScreen extends StatelessWidget {
     this.savedTransfer,
     this.balanceVisible = true,
     this.onBalanceVisibilityChanged,
+    this.merchantModel,
+    this.onMerchantDetails,
     super.key,
   });
 
   final AccountsController model;
+  final AccountsController? merchantModel;
+  final VoidCallback? onMerchantDetails;
   final String greetingName;
   final VoidCallback onBack, onProfile, onTransfer, onMyQr;
   final VoidCallback onDetails, onActivity;
@@ -54,7 +59,37 @@ class WalletAccountsScreen extends StatelessWidget {
   final ValueChanged<bool>? onBalanceVisibilityChanged;
 
   @override
-  Widget build(BuildContext context) {
+  State<WalletAccountsScreen> createState() => _WalletAccountsScreenState();
+}
+
+class _WalletAccountsScreenState extends State<WalletAccountsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.merchantModel?.refresh();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([widget.model, ?widget.merchantModel]),
+    builder: (context, _) => _content(context),
+  );
+
+  Widget _content(BuildContext context) {
+    final model = widget.model;
+    final merchantModel = widget.merchantModel;
+    final onBack = widget.onBack;
+    final onProfile = widget.onProfile;
+    final onRefresh = widget.onRefresh;
+    final onOpenAccounts = widget.onOpenAccounts;
+    final onDetails = widget.onDetails;
+    final onActivity = widget.onActivity;
+    final notices = widget.notices;
+    final savedTransfer = widget.savedTransfer;
+    final balanceVisible = widget.balanceVisible;
+
     final colors = AppColors.of(context);
     final accounts = [...model.accounts]
       ..sort(
@@ -62,6 +97,13 @@ class WalletAccountsScreen extends StatelessWidget {
           b.currency == 'KHR' ? 0 : 1,
         ),
       );
+    final merchantAccounts = [...?merchantModel?.accounts]
+      ..sort(
+        (a, b) => (a.currency == 'KHR' ? 0 : 1).compareTo(
+          b.currency == 'KHR' ? 0 : 1,
+        ),
+      );
+    final count = accounts.length + merchantAccounts.length;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: Theme.of(context).brightness == Brightness.dark
           ? SystemUiOverlayStyle.light
@@ -77,6 +119,7 @@ class WalletAccountsScreen extends StatelessWidget {
               child: RefreshIndicator(
                 onRefresh: onRefresh,
                 child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   key: const PageStorageKey('wallet-accounts-scroll'),
                   padding: const EdgeInsets.only(bottom: 32),
                   child: Column(
@@ -135,8 +178,8 @@ class WalletAccountsScreen extends StatelessWidget {
                                   child: Text(
                                     tr(
                                       context,
-                                      '${accounts.length + 1} wallets',
-                                      '${accounts.length + 1} កាបូប',
+                                      '$count wallets',
+                                      '$count កាបូប',
                                     ),
                                     style: customerText(
                                       context,
@@ -160,7 +203,7 @@ class WalletAccountsScreen extends StatelessWidget {
                       if (savedTransfer != null)
                         Padding(
                           padding: const EdgeInsets.all(20),
-                          child: NoticePanel(savedTransfer!),
+                          child: NoticePanel(savedTransfer),
                         ),
                       if (model.notice != null)
                         Padding(
@@ -179,10 +222,74 @@ class WalletAccountsScreen extends StatelessWidget {
                             },
                           ),
                         ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                        child: FigmaWalletCard(balanceVisible: balanceVisible),
-                      ),
+                      if (merchantModel?.loading == true)
+                        const LinearProgressIndicator(
+                          key: ValueKey('merchant-wallet-loading'),
+                        ),
+                      if (merchantModel?.listError != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              NoticePanel(
+                                tr(
+                                  context,
+                                  merchantAccounts.isEmpty
+                                      ? 'Merchant wallets could not be loaded.'
+                                      : 'Merchant balances may be out of date. Refresh to update.',
+                                  merchantAccounts.isEmpty
+                                      ? 'មិនអាចផ្ទុកកាបូបអាជីវករបានទេ។'
+                                      : 'សមតុល្យអាជីវករអាចមិនទាន់បានធ្វើបច្ចុប្បន្នភាព។ សូមផ្ទុកឡើងវិញ។',
+                                ),
+                                error: true,
+                              ),
+                              TextButton(
+                                onPressed: merchantModel!.loading
+                                    ? null
+                                    : merchantModel.refresh,
+                                child: Text(
+                                  tr(
+                                    context,
+                                    'Retry merchant wallets',
+                                    'សាកល្បងផ្ទុកកាបូបអាជីវករម្ដងទៀត',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      for (final account in merchantAccounts)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                          child: FigmaWalletCard(
+                            account: account,
+                            balanceVisible: balanceVisible,
+                            onTap: () async {
+                              await merchantModel!.select(account);
+                              if (context.mounted &&
+                                  merchantModel.session.phase ==
+                                      SessionPhase.signedIn &&
+                                  merchantModel.selected?.number ==
+                                      account.number) {
+                                widget.onMerchantDetails?.call();
+                              }
+                            },
+                          ),
+                        ),
+                      if (merchantModel?.hasMore == true)
+                        TextButton(
+                          onPressed: merchantModel!.loadingMore
+                              ? null
+                              : merchantModel.loadMore,
+                          child: Text(
+                            tr(
+                              context,
+                              'Load more merchant wallets',
+                              'ផ្ទុកកាបូបអាជីវករបន្ថែម',
+                            ),
+                          ),
+                        ),
                       if (accounts.isEmpty && !model.loading)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -204,11 +311,7 @@ class WalletAccountsScreen extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CustomerDesignIcon(
-                              '29889',
-                              size: 18,
-                              color: customerNavy(context),
-                            ),
+                            CustomerDesignIcon('29889', size: 18),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -228,7 +331,9 @@ class WalletAccountsScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      // Figma leaves a 130px trailing region after the note.
+                      // Existing account/profile actions remain available below it.
+                      const SizedBox(height: 130),
                       Wrap(
                         alignment: WrapAlignment.center,
                         spacing: 16,

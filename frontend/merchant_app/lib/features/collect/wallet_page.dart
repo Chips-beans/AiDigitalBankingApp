@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kesor_design_system/kesor_design_system.dart';
 
 import '../../core/merchant_strings.dart';
@@ -96,7 +97,8 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
+    appBar: merchantAppBar(
+      context,
       leading: const QBack(),
       title: Text(walletLabel(context, wallet.currency)),
     ),
@@ -111,61 +113,104 @@ class _WalletDetailPageState extends State<WalletDetailPage> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               children: [
-                Column(
-                  key: const ValueKey('wallet-detail-card'),
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t(context, 'Available balance', 'សមតុល្យដែលអាចប្រើបាន'),
-                      style: mText(
-                        context,
-                        15,
-                        24,
-                        color: AppColors.of(context).disabledBackground,
+                NavyCard(
+                  child: Column(
+                    key: const ValueKey('wallet-detail-card'),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            t(
+                              context,
+                              'Available balance',
+                              'សមតុល្យដែលអាចប្រើបាន',
+                            ),
+                            style: mText(
+                              context,
+                              12,
+                              20,
+                              color: AppPalette.navy200,
+                            ),
+                          ),
+                          StatusChip(wallet.status),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    AmountText(
-                      shopAmount(wallet.balance, wallet.currency),
-                      style: mText(context, 36, 48, weight: FontWeight.w300),
-                    ),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            wallet.accountNumber,
-                            style: mText(context, 15, 24),
-                          ),
+                      const SizedBox(height: 10),
+                      AmountText(
+                        shopAmount(wallet.balance, wallet.currency),
+                        style: mText(
+                          context,
+                          34,
+                          44,
+                          weight: FontWeight.w600,
+                          color: AppPalette.navy50,
                         ),
-                        IconButton(
-                          tooltip: t(
-                            context,
-                            'Copy account number',
-                            'ចម្លងលេខគណនី',
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(color: AppPalette.navy400),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              walletLabel(context, wallet.currency),
+                              style: mText(
+                                context,
+                                12,
+                                20,
+                                color: AppPalette.navy200,
+                              ),
+                            ),
                           ),
-                          icon: const QIcon('015d6'),
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: wallet.accountNumber),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    t(
-                                      context,
-                                      'Account number copied',
-                                      'បានចម្លងលេខគណនី',
+                          Flexible(
+                            child: Text(
+                              '•••• ${wallet.accountNumber.substring(wallet.accountNumber.length > 4 ? wallet.accountNumber.length - 4 : 0)}',
+                              style: mText(
+                                context,
+                                12,
+                                20,
+                                color: AppPalette.navy50,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: t(
+                              context,
+                              'Copy account number',
+                              'ចម្លងលេខគណនី',
+                            ),
+                            icon: const ColorFiltered(
+                              colorFilter: ColorFilter.mode(
+                                AppPalette.navy50,
+                                BlendMode.srcIn,
+                              ),
+                              child: QIcon('015d6', darkAdaptive: false),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: wallet.accountNumber),
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      t(
+                                        context,
+                                        'Account number copied',
+                                        'បានចម្លងលេខគណនី',
+                                      ),
                                     ),
                                   ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 if (widget.transfer != null) ...[
                   const SizedBox(height: 12),
@@ -270,7 +315,7 @@ class ReceiptRow extends StatelessWidget {
   Widget build(BuildContext context) => _PaymentRow(
     title: '${receipt.payerName} · ${receipt.payerAccount}',
     detail: [
-      shortTime(receipt.paidAt).split(' ').last,
+      '${t(context, 'QR payment', 'ការទូទាត់ QR')} · ${shortTime(receipt.paidAt).split(' ').last}',
       if (receipt.orderReference != null) receipt.orderReference!,
     ].join(' · '),
     amount: '+${shopAmount(receipt.amount, receipt.currency)}',
@@ -304,7 +349,15 @@ class _PaymentRow extends StatelessWidget {
             final amountPainter = TextPainter(
               text: TextSpan(
                 text: amount,
-                style: mText(context, 15, 24, weight: FontWeight.w500),
+                style: mText(
+                  context,
+                  15,
+                  24,
+                  weight: FontWeight.w600,
+                  color: Theme.of(context).brightness == Brightness.light
+                      ? AppPalette.semanticSuccess
+                      : AppPalette.semanticSuccessMuted,
+                ),
               ),
               textDirection: TextDirection.ltr,
               textScaler: MediaQuery.textScalerOf(context),
@@ -316,7 +369,15 @@ class _PaymentRow extends StatelessWidget {
             final money = AmountText(
               amount,
               textAlign: large ? TextAlign.start : TextAlign.end,
-              style: mText(context, 15, 24, weight: FontWeight.w500),
+              style: mText(
+                context,
+                15,
+                24,
+                weight: FontWeight.w600,
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppPalette.semanticSuccess
+                    : AppPalette.semanticSuccessMuted,
+              ),
             );
             final words = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,22 +405,19 @@ class _PaymentRow extends StatelessWidget {
             return Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 44,
+                  height: 44,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.of(context).surface,
+                    color: AppPalette.semanticSuccessMuted,
                   ),
-                  child: Text(
-                    title.characters.first.toUpperCase(),
-                    style: mText(
-                      context,
-                      14,
-                      18,
-                      weight: FontWeight.w500,
-                      color: merchantNavy(context),
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      AppPalette.semanticSuccess,
+                      BlendMode.srcIn,
                     ),
+                    child: SvgPicture.asset('assets/figma-change/607e4.svg'),
                   ),
                 ),
                 const SizedBox(width: 12),

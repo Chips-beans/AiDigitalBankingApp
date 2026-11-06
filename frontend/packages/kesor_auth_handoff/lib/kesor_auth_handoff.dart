@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 const merchantClient = 'kesor-merchant-android';
 const approvalBase = 'kesorbank://merchant/approve';
 const callbackBase = 'kesormerchant://auth/callback';
+
 /// Owner transfers (M8) have their own exact links; they never share the sign-in paths.
 const transferApprovalBase = 'kesorbank://merchant/transfer';
 const transferCallbackBase = 'kesormerchant://transfer/callback';
@@ -87,7 +88,8 @@ class NativeHandoff {
     }
   }
 
-  Future<void> openTransfer(String uri) => _invoke('openTransfer', {'uri': uri});
+  Future<void> openTransfer(String uri) =>
+      _invoke('openTransfer', {'uri': uri});
   Future<void> verify() => _invoke('verify');
   Future<void> open(String uri) => _invoke('open', {'uri': uri});
   Future<void> _invoke(String method, [Map<String, String>? arguments]) async {
@@ -169,17 +171,20 @@ class HandoffApi {
       try {
         envelope = jsonDecode(response.body);
       } catch (_) {
-        throw const HandoffFailure('INVALID_RESPONSE');
+        throw HandoffFailure('INVALID_RESPONSE', status: response.statusCode);
       }
-      if (envelope is! Map) throw const HandoffFailure('INVALID_RESPONSE');
+      if (envelope is! Map) {
+        throw HandoffFailure('INVALID_RESPONSE', status: response.statusCode);
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HandoffFailure(
           envelope['error'] is String ? envelope['error'] : 'REQUEST_FAILED',
           status: response.statusCode,
         );
       }
-      if (envelope['success'] != true)
-        throw const HandoffFailure('INVALID_RESPONSE');
+      if (envelope['success'] != true) {
+        throw HandoffFailure('INVALID_RESPONSE', status: response.statusCode);
+      }
       return envelope['data'];
     } on TimeoutException {
       throw const HandoffFailure('TIMEOUT');

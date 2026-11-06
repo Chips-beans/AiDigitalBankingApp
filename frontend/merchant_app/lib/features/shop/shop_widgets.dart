@@ -117,7 +117,7 @@ class ShopAvatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.of(context).surface,
+        color: AppPalette.gold100,
         borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
@@ -250,20 +250,33 @@ class SectionTitle extends StatelessWidget {
   final String title;
   final Widget? trailing;
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Semantics(
-          header: true,
-          child: Text(
-            title,
-            style: AppTextStyles.of(context).titleM
-                .copyWith(color: AppColors.of(context).foreground),
-          ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final heading = Semantics(
+        header: true,
+        child: Text(
+          title,
+          style: AppTextStyles.of(context).titleM
+              .copyWith(color: AppColors.of(context).foreground),
         ),
-      ),
-      ?trailing,
-    ],
+      );
+      return MediaQuery.textScalerOf(context).scale(18) > 24 ||
+              box.maxWidth < 340
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                heading,
+                if (trailing != null)
+                  Align(alignment: Alignment.centerRight, child: trailing),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: heading),
+                ?trailing,
+              ],
+            );
+    },
   );
 }
 
