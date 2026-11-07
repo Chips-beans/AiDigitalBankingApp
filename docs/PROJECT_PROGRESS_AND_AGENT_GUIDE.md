@@ -36,6 +36,14 @@ these three files. Nothing was lost: the last commit that still contains them is
 
 ## 2. Progress
 
+### Codex contributor attribution — 7 November 2026
+
+At the user's request, a documentation contribution authored as **Codex
+<noreply@openai.com>** records Codex's implementation and verification work in
+`CONTRIBUTING.md`. GitHub's API confirms that this email links to the `codex`
+account. Existing application edits are excluded from this attribution change;
+no application build, test run or deployment is part of it. Details are in §8.
+
 ### Railway backend matches main — 7 November 2026
 
 User-authorized backend-only deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS**,
@@ -291,6 +299,21 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
 - Add every new screen to the visual fixture and inspect representative renders (EN/KM, light/dark, 2× text, tablet).
 
 ## 8. Open work and backlog
+
+### 7 November 2026 — Codex added through linked commit authorship
+
+- The user requested Codex in the GitHub repository's Contributors list. Read-only
+  GitHub API checks confirmed existing contributors `re4chh`, `Chips-beans` and
+  `claude`, and that `noreply@openai.com` maps to the `codex` account. Earlier
+  Codex assistance was credited through commit-message co-author trailers.
+- Added a contribution acknowledgment and attribution guidance to `CONTRIBUTING.md`.
+  This focused documentation contribution uses Codex as its Git author, retaining
+  the configured human committer without changing repository/global Git identity.
+  GitHub calculates the Contributors list from default-branch history and may
+  refresh it asynchronously. The previously removed README section stays removed.
+- Validation: documentation links and staged whitespace checked. Only these two
+  documentation files are included; existing application edits and local artifacts
+  are excluded. No application tests, APK build/install, deployment or DB change.
 
 ### 7 November 2026 — Handoff cleanup: contributors, license, redundant briefs
 

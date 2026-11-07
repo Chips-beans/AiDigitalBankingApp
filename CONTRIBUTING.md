@@ -49,6 +49,17 @@ phone/tablet output. Automated renders do not establish native device acceptance
 Historical Gmail-dependent live harnesses are described in the Customer README;
 they are not part of routine local tests.
 
+## Codex contributions
+
+[Codex](https://github.com/codex), OpenAI's coding assistant, contributed implementation
+and verification across the project, including Merchant sales, receipts, reports,
+sharing and repository handoff.
+
+Use `Codex <noreply@openai.com>` for work authored by Codex. Preserve the human author
+for human-authored commits and use a `Co-authored-by` trailer to credit assistance.
+GitHub generates the repository's Contributors list from linked commit authors;
+it is not a manually maintained repository setting.
+
 ## Change and review conventions
 
 Use a focused branch (`codex/` for Codex-created branches), a focused diff and the
