@@ -23,7 +23,7 @@ events in that guide's §8 log, and update this file when the setup itself chang
 | Host | Railway, **Trial** plan ($5 credit / 30 days from 5 Nov 2026 — ends about **5 Dec 2026** or when the credit is used) |
 | Railway workspace / project / environment | `re4chh's Projects` / `superb-respect` / `production` |
 | Services | `backend` (this repo, Dockerfile), `Postgres` (Railway template `postgres-ssl:18`, volume `postgres-volume-Dubs`), and the isolated `Showcase Website` (Nginx static site) |
-| Showcase website | `https://showcase-website-production.up.railway.app` — deployment `b64073e6-b37a-448f-8425-388ebc0c1d48` SUCCESS, 6 Nov 2026. APK hosting deferred by the user. |
+| Showcase website | `https://showcase-website-production.up.railway.app` — deployment `203ffb07-fa39-46dc-8f49-499fa7086146` SUCCESS, 7 Nov 2026, with both APK downloads live (arm64-v8a debug builds baked into the image). Previous website-only deployment `b64073e6-b37a-448f-8425-388ebc0c1d48`. |
 | Region | US East (`iad`) for both services |
 | Deployed code | `main` commit **`c3957fc7785dedd2ba6e77d4a0f5bd66a03611af`**, including backend review fixes `9217244`. Deployment **`f97bf1e0-6079-4c16-9bd8-6bd14328a80b` SUCCESS**, 7 Nov, isolated CLI upload. Snapshot: 278 files, SHA-256 `cbb66365562007cfc18cb41c36b219797ed8c2a585dac0151912de52e217490b`. Schema V21, configuration/database/domain preserved. Previous deployment `8fc7d198-bdc9-4a93-bd16-793b8c6b9668` retained as rollback reference. |
 | Spring profile | `dev` (see §4 for why) |
@@ -31,7 +31,7 @@ events in that guide's §8 log, and update this file when the setup itself chang
 | OTP email | Gmail API over HTTPS (`MAIL_PROVIDER=gmail-api`), sender = the user's own Gmail account |
 | Telegram | Native Android flow enabled; browser/web flow not configured |
 | AI assistant | **On** since 6 Nov 2026: the seven `AI_*` variables were copied from `.env` (Groq, `qwen/qwen3.8-27b`). Before that the app showed "The assistant is unavailable" because Railway had none. In-app check on a device still pending. |
-| Pilot APKs | Latest wallet/auth refresh from `c6a9f8b`, debug/dev. customer_app: 245,526,174 bytes, SHA-256 `03bbfe42c152ea830e358cc3995c2a4937c00fad7f6b438673ed7308aed20ec7`; merchant_app: 231,059,332 bytes, SHA-256 `ee2a462b55135fd41e7ec2146e0d550670cc51082c4f8d92f0709f8f42a18a3e`. Canonical paths unchanged, versioned `.local/apk/20261106-161530/`; old APKs archived. |
+| Pilot APKs | **arm64-v8a-only** debug/dev builds from `a4d83f4`, stamp `20261107-073812`, canonical paths unchanged. customer_app: 128,659,813 bytes, SHA-256 `070840d58aeb1e4ad95b5b0a22b94f0ce9b87421f09d8fc7b9390d1825c2b0ac`; merchant_app: 95,949,078 bytes, SHA-256 `7a81bc881c5cf0f6dfae8d616c7145cfc861ab3ebcb6799d550cf4d75fda09bb`. The earlier all-ABI builds (`20261106-161530`, 245,526,174 / 231,059,332 bytes) are archived in each app's `.local/apk/archive/`. |
 
 Both APKs include the latest recorded Flutter designs, including both splashes and the Customer
 Wallets, Wallet/Transaction Detail and three-question AI Assistant redesigns, plus linked merchant
@@ -73,9 +73,16 @@ to `railway up <package> --path-as-root --no-gitignore --detach --json`. Do not 
 root or rely on the CLI's backend link. Verify the deployment status, public HTTPS and protected
 banking service configurations afterward.
 
-The user explicitly deferred APK hosting: deployed download routes are not ready. A separate
-showcase-only volume (`32d81461-0013-47f1-a309-020c0519c763`) remains at `/apk-downloads`;
-its incomplete staging files are not verified downloads. No banking service, deployment,
+**APK hosting (fixed 7 Nov 2026).** The Trial plan's 500 MB volume and the ~216 MB upload limit (HTTP 413)
+made the full 245/231 MB APKs unhostable. The fix: rebuild both debug APKs as **arm64-v8a only**
+(`flutter build apk --debug --split-per-abi --target-platform android-arm64` with the §6.7 defines;
+plain `--target-platform` is not enough because plugin libraries keep x86/32-bit ARM). Customer is 128,659,813
+bytes, Merchant 95,949,078 bytes (stamp `20261107-073812`, versionCode 2001, same debug signing
+certificate). They are copied into the image under `/usr/share/nginx/html/downloads/` and served as plain
+files by Nginx, so no volume is used (upload ~153 MB compressed). 32-bit ARM phones and x86 emulators can no
+longer install these APKs. The unused showcase-only volume (`32d81461-0013-47f1-a309-020c0519c763`, ~35 MB of
+stale staging files) was deleted on 7 Nov at the user's request; the Showcase service redeployed as
+`8c5c8eb4-3d00-47dc-9c43-1b93ebd9d901` and the downloads were re-verified. No banking service, deployment,
 configuration or database volume was changed. The temporary task SSH key was revoked and its
 local private/public files removed. Public UI checks at 1440/390/320px passed with EN/KM,
 no horizontal overflow, broken loaded images or runtime errors; HTTP 200 confirmed.
@@ -103,9 +110,9 @@ The latter writes a separate `dist-website/`, filtering out `public/downloads/` 
 it already exists. Preview it with `npm --prefix showcase run preview:website`.
 The default guarded commands and APK integrity checks are unchanged. Details:
 [showcase README](../showcase/README.md). A website-only build does not verify its download links.
-The website is now published, but its deployment deliberately excludes these
-APK artifacts at the user's request. Local download verification does not establish hosted
-download availability; APK hosting remains separate work.
+To redeploy with downloads: run the guarded `npm --prefix showcase run build`, copy `showcase/dist/` to
+`<package>/site/` beside `showcase/hosting/{Dockerfile,nginx.conf,.dockerignore}`, and deploy with the three explicit IDs
+(see above). Afterwards download both files from the public URL and compare with `dist/downloads/manifest.json`.
 
 ### Expiry dates to watch
 
@@ -345,6 +352,17 @@ Never request, read or enter OTP codes, PINs or Telegram codes on the user's beh
 ---
 
 ## 9. History
+
+- **7 Nov 2026 — Showcase APK downloads fixed (user authorized).** Rebuilt both apps as arm64-only debug
+  APKs one at a time (stamp `20261107-073812`; evidence `.local/apk-refresh-20261107-073812/`, including
+  the two discarded attempts), verified (Railway URL, no `.env`, design markers, CRC, same signing
+  certificate as before) and promoted. Guarded `npm run build` packaged them; the isolated package
+  `.local/showcase-deploy-20261107/pkg` was uploaded to the Showcase Website service only (explicit project,
+  environment and service IDs): deployment `203ffb07-fa39-46dc-8f49-499fa7086146` SUCCESS. Public HTTPS
+  downloads of both APKs match the recorded SHA-256 with `Content-Length` and attachment filenames.
+  Backend `f97bf1e0…`, Postgres `0695dccd…` and their configuration unchanged. Not done: install on a
+  device. Follow-up the same day: the stale showcase volume was deleted (CLI, by ID; `postgres-volume-Dubs`
+  untouched), causing an automatic Showcase redeploy `8c5c8eb4…`; both APK hashes re-verified.
 
 - **7 Nov 2026 — Backend review fixes deployed from main (user authorized).** Audited committed
   snapshot from `c3957fc7785dedd2ba6e77d4a0f5bd66a03611af`: 278 files / 1,203,956 bytes,

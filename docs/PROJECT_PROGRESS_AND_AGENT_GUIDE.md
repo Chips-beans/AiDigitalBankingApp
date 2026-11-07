@@ -32,7 +32,7 @@ these three files. Nothing was lost: the last commit that still contains them is
 - Both apps share one backend and database. The Merchant App never has its own login: it signs in through approval in the Customer App.
 - Latest schema: **V21** in source. The development database is behind (see §6).
 - **Hosted:** backend live on Railway at `https://backend-production-18646.up.railway.app` (schema V21, Gmail API OTP, native Telegram) for a short live run, deployed from `main` commit `c3957fc` on 7 November; pilot APKs point at it. See [DEPLOYMENT.md](DEPLOYMENT.md).
-- **Showcase live:** `https://showcase-website-production.up.railway.app`, isolated Railway `Showcase Website` service. Banking backend/database unchanged; APK hosting deferred by the user.
+- **Showcase live:** `https://showcase-website-production.up.railway.app`, isolated Railway `Showcase Website` service. Both APK download buttons work since 7 Nov (arm64-only debug APKs baked into the image, deployment `203ffb07`). Banking backend/database unchanged.
 
 ## 2. Progress
 
@@ -450,7 +450,24 @@ flutter test tool/merchant_visual_qa.dart --concurrency=1     # merchant visual 
   not a comprehensive security audit. Next: resolve the backend follow-ups with isolated regressions;
   separately requested source publication and M9 acceptance remain open.
 
-### 6 November 2026 — Showcase website deployed; APK hosting deferred
+### 7 November 2026 — Showcase APK downloads fixed
+
+- Cause: Trial limits (500 MB volume, ~216 MB upload cap) could not carry the all-ABI 245/231 MB debug APKs.
+  User chose to rebuild arm64-only and bake the files into the image. `--target-platform android-arm64`
+  alone still left plugin x86/ARMv7 libraries (179/165 MB); `--split-per-abi` gave **128,659,813**
+  (Customer) and **95,949,078** (Merchant) bytes, versionCode 2001, same signing certificate as the
+  previous APKs, SHA-256 `070840d5…2b0ac` / `7a81bc88…09bb`. Verified with `.local/verify_apk_refresh.py`
+  (now honours `APK_SOURCE_NAME`) and promoted; previous all-ABI APKs archived. Evidence:
+  `.local/apk-refresh-20261107-073812/` (two discarded attempts in subfolders).
+- `showcase/hosting/nginx.conf` now serves `/downloads/*.apk` from the image (volume and gzip tricks removed).
+  Package `.local/showcase-deploy-20261107/pkg` (153 MB compressed) deployed to the Showcase Website service
+  only: `203ffb07-fa39-46dc-8f49-499fa7086146` SUCCESS. Public download hashes match; backend/Postgres
+  deployments unchanged, Swagger 200. Dropped support: 32-bit ARM and x86 devices.
+- Follow-up (user asked): stale showcase volume `32d81461…` deleted; automatic Showcase redeploy `8c5c8eb4…` online, both APK hashes re-verified; `postgres-volume-Dubs` and backend/Postgres deployments untouched.
+- Not done: device install/acceptance.
+- Usage checked: 37% (5-hour) and 91% (weekly) remaining.
+
+### 6 November 2026 — Showcase website deployed; APK hosting deferred (superseded by 7 Nov above)
 
 - User steering: "Deploy the Website First No need to care about apk now." Stopped task-specific
   APK transfer/batch processes and deployed the small website-only package. Deployment

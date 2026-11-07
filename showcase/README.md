@@ -46,6 +46,6 @@ ignored; commit source assets and the npm lockfile.
 
 The hosting Dockerfile expects a prepared `site/` directory beside it; it is not
 a source-build Dockerfile. Read the deployment runbook before packaging. The last
-recorded live deployment is website-only, and hosted APK delivery is deferred.
+live deployment includes both APKs, baked into the image (arm64-v8a debug builds; see DEPLOYMENT.md).
 Local build success does not establish live download availability. Deployment
 requires explicit user authorization and the specific showcase service IDs.
